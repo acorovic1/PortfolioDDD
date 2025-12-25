@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
@@ -13,18 +13,27 @@ import {
 
 
 
+
 function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
+
+
+  //console.log('GAME START ', frontIndex);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   const sceneRef = useRef<THREE.Scene>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   const rendererRef = useRef<THREE.WebGLRenderer>(null);
   const controlsRef = useRef<OrbitControls>(null);
+  const statsRef = useRef<Stats>(null);
   const artworksRef = useRef<PortfolioPiece[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   let radius = Math.max(3, 1.5 ** artworks.length);
+
+  const [frontIndex, setFrontIndex] = useState(0);
+
 
   // --- Setup scene once ---
   useEffect(() => {
@@ -33,9 +42,18 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const { clientWidth, clientHeight } = containerRef.current;
+    renderer.setSize(clientWidth, clientHeight);
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
+
+    rendererRef.current = renderer;
+    containerRef.current.appendChild(renderer.domElement);
+
     const camera = new THREE.PerspectiveCamera(
       45,
-      window.innerWidth / window.innerHeight,
+      clientWidth / clientHeight,
       0.1,
       1000
     );
@@ -44,16 +62,14 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    rendererRef.current = renderer;
-    containerRef.current.appendChild(renderer.domElement);
+
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
 
     const stats = new Stats();
-    containerRef.current.appendChild(stats.dom);
+    statsRef.current = stats;
+    //containerRef.current.appendChild(stats.dom);
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(10, 20, 10);
@@ -62,8 +78,6 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
     const ambient = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambient);
 
-
-    // Add the yellow sphere (addButton)
     const buttonMesh = new THREE.Mesh(
       new THREE.SphereGeometry(1, 16, 16),
       new THREE.MeshBasicMaterial({ color: 0xffff00 })
@@ -74,6 +88,99 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
     scene.add(group);
 
     artworksRef.current.push({ id: 'addButton', root: group, bounds: new THREE.Box3().setFromObject(group) });
+
+    const onResize = () => {
+      // if (!containerRef.current) return;
+
+      // const width = containerRef.current.clientWidth;
+      // const height = containerRef.current.clientHeight;
+
+      // camera.aspect = width / height;
+      // camera.updateProjectionMatrix();
+      // renderer.setSize(width, height);
+    };
+
+    //window.addEventListener('resize', onResize);
+    onResize();
+
+    return () => {
+    //  window.removeEventListener('resize', onResize);
+
+      renderer.dispose();
+      containerRef.current?.removeChild(renderer.domElement);
+      containerRef.current?.removeChild(stats.dom);
+    };
+  }, []);
+
+  // --- Handle resizes ---
+useEffect(() => {
+  if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
+
+  let resizeTimeout: number;
+
+  const resizeObserver = new ResizeObserver((entries) => {
+    // Clear previous timeout
+    clearTimeout(resizeTimeout);
+    
+    // Debounce resize updates
+    resizeTimeout = window.setTimeout(() => {
+      for (const entry of entries) {
+        const width = entry.contentRect.width;
+        const height = entry.contentRect.height;
+
+        if (cameraRef.current && rendererRef.current) {
+          cameraRef.current.aspect = width / height;
+          cameraRef.current.updateProjectionMatrix();
+          rendererRef.current.setSize(width, height);
+        }
+      }
+    }, 16); // ~60fps
+  });
+
+  resizeObserver.observe(containerRef.current);
+
+  return () => {
+    clearTimeout(resizeTimeout);
+    resizeObserver.disconnect();
+  };
+}, [containerRef]);
+
+  // --- Animation loop ---
+  useEffect(() => {
+
+    const animate = () => {
+      statsRef.current?.update();
+      //controls.update();
+
+      // Animate meshes toward target positions
+      artworksRef.current.forEach(piece => {
+        const target: THREE.Vector3 | undefined = piece.root.userData.targetPosition;
+
+        if (!target) return; // skip if no target
+
+        const position = piece.root.position;
+
+
+        position.lerp(piece.root.userData.targetPosition, 0.1);
+        // snap if close enough
+        if (position.distanceTo(piece.root.userData.targetPosition) < 0.01) {
+          piece.root.position.copy(piece.root.userData.targetPosition);
+          delete piece.root.userData.targetPosition;
+        }
+
+        piece.root.lookAt(0, 0, 0);
+      });
+
+      if (sceneRef.current && cameraRef.current) {
+        rendererRef.current?.render(sceneRef.current, cameraRef.current);
+      }
+      requestAnimationFrame(animate);
+    };
+    animate();
+  }, []);
+
+  // --- Handle clicks to add new artwork ---
+  useEffect(() => {
 
     <input
       ref={fileInputRef}
@@ -94,14 +201,12 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
-
-
-    //console.log('HELLOOOO');
     const onClick = async (event: MouseEvent) => {
-      //console.log('Mouse clicked');
       if (!rendererRef.current || !cameraRef.current) return;
-      //console.log('HOOOP');
-
+      if (frontIndex !== 0) {
+        console.log('Click ignored, frontIndex is not 0:', frontIndex);
+        return;
+      }
 
       const rect = rendererRef.current.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -109,44 +214,30 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
 
       raycaster.setFromCamera(mouse, cameraRef.current);
 
-      // Only check the button
-      //const buttonModels = artworksRef.current.filter(m => m.isButton).map(m => m.mesh!);
-      // const intersects = raycaster.intersectObjects(sceneRef.current!.children);
-
-
       let buttonBounds = artworksRef.current[0].bounds.clone();
       buttonBounds.applyMatrix4(artworksRef.current[0].root.matrixWorld);
 
-      // if (intersects.length > 0) {
-
       if (!raycaster.ray.intersectsBox(buttonBounds)) return;
 
-      //console.log('Add button Intersected');
-      // Add new cube
-      //openFilePicker();
-      //let newItem: PortfolioPiece = await createPortfolioItem(sceneRef.current!, '/models/Monkeys.glb');
-
-      //artworksRef.current.push(newItem);
       const newPiece = await pickPortfolioPiece(sceneRef.current!);
       if (newPiece) {
         artworksRef.current.push(newPiece);
       }
-      // const cube = new THREE.Mesh(
-      //   new THREE.BoxGeometry(1, artworksRef.current.length + 1, 1),
-      //   new THREE.MeshNormalMaterial()
-      // );
-      // sceneRef.current!.add(cube);
-      //artworksRef.current.push({ id: 'cube_' + Date.now(), mesh: cube });
+
+      const portfolioPieces = artworksRef.current;
+      let bbMax = 0;
+
+      portfolioPieces.forEach(piece => {
+        bbMax = Math.max(bbMax, piece.bounds.getSize(new THREE.Vector3()).length());
+      });
 
 
       radius = Math.max(3, radius * artworksRef.current.length / (artworksRef.current.length - 1));
+      radius = Math.max(3, bbMax * (artworksRef.current.length + 1) / (2 * Math.PI));
       console.log('New radius:', radius);
 
-      //let group = new THREE.Group();
-      // group.add(cube);
 
       // Position in circle
-      const portfolioPieces = artworksRef.current;
       portfolioPieces.forEach((piece, i) => {
 
         const angle = (i / portfolioPieces.length) * Math.PI * 2;
@@ -170,56 +261,15 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
       });
 
 
-      // Recalculate circle positions
-      // updatePositions();
-      // }
     };
+
     window.addEventListener('click', onClick);
 
-    // Animation loop
-    const animate = () => {
-      stats.update();
-      //controls.update();
-
-      // Animate meshes toward target positions
-      artworksRef.current.forEach(piece => {
-        const target: THREE.Vector3 | undefined = piece.root.userData.targetPosition;
-
-        if (!target) return; // skip if no target
-
-        const position = piece.root.position;
-
-
-        position.lerp(piece.root.userData.targetPosition, 0.1);
-        // snap if close enough
-        if (position.distanceTo(piece.root.userData.targetPosition) < 0.01) {
-          piece.root.position.copy(piece.root.userData.targetPosition);
-          delete piece.root.userData.targetPosition;
-        }
-
-        piece.root.lookAt(0, 0, 0);
-      });
-
-      renderer.render(scene, camera);
-      requestAnimationFrame(animate);
-    };
-    animate();
-
-    const onResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    };
-    window.addEventListener('resize', onResize);
-
     return () => {
-      window.removeEventListener('resize', onResize);
-      rendererRef.current?.domElement.removeEventListener('click', onClick);
-      renderer.dispose();
-      containerRef.current?.removeChild(renderer.domElement);
-      containerRef.current?.removeChild(stats.dom);
-    };
-  }, []);
+      window.removeEventListener('click', onClick);
+    }
+
+  }, [frontIndex]);
 
   // --- Sync artworks ---
   useEffect(() => {
@@ -278,8 +328,8 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
     });
   }, [artworks]);
 
-  // --- Rotate clockwise ---
-  const rotateClockwise = () => {
+
+  const rotateCounterClockwise = () => {
     const meshes = artworksRef.current.map(m => m.root!);
     if (meshes.length === 0) return;
     const positions = meshes.map(m => m.position.clone());
@@ -287,16 +337,49 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
       mesh.userData.targetPosition =
         positions[(i - 1 + meshes.length) % meshes.length].clone();
     });
+
+    setFrontIndex((prev) => (prev + 1) % meshes.length);
+
+  };
+
+  const rotateClockwise = () => {
+    const meshes = artworksRef.current.map(m => m.root!);
+    if (meshes.length === 0) return;
+
+    const positions = meshes.map(m => m.position.clone());
+    meshes.forEach((mesh, i) => {
+
+      mesh.userData.targetPosition =
+        positions[(i + 1) % meshes.length].clone();
+    });
+
+
+    setFrontIndex(prev => (prev - 1 + meshes.length) % meshes.length);
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh' }}>
-      <div ref={containerRef} style={{ width: '80%', height: '100%' }} />
-      <div style={{ padding: '10px' }}>
-        <button onClick={rotateClockwise}>Rotate Clockwise</button>
+
+    <>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+
+      {/* Rotate buttons overlay */}
+      <div className="rotateButtons">
+        <button onClick={rotateCounterClockwise}>⟲</button>
+        <button onClick={rotateClockwise}>⟳</button>
       </div>
-    </div>
+
+      {/* Optional debug info */}
+      <div className="info-panel">
+        Front index: {frontIndex}
+        <br />
+        Front piece ID: {artworksRef.current[frontIndex]?.id || 'none'}
+      </div>
+    </>
+
+
+
   );
+
 }
 
 export default Scene3D;
