@@ -18,12 +18,14 @@ function Scene3D({
   artworks,
   containerRef,
   onArtworkIndexChange,
-  onArtworkAdd
+  onArtworkAdd,
+  editable = false
 }: {
   artworks: PortfolioPiece[];
   containerRef: React.RefObject<HTMLDivElement | null>;
   onArtworkIndexChange?: (index: number) => void;
   onArtworkAdd?: (artwork: PortfolioPiece) => void;
+  editable?: boolean;
 }) {
 
 
@@ -283,6 +285,24 @@ function Scene3D({
     };
   }, [frontIndex, onArtworkAdd]);
 
+  // Show/hide button based on editable mode
+  useEffect(() => {
+    if (!sceneRef.current) return;
+    
+    const buttonPiece = artworksRef.current.find(p => p.id === 'addButton');
+    if (!buttonPiece) return;
+
+    if (editable) {
+      // Add button to scene if not already added
+      if (!sceneRef.current.children.includes(buttonPiece.root)) {
+        sceneRef.current.add(buttonPiece.root);
+      }
+    } else {
+      // Remove button from scene
+      sceneRef.current.remove(buttonPiece.root);
+    }
+  }, [editable]);
+
 
   // --- Sync artworks ---
   useEffect(() => {
@@ -316,20 +336,6 @@ function Scene3D({
         artworksRef.current.splice(index, 1);
       }
     });
-
-    // Add new meshes
-    // artworks.forEach((model, i) => {
-    //   if (!artworksRef.current.find(m => m.id === model.id)) {
-    //     const mesh =
-    //       model.mesh ??
-    //       new THREE.Mesh(
-    //         new THREE.BoxGeometry(1, i + 1, 1),
-    //         new THREE.MeshNormalMaterial()
-    //       );
-    //     scene.add(mesh);
-    //     artworksRef.current.push({ id: model.id, mesh });
-    //   }
-    // });
 
     // Position in circle
     const pieces = artworksRef.current.map(m => m.root);

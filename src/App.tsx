@@ -37,6 +37,11 @@ function App() {
     setArtworks(prev => [...prev, newArtwork]);
   };
 
+  const handleRenderAdd = (artworkIndex: number, renderUrl: string, caption: string) => {
+    // TODO: Add render to specific artwork
+    console.log('Add render to artwork', artworkIndex, renderUrl, caption);
+  };
+
   return (
     <div className="app-layout">
       <Toolbar 
@@ -45,18 +50,21 @@ function App() {
       />
 
       <div className="portfolio">
-        <div ref={sceneContainerRef} className="scene-container">
+        <div ref={sceneContainerRef} className="scene">
           <Scene3D 
             artworks={artworks}
             containerRef={sceneContainerRef}
             onArtworkIndexChange={setSelectedArtworkIndex}
             onArtworkAdd={handleArtworkAdd}
+            editable={editable}
           />
         </div>
 
         <ArtworkShowcase 
           artworks={artworks}
           selectedIndex={selectedArtworkIndex}
+          editable={editable}
+          onRenderAdd={handleRenderAdd}
         />
       </div>
 
