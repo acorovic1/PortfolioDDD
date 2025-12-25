@@ -1,0 +1,120 @@
+.artwork-showcase {
+  grid-area: renders;
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.artwork-showcase.empty {
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state {
+  text-align: center;
+  color: #666;
+  padding: 60px 20px;
+}
+
+.empty-state svg {
+  margin-bottom: 24px;
+  opacity: 0.5;
+}
+
+.empty-state h3 {
+  margin: 0 0 12px 0;
+  font-size: 24px;
+  color: #999;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.showcase-header {
+  padding: 32px 40px 24px;
+  border-bottom: 1px solid #333;
+}
+
+.showcase-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 8px;
+  color: #888;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab:hover {
+  background: #1a1a1a;
+  border-color: #444;
+  color: #aaa;
+}
+
+.tab.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+}
+
+.artwork-title {
+  display: flex;
+justify-content: center; 
+  align-items: center;
+}
+
+.artwork-title h2 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 600;
+  color: white;
+}
+
+.artwork-index {
+  font-size: 14px;
+  color: #888;
+  background: #252525;
+  padding: 6px 12px;
+  border-radius: 16px;
+  border: 1px solid #333;
+}
+
+.showcase-content {
+  flex: 1;
+  padding: 40px;
+  overflow:hidden;
+}
+
+/* Scrollbar styling */
+.showcase-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.showcase-content::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+.showcase-content::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+.showcase-content::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
+

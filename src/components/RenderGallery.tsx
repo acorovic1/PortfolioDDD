@@ -1,0 +1,63 @@
+import { useState } from 'react';
+import '../css/RenderGallery.css';
+
+type Render = {
+  id: number;
+  url: string;
+  caption: string;
+};
+
+type RenderGalleryProps = {
+  renders: Render[];
+};
+
+export default function RenderGallery({ renders }: RenderGalleryProps) {
+  const [selectedRender, setSelectedRender] = useState<Render | null>(null);
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
+
+  return (
+    <>
+      <div className="render-gallery">
+        {renders.map((render) => (
+          <div
+            key={render.id}
+            className="render-card"
+            onMouseEnter={() => setHoveredId(render.id)}
+            onMouseLeave={() => setHoveredId(null)}
+            onClick={() => setSelectedRender(render)}
+          >
+            <div className="render-image-container">
+              <img src={render.url} alt={render.caption} className="render-image" />
+              <div className={`render-overlay ${hoveredId === render.id ? 'visible' : ''}`}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.35-4.35" />
+                  <line x1="11" y1="8" x2="11" y2="14" />
+                  <line x1="8" y1="11" x2="14" y2="11" />
+                </svg>
+              </div>
+            </div>
+            <div className="render-caption">
+              <p>{render.caption}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {selectedRender && (
+        <div className="lightbox" onClick={() => setSelectedRender(null)}>
+          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <button className="lightbox-close" onClick={() => setSelectedRender(null)}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+            <img src={selectedRender.url} alt={selectedRender.caption} />
+            <p className="lightbox-caption">{selectedRender.caption}</p>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

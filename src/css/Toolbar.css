@@ -1,5 +1,5 @@
 .toolbar {
-  grid-area: toolbar;
+  /* grid-area: toolbar; */
   background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
   color: white;
   padding: 0 24px;

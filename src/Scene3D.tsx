@@ -14,12 +14,22 @@ import {
 
 
 
-function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
+function Scene3D({
+  artworks,
+  containerRef,
+  onArtworkIndexChange,
+  onArtworkAdd
+}: {
+  artworks: PortfolioPiece[];
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  onArtworkIndexChange?: (index: number) => void;
+  onArtworkAdd?: (artwork: PortfolioPiece) => void;
+}) {
 
 
   //console.log('GAME START ', frontIndex);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  // const containerRef = useRef<HTMLDivElement>(null);
 
   const sceneRef = useRef<THREE.Scene>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
@@ -34,6 +44,21 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
 
   const [frontIndex, setFrontIndex] = useState(0);
 
+  // Index change
+  useEffect(() => {
+    onArtworkIndexChange?.(frontIndex);
+  }, [frontIndex, onArtworkIndexChange]);
+
+
+  // Sync artworksRef with artworks prop
+  useEffect(() => {
+    // Keep the internal ref in sync, but only update objects that changed
+    artworks.forEach((artwork) => {
+      if (!artworksRef.current.find(a => a.id === artwork.id)) {
+        artworksRef.current.push(artwork);
+      }
+    });
+  }, [artworks]);
 
   // --- Setup scene once ---
   useEffect(() => {
@@ -104,7 +129,7 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
     onResize();
 
     return () => {
-    //  window.removeEventListener('resize', onResize);
+      //  window.removeEventListener('resize', onResize);
 
       renderer.dispose();
       containerRef.current?.removeChild(renderer.domElement);
@@ -113,37 +138,37 @@ function Scene3D({ artworks }: { artworks: PortfolioPiece[] }) {
   }, []);
 
   // --- Handle resizes ---
-useEffect(() => {
-  if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
+  useEffect(() => {
+    if (!containerRef.current || !cameraRef.current || !rendererRef.current) return;
 
-  let resizeTimeout: number;
+    let resizeTimeout: number;
 
-  const resizeObserver = new ResizeObserver((entries) => {
-    // Clear previous timeout
-    clearTimeout(resizeTimeout);
-    
-    // Debounce resize updates
-    resizeTimeout = window.setTimeout(() => {
-      for (const entry of entries) {
-        const width = entry.contentRect.width;
-        const height = entry.contentRect.height;
+    const resizeObserver = new ResizeObserver((entries) => {
+      // Clear previous timeout
+      clearTimeout(resizeTimeout);
 
-        if (cameraRef.current && rendererRef.current) {
-          cameraRef.current.aspect = width / height;
-          cameraRef.current.updateProjectionMatrix();
-          rendererRef.current.setSize(width, height);
+      // Debounce resize updates
+      resizeTimeout = window.setTimeout(() => {
+        for (const entry of entries) {
+          const width = entry.contentRect.width;
+          const height = entry.contentRect.height;
+
+          if (cameraRef.current && rendererRef.current) {
+            cameraRef.current.aspect = width / height;
+            cameraRef.current.updateProjectionMatrix();
+            rendererRef.current.setSize(width, height);
+          }
         }
-      }
-    }, 16); // ~60fps
-  });
+      }, 16); // ~60fps
+    });
 
-  resizeObserver.observe(containerRef.current);
+    resizeObserver.observe(containerRef.current);
 
-  return () => {
-    clearTimeout(resizeTimeout);
-    resizeObserver.disconnect();
-  };
-}, [containerRef]);
+    return () => {
+      clearTimeout(resizeTimeout);
+      resizeObserver.disconnect();
+    };
+  }, [containerRef]);
 
   // --- Animation loop ---
   useEffect(() => {
@@ -201,6 +226,7 @@ useEffect(() => {
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+
     const onClick = async (event: MouseEvent) => {
       if (!rendererRef.current || !cameraRef.current) return;
       if (frontIndex !== 0) {
@@ -220,46 +246,33 @@ useEffect(() => {
       if (!raycaster.ray.intersectsBox(buttonBounds)) return;
 
       const newPiece = await pickPortfolioPiece(sceneRef.current!);
-      if (newPiece) {
-        artworksRef.current.push(newPiece);
-      }
+      if (!newPiece) return;
 
-      const portfolioPieces = artworksRef.current;
+      // Notify parent component instead of updating local ref
+      onArtworkAdd?.(newPiece);
+
+      const portfolioPieces = [...artworksRef.current, newPiece];
       let bbMax = 0;
 
       portfolioPieces.forEach(piece => {
         bbMax = Math.max(bbMax, piece.bounds.getSize(new THREE.Vector3()).length());
       });
 
-
-      radius = Math.max(3, radius * artworksRef.current.length / (artworksRef.current.length - 1));
-      radius = Math.max(3, bbMax * (artworksRef.current.length + 1) / (2 * Math.PI));
+      radius = Math.max(3, bbMax * (portfolioPieces.length + 1) / (2 * Math.PI));
       console.log('New radius:', radius);
-
 
       // Position in circle
       portfolioPieces.forEach((piece, i) => {
-
         const angle = (i / portfolioPieces.length) * Math.PI * 2;
         let position = piece.root.position;
         position.x = -radius * Math.sin(angle);
-        // position.y = 0;
         position.z = radius * Math.cos(angle);
-
-        //console.log('Setting target for mesh', i, 'to', position);
-
-
       });
-
 
       const offset = portfolioPieces[0].root.position.clone();
-
-      portfolioPieces.forEach((piece, _) => {
-
-        piece.root.position.copy(piece.root.position.clone().sub(offset));
-
+      portfolioPieces.forEach((piece) => {
+        piece.root.position.sub(offset);
       });
-
 
     };
 
@@ -267,9 +280,9 @@ useEffect(() => {
 
     return () => {
       window.removeEventListener('click', onClick);
-    }
+    };
+  }, [frontIndex, onArtworkAdd]);
 
-  }, [frontIndex]);
 
   // --- Sync artworks ---
   useEffect(() => {
@@ -360,7 +373,7 @@ useEffect(() => {
   return (
 
     <>
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      {/* <div ref={containerRef} style={{ width: '100%', height: '100%' }} /> */}
 
       {/* Rotate buttons overlay */}
       <div className="rotateButtons">
@@ -373,6 +386,8 @@ useEffect(() => {
         Front index: {frontIndex}
         <br />
         Front piece ID: {artworksRef.current[frontIndex]?.id || 'none'}
+        <br />
+        Total artworks: {artworks.length}
       </div>
     </>
 

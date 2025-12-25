@@ -2,7 +2,9 @@ import { useState, useRef } from 'react';
 import Scene3D from './Scene3D';
 import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
+import ArtworkShowcase from './components/ArtworkShowcase';
 import type { ProfileData } from './types/ProfileData';
+import type { PortfolioPiece } from './PortfolioPiece';
 
 function App() {
   const sceneContainerRef = useRef<HTMLDivElement>(null);
@@ -20,15 +22,19 @@ function App() {
   });
 
   const [editable, setEditable] = useState(false);
+  const [selectedArtworkIndex, setSelectedArtworkIndex] = useState(0);
+  const [artworks, setArtworks] = useState<PortfolioPiece[]>([]);
 
   const handleViewModeChange = (mode: 'view' | 'edit') => {
     setEditable(mode === 'edit');
-    console.log('View mode changed to:', mode);
   };
 
   const handleSearch = (query: string) => {
     console.log('Search query:', query);
-    // TODO: Implement artwork search functionality
+  };
+
+  const handleArtworkAdd = (newArtwork: PortfolioPiece) => {
+    setArtworks(prev => [...prev, newArtwork]);
   };
 
   return (
@@ -38,8 +44,20 @@ function App() {
         onSearch={handleSearch}
       />
 
-      <div ref={sceneContainerRef} className="scene-container">
-        <Scene3D artworks={[]} />
+      <div className="portfolio">
+        <div ref={sceneContainerRef} className="scene-container">
+          <Scene3D 
+            artworks={artworks}
+            containerRef={sceneContainerRef}
+            onArtworkIndexChange={setSelectedArtworkIndex}
+            onArtworkAdd={handleArtworkAdd}
+          />
+        </div>
+
+        <ArtworkShowcase 
+          artworks={artworks}
+          selectedIndex={selectedArtworkIndex}
+        />
       </div>
 
       <Sidebar 
