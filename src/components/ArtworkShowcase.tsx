@@ -1,25 +1,74 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { PortfolioPiece } from '../PortfolioPiece';
 import RenderGallery from './RenderGallery';
 import ArtworkInfo from './ArtworkInfo';
 import '../css/ArtworkShowcase.css';
+import type { ArtworkInfoData } from '../types/ArtworkInfoData';
+
+import * as THREE from 'three';
 
 type ArtworkShowcaseProps = {
     artworks: PortfolioPiece[];
+
     selectedIndex: number;
     editable?: boolean;
-    onRenderAdd?: (artworkIndex: number, renderUrl: string, caption: string) => void;
+    onChange?: (next: ArtworkInfoData) => void;
 };
 
 export default function ArtworkShowcase({
     artworks,
     selectedIndex,
     editable = false,
-    onRenderAdd
+    onChange
+
 }: ArtworkShowcaseProps) {
-    const [activeTab, setActiveTab] = useState<'renders' | 'info'>('renders');
+
+    useEffect(() => {
+        if (selectedArtwork) {
+            setInfoData(selectedArtwork.infoData);
+        } else {
+            setInfoData({
+                title: '',
+                description: '',
+                tools: [],
+                year: '',
+                category: '',
+                polyCount: '',
+                renderTime: '',
+            });
+        }
+        console.log("effect");
+    }, [selectedIndex]);
 
     const selectedArtwork = artworks[selectedIndex];
+    const [infoData, setInfoData] = useState<ArtworkInfoData>(
+        selectedArtwork?.infoData ?? {
+            title: '',
+            description: '',
+            tools: [],
+            year: '',
+            category: '',
+            polyCount: '',
+            renderTime: '',
+        }
+    );
+
+
+
+    useEffect(() => {
+        if (selectedArtwork) setInfoData(selectedArtwork.infoData);
+    }, [selectedArtwork]);
+
+
+    const update = (key: keyof ArtworkInfoData, value: string | string[]) => {
+        const updated = { ...infoData, [key]: value };
+        setInfoData(updated);
+        onChange?.(updated);
+    };
+
+
+
+
 
     const mockRenders = [
         { id: 1, url: 'https://picsum.photos/seed/render1/800/600', caption: 'Front View' },
@@ -28,7 +77,7 @@ export default function ArtworkShowcase({
         { id: 4, url: 'https://picsum.photos/seed/render4/800/600', caption: 'Detail Shot' },
         { id: 5, url: 'https://picsum.photos/seed/render5/800/600', caption: 'Wireframe' },
         { id: 6, url: 'https://picsum.photos/seed/render6/800/600', caption: 'Material Test' },
-        { id: 6, url: 'https://picsum.photos/seed/render7/800/600', caption: 'HOHO' },
+        { id: 7, url: 'https://picsum.photos/seed/render7/800/600', caption: 'HOHO' },
     ];
 
     const mockInfo = {
@@ -41,20 +90,6 @@ export default function ArtworkShowcase({
         renderTime: '2h 15m',
     };
 
-    const handleAddRender = () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = (e) => {
-            const file = (e.target as HTMLInputElement).files?.[0];
-            if (file) {
-                const url = URL.createObjectURL(file);
-                const caption = prompt('Enter caption for this render:') || 'Untitled';
-                onRenderAdd?.(selectedIndex, url, caption);
-            }
-        };
-        input.click();
-    };
 
     if (artworks.length === 0) {
         return (
@@ -77,11 +112,13 @@ export default function ArtworkShowcase({
         );
     }
 
+    const info = infoData;
+
     return (
         <div className="artwork-showcase">
 
             <div className="artwork-title">
-                <h2>{mockInfo.title}</h2>
+                <h2>{info.title}1</h2>
             </div>
 
 
@@ -90,9 +127,9 @@ export default function ArtworkShowcase({
 
             <div className="showcase-content">
 
-                <RenderGallery renders={mockRenders} editable={editable} />
+                <RenderGallery renders={mockRenders} editable={editable} selectedIndex={selectedIndex} />
 
-                <ArtworkInfo info={mockInfo} />
+                <ArtworkInfo info={info} editable={editable} onUpdate={update} />
 
             </div>
 

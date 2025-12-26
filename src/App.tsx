@@ -64,7 +64,7 @@ function App() {
           artworks={artworks}
           selectedIndex={selectedArtworkIndex}
           editable={editable}
-          onRenderAdd={handleRenderAdd}
+          
         />
       </div>
 

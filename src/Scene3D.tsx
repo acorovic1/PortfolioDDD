@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
+import type { ArtworkInfoData } from './types/ArtworkInfoData'
 
 import {
   createPortfolioItem,
@@ -41,8 +42,8 @@ function Scene3D({
   const artworksRef = useRef<PortfolioPiece[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const radiusRef = useRef(3);
 
-  let radius = Math.max(3, 1.5 ** artworks.length);
 
   const [frontIndex, setFrontIndex] = useState(0);
 
@@ -114,8 +115,20 @@ function Scene3D({
     group.add(buttonMesh);
     scene.add(group);
 
-    artworksRef.current.push({ id: 'addButton', root: group, bounds: new THREE.Box3().setFromObject(group) });
+    let emptyArtworkInfo: ArtworkInfoData = {
+      title: 'Add button123',
+      description: '',
+      tools: [],
+      year: '',
+      category: '',
+      polyCount: '',
+      renderTime: '',
+    };
 
+    artworksRef.current.push({ id: 'addButton', root: group, bounds: new THREE.Box3().setFromObject(group), infoData: emptyArtworkInfo });
+
+
+    console.log(artworksRef.current[0].infoData.title)
     const onResize = () => {
       // if (!containerRef.current) return;
 
@@ -209,32 +222,18 @@ function Scene3D({
   // --- Handle clicks to add new artwork ---
   useEffect(() => {
 
-    <input
-      ref={fileInputRef}
-      type="file"
-      accept=".glb,.gltf"
-      style={{ display: 'none' }}
-      onChange={async (e) => {
-        if (!sceneRef.current) return;
-        const file = e.target.files?.[0];
-        if (!file) return;
 
-        const url = URL.createObjectURL(file);
-        const newItem = await createPortfolioItem(sceneRef.current, url);
-        artworksRef.current.push(newItem);
-        URL.revokeObjectURL(url); // free memory
-      }}
-    />
 
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
     const onClick = async (event: MouseEvent) => {
       if (!rendererRef.current || !cameraRef.current) return;
-      if (frontIndex !== 0) {
-        console.log('Click ignored, frontIndex is not 0:', frontIndex);
-        return;
-      }
+
+      // if (frontIndex !== 0) {
+      //   console.log('Click ignored, frontIndex is not 0:', frontIndex);
+      //   return;
+      // }
 
       const rect = rendererRef.current.domElement.getBoundingClientRect();
       mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -250,6 +249,8 @@ function Scene3D({
       const newPiece = await pickPortfolioPiece(sceneRef.current!);
       if (!newPiece) return;
 
+      console.log(newPiece.infoData.title," <--- new object title")
+
       // Notify parent component instead of updating local ref
       onArtworkAdd?.(newPiece);
 
@@ -260,15 +261,15 @@ function Scene3D({
         bbMax = Math.max(bbMax, piece.bounds.getSize(new THREE.Vector3()).length());
       });
 
-      radius = Math.max(3, bbMax * (portfolioPieces.length + 1) / (2 * Math.PI));
-      console.log('New radius:', radius);
+      radiusRef.current = Math.max(3, bbMax * (portfolioPieces.length + 1) / (2 * Math.PI));
+      console.log('New radius:', radiusRef.current);
 
       // Position in circle
       portfolioPieces.forEach((piece, i) => {
         const angle = (i / portfolioPieces.length) * Math.PI * 2;
         let position = piece.root.position;
-        position.x = -radius * Math.sin(angle);
-        position.z = radius * Math.cos(angle);
+        position.x = -radiusRef.current * Math.sin(angle);
+        position.z = radiusRef.current * Math.cos(angle);
       });
 
       const offset = portfolioPieces[0].root.position.clone();
@@ -288,7 +289,7 @@ function Scene3D({
   // Show/hide button based on editable mode
   useEffect(() => {
     if (!sceneRef.current) return;
-    
+
     const buttonPiece = artworksRef.current.find(p => p.id === 'addButton');
     if (!buttonPiece) return;
 
@@ -342,7 +343,7 @@ function Scene3D({
     pieces.forEach((piece, i) => {
       if (!piece.userData.targetPosition) {
         const angle = (i / pieces.length) * Math.PI * 2;
-        piece.position.set(radius * Math.sin(angle), 0, radius * Math.cos(angle));
+        piece.position.set(radiusRef.current * Math.sin(angle), 0, radiusRef.current * Math.cos(angle));
       }
     });
   }, [artworks]);

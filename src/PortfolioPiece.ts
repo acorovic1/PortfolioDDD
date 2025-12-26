@@ -1,11 +1,14 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import type { ArtworkInfoData } from './types/ArtworkInfoData'
+import ArtworkInfo from './components/ArtworkInfo';
 
 /* ---- Portfolio item definition ---- */
 export type PortfolioPiece = {
   id: string;
   root: THREE.Group;   // logical object
   bounds: THREE.Box3;  // local-space bounds
+  infoData: ArtworkInfoData;
 };
 
 /* ---- Loader ---- */
@@ -30,12 +33,24 @@ export async function createPortfolioItem(
   // recompute bounds after centering
   bounds.setFromObject(gltf.scene);
 
+  let emptyArtworkInfo: ArtworkInfoData = {
+    title: '',
+    description: '',
+    tools: [],
+    year: '',
+    category: '',
+    polyCount: '',
+    renderTime: '',
+  };
+
+
   scene.add(root);
 
   return {
     id: crypto.randomUUID(),
-    root,
-    bounds
+    root: root,
+    bounds: bounds,
+    infoData: emptyArtworkInfo,
   };
 }
 
@@ -64,9 +79,13 @@ export async function pickPortfolioPiece(scene: THREE.Scene): Promise<PortfolioP
   const file = await pickPortfolioFile();
   if (!file) return null;
 
+
   const url = URL.createObjectURL(file);
   try {
     const piece = await createPortfolioItem(scene, url);
+    piece.infoData.title = prompt('Enter title for this model:') || 'Untitled';
+
+
     return piece;
   } finally {
     URL.revokeObjectURL(url); // free memory
@@ -88,6 +107,9 @@ function pickPortfolioFile(): Promise<File | null> {
       resolve(file);
       document.body.removeChild(input);
     };
+
+
+
 
     document.body.appendChild(input);
     input.click();

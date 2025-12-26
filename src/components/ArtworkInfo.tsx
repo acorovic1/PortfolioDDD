@@ -1,25 +1,31 @@
 import '../css/ArtworkInfo.css';
 
-type ArtworkInfoData = {
-  title: string;
-  description: string;
-  tools: string[];
-  year: string;
-  category: string;
-  polyCount: string;
-  renderTime: string;
-};
+import type { ArtworkInfoData } from '../types/ArtworkInfoData';
+
+
 
 type ArtworkInfoProps = {
   info: ArtworkInfoData;
+  editable: boolean;
+  
+  onUpdate: (key: keyof ArtworkInfoData, value: string | string[]) => void;
 };
 
-export default function ArtworkInfo({ info }: ArtworkInfoProps) {
+export default function ArtworkInfo({ info, editable, onUpdate }: ArtworkInfoProps) {
   return (
     <div className="artwork-info">
       <div className="info-section">
         <h3 className="info-section-title">Description</h3>
-        <p className="info-description">{info.description}</p>
+        {editable ? (
+          <textarea
+            className="info-description-input"
+            value={info.description}
+            onChange={(e) => onUpdate('description', e.target.value)}
+            placeholder="Enter description..."
+          />
+        ) : (
+          <p className="info-description">{info.description}</p>
+        )}
       </div>
 
       <div className="info-grid">
@@ -30,11 +36,20 @@ export default function ArtworkInfo({ info }: ArtworkInfoProps) {
           </svg>
           <div className="info-content">
             <span className="info-label">Tools Used</span>
-            <div className="info-tools">
-              {info.tools.map((tool, i) => (
-                <span key={i} className="tool-tag">{tool}</span>
-              ))}
-            </div>
+            {editable ? (
+              <input
+                type="text"
+                value={info.tools.join(', ')}
+                onChange={(e) => onUpdate('tools', e.target.value.split(',').map(t => t.trim()))}
+                placeholder="Enter tools separated by commas"
+              />
+            ) : (
+              <div className="info-tools">
+                {info.tools.map((tool, i) => (
+                  <span key={i} className="tool-tag">{tool}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -47,7 +62,15 @@ export default function ArtworkInfo({ info }: ArtworkInfoProps) {
           </svg>
           <div className="info-content">
             <span className="info-label">Year</span>
-            <span className="info-value">{info.year}</span>
+            {editable ? (
+              <input
+                type="text"
+                value={info.year}
+                onChange={(e) => onUpdate('year', e.target.value)}
+              />
+            ) : (
+              <span className="info-value">{info.year}</span>
+            )}
           </div>
         </div>
 
@@ -57,16 +80,44 @@ export default function ArtworkInfo({ info }: ArtworkInfoProps) {
           </svg>
           <div className="info-content">
             <span className="info-label">Category</span>
-            <span className="info-value">{info.category}</span>
+            {editable ? (
+              <input
+                type="text"
+                value={info.category}
+                onChange={(e) => onUpdate('category', e.target.value)}
+              />
+            ) : (
+              <span className="info-value">{info.category}</span>
+            )}
           </div>
         </div>
 
-     
+        <div className="info-card">
+          <span className="info-label">Poly Count</span>
+          {editable ? (
+            <input
+              type="text"
+              value={info.polyCount}
+              onChange={(e) => onUpdate('polyCount', e.target.value)}
+            />
+          ) : (
+            <span className="info-value">{info.polyCount}</span>
+          )}
+        </div>
 
-     
+        <div className="info-card">
+          <span className="info-label">Render Time</span>
+          {editable ? (
+            <input
+              type="text"
+              value={info.renderTime}
+              onChange={(e) => onUpdate('renderTime', e.target.value)}
+            />
+          ) : (
+            <span className="info-value">{info.renderTime}</span>
+          )}
+        </div>
       </div>
-
-  
     </div>
   );
 }

@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import '../css/RenderGallery.css';
 
+import { pickPortfolioImage, type PortfolioImage } from '../PortfolioRender';
+
+
 type Render = {
     id: number;
     url: string;
@@ -12,18 +15,56 @@ type RenderGalleryProps = {
     editable?: boolean;
 };
 
-export default function RenderGallery({ renders, editable = false }: RenderGalleryProps) {
-    const [selectedRender, setSelectedRender] = useState<Render | null>(null);
-    const [hoveredId, setHoveredId] = useState<number | null>(null);
+export default function RenderGallery({
+    renders,
+    editable = false,
+    selectedIndex,
+  
+}: {
+    renders: Render[];
+    editable: boolean;
+    selectedIndex: number;
 
-    const handleAddRender = () => {
-        console.log('Add new render');
+
+}) {
+    const [selectedRender, setSelectedRender] = useState<PortfolioImage | null>(null);
+    const [hoveredId, setHoveredId] = useState<number | null>(null);
+    const [images, addImage] = useState<Record<number, PortfolioImage[]>>({});
+
+    const handleAddImage = async () => {
+        const img = await pickPortfolioImage();
+        if (!img) return;
+
+        addImage(prev => {
+        const existing = prev[selectedIndex] ?? [];
+        return {
+            ...prev,
+            [selectedIndex]: [...existing, img],
+        };
+    });
     };
+
+    // const handleAddRender = () => {
+    //     const input = document.createElement('input');
+    //     input.type = 'file';
+    //     input.accept = 'image/*';
+    //     input.onchange = (e) => {
+    //         const file = (e.target as HTMLInputElement).files?.[0];
+    //         if (file) {
+    //             const url = URL.createObjectURL(file);
+    //             const caption = prompt('Enter caption for this render:') || 'Untitled';
+    //             onRenderAdd?.(selectedIndex, url, caption);
+    //         }
+    //     };
+    //     input.click();
+    // };
+
+    const renderss = images[selectedIndex]??[];
 
     return (
         <>
             <div className="render-gallery">
-                {renders.map((render) => (
+                {renderss.map((render) => (
                     <div
                         key={render.id}
                         className="render-card"
@@ -64,7 +105,7 @@ export default function RenderGallery({ renders, editable = false }: RenderGalle
 
 
                 {editable && (
-                    <button className="add-render-btn" onClick={handleAddRender}>
+                    <button className="add-render-btn" onClick={handleAddImage}>
                         <svg
                             width="22"
                             height="22"
@@ -98,7 +139,7 @@ export default function RenderGallery({ renders, editable = false }: RenderGalle
 
             </div>
 
-                {/* <div className = "pad">asd</div> */}
+            {/* <div className = "pad">asd</div> */}
 
 
             {selectedRender && (
