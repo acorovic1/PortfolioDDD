@@ -6,6 +6,7 @@ import ArtworkShowcase from './components/ArtworkShowcase';
 import type { ProfileData } from './types/ProfileData';
 import type { PortfolioPiece } from './types/PortfolioPiece';
 import type { ArtworkInfoData } from './types/ArtworkInfoData';
+import { pickPortfolioImage } from './types/PortfolioPiece';
 
 function App() {
   const sceneContainerRef = useRef<HTMLDivElement>(null);
@@ -28,6 +29,12 @@ function App() {
 
   const handleViewModeChange = (mode: 'view' | 'edit') => {
     setEditable(mode === 'edit');
+
+    // console.log("Change mode.. number of artworks = ",artworks.length)
+    // artworks.forEach(element => {
+
+    //   console.log("Change mode - Object with title ", element.infoData.title, " has ", element.renders.length, " renders!");
+    // });
   };
 
   const handleSearch = (query: string) => {
@@ -36,17 +43,31 @@ function App() {
 
   const onArtworkAdd = (newArtwork: PortfolioPiece) => {
     setArtworks(prev => [...prev, newArtwork]);
+
   };
 
-  const handleRenderAdd = (artworkIndex: number, renderUrl: string, caption: string) => {
-    // TODO: Add render to specific artwork
-    console.log('Add render to artwork', artworkIndex, renderUrl, caption);
+  const onRenderAdd = async () => {
+    const img = await pickPortfolioImage();
+    if (!img) return;
+
+    setArtworks(prev => {
+      if (selectedArtworkIndex < 0 || selectedArtworkIndex >= prev.length) {
+        return prev; // safety
+      }
+
+      const updated = [...prev];
+
+      updated[selectedArtworkIndex] = {
+        ...updated[selectedArtworkIndex],
+        renders: [
+          ...(updated[selectedArtworkIndex].renders ?? []),
+          img
+        ]
+      };
+
+      return updated;
+    });
   };
-
-
-  // const [info, setInfo] = useState<ArtworkInfoData>(artworks[selectedArtworkIndex].infoData);
-  const info = artworks[selectedArtworkIndex]?.infoData ?? null;
-
 
   const onInfoUpdate = (key: keyof ArtworkInfoData, value: string | string[]) => {
     setArtworks(prev => {
@@ -80,11 +101,12 @@ function App() {
           />
         </div>
 
-        
+
         <ArtworkShowcase
           artworks={artworks}
           selectedIndex={selectedArtworkIndex}
           editable={editable}
+          onRenderAdd={onRenderAdd}
           onInfoUpdate={onInfoUpdate}
 
         />

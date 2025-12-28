@@ -1,45 +1,29 @@
 import { useState } from 'react';
 import '../css/RenderGallery.css';
 
-import { pickPortfolioImage, type PortfolioImage } from '../PortfolioRender';
+import type { PortfolioImage } from '../types/PortfolioPiece';
 
 
-type Render = {
-    id: number;
-    url: string;
-    caption: string;
-};
 
 
 
 export default function RenderGallery({
     renders,
     editable = false,
-    selectedIndex,
+    onAdd,
+
 
 }: {
-    renders: Render[];
+    renders: PortfolioImage[];
     editable: boolean;
-    selectedIndex: number;
+    onAdd: <K extends keyof PortfolioImage>(key: K, value: PortfolioImage[K]) => void;
+
 
 
 }) {
     const [selectedRender, setSelectedRender] = useState<PortfolioImage | null>(null);
     const [hoveredId, setHoveredId] = useState<number | null>(null);
-    const [images, addImage] = useState<Record<number, PortfolioImage[]>>({});
 
-    const handleAddImage = async () => {
-        const img = await pickPortfolioImage();
-        if (!img) return;
-
-        addImage(prev => {
-            const existing = prev[selectedIndex] ?? [];
-            return {
-                ...prev,
-                [selectedIndex]: [...existing, img],
-            };
-        });
-    };
 
     // const handleAddRender = () => {
     //     const input = document.createElement('input');
@@ -56,12 +40,12 @@ export default function RenderGallery({
     //     input.click();
     // };
 
-    const renderss = images[selectedIndex] ?? [];
+    
 
     return (
         <>
             <div className="render-gallery">
-                {renderss.map((render) => (
+                {renders.map((render) => (
                     <div
                         key={render.id}
                         className="render-card"
@@ -102,7 +86,7 @@ export default function RenderGallery({
 
 
                 {editable && (
-                    <button className="add-render-btn" onClick={handleAddImage}>
+                    <button className="add-render-btn" onClick={() => onAdd("caption", "New Caption")}>
                         <svg
                             width="22"
                             height="22"
@@ -136,7 +120,7 @@ export default function RenderGallery({
 
             </div>
 
-            {/* <div className = "pad">asd</div> */}
+            
 
 
             {selectedRender && (

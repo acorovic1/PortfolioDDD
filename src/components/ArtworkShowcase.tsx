@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { PortfolioPiece } from '../types/PortfolioPiece';
+import type { PortfolioImage, PortfolioPiece } from '../types/PortfolioPiece';
 import RenderGallery from './RenderGallery';
 import ArtworkInfo from './ArtworkInfo';
 import '../css/ArtworkShowcase.css';
@@ -13,6 +13,7 @@ type ArtworkShowcaseProps = {
     selectedIndex: number;
 
     editable?: boolean;
+    onRenderAdd: <K extends keyof PortfolioImage>(key: K, value: PortfolioImage[K]) => void;
     onInfoUpdate: <K extends keyof ArtworkInfoData>(key: K, value: ArtworkInfoData[K]) => void;
 
 };
@@ -22,6 +23,7 @@ export default function ArtworkShowcase({
     selectedIndex,
 
     editable = false,
+    onRenderAdd,
     onInfoUpdate,
 
 
@@ -70,12 +72,12 @@ export default function ArtworkShowcase({
             <div className="artwork-title">
 
                 <h2>{info.title}</h2>
-                
+
             </div>
 
             <div className="showcase-content">
 
-                <RenderGallery renders={mockRenders} editable={editable} selectedIndex={selectedIndex} />
+                <RenderGallery renders={artworks[selectedIndex].renders} editable={editable} onAdd={onRenderAdd} />
 
                 <ArtworkInfo info={info} editable={editable} onUpdate={onInfoUpdate} />
 

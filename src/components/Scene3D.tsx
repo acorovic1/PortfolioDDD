@@ -4,8 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import type { ArtworkInfoData } from '../types/ArtworkInfoData'
 
-import { pickPortfolioPiece } from '../PortfolioPiece';
-import type { PortfolioPiece } from '../types/PortfolioPiece';
+import { pickPortfolioPiece, type PortfolioPiece, type PortfolioImage } from '../types/PortfolioPiece';
 
 
 
@@ -114,13 +113,16 @@ function Scene3D({
       year: '',
       category: '',
     };
+    let renders: PortfolioImage[] = [];
 
     addButtonRef.current = {
       id: 'addButton',
       root: group,
       bounds: new THREE.Box3().setFromObject(group),
-      infoData: emptyArtworkInfo
+      infoData: emptyArtworkInfo,
+      renders: renders
     };
+
 
     return () => {
       renderer.dispose();
@@ -345,11 +347,18 @@ function Scene3D({
 
 
   const rotateCounterClockwise = () => {
-    const meshes = artworksRef.current.map(m => m.root!);
-    if (meshes.length === 0) return;
-    const positions = meshes.map(m => m.position.clone());
+    if (artworksRef.current.map(m => m.root!).length === 0) return;
+
+    let meshes: PortfolioPiece[] = [];
+    if (editable) {
+      meshes = [addButtonRef.current, ...artworksRef.current].filter(m => m !== null);
+    } else {
+      meshes = [...artworksRef.current].filter(m => m !== null);
+    }
+
+    const positions = meshes.map(m => m.root.position.clone());
     meshes.forEach((mesh, i) => {
-      mesh.userData.targetPosition =
+      mesh.root.userData.targetPosition =
         positions[(i - 1 + meshes.length) % meshes.length].clone();
     });
 
@@ -358,14 +367,24 @@ function Scene3D({
   };
 
   const rotateClockwise = () => {
-    const meshes = artworksRef.current.map(m => m.root!);
-    if (meshes.length === 0) return;
 
-    const positions = meshes.map(m => m.position.clone());
+    if (artworksRef.current.map(m => m.root!).length === 0) return;
+
+    let meshes: PortfolioPiece[] = [];
+    if (editable) {
+      meshes = [addButtonRef.current, ...artworksRef.current].filter(m => m !== null);
+    } else {
+      meshes = [...artworksRef.current].filter(m => m !== null);
+    }
+
+    const positions = meshes.map(m => m?.root.position.clone());
     meshes.forEach((mesh, i) => {
 
-      mesh.userData.targetPosition =
-        positions[(i + 1) % meshes.length].clone();
+      mesh.root.userData.targetPosition = positions[(i + 1) % meshes.length].clone();
+
+      if (artworksRef.current[i]) {
+        console.log("RotCW - Object with title ", artworksRef.current[i].infoData.title, " has ", artworksRef.current[i].renders.length, " renders!");
+      }
     });
 
 
@@ -378,10 +397,12 @@ function Scene3D({
       {/* <div ref={containerRef} style={{ width: '100%', height: '100%' }} /> */}
 
       {/* Rotate buttons overlay */}
-      <div className="rotateButtons">
-        <button onClick={rotateCounterClockwise}>⟲</button>
-        <button onClick={rotateClockwise}>⟳</button>
-      </div>
+      {!editable && (
+        <div className="rotateButtons">
+          <button onClick={rotateCounterClockwise}>⟲</button>
+          <button onClick={rotateClockwise}>⟳</button>
+        </div>
+      )}
 
       {/* Optional debug info */}
       <div className="info-panel">
