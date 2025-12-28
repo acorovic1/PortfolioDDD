@@ -2,15 +2,10 @@ import { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
-import type { ArtworkInfoData } from './types/ArtworkInfoData'
+import type { ArtworkInfoData } from '../types/ArtworkInfoData'
 
-import {
-  createPortfolioItem,
-  pickPortfolioPiece,
-  type PortfolioPiece,
-
-} from './PortfolioPiece';
-
+import { pickPortfolioPiece } from '../PortfolioPiece';
+import type { PortfolioPiece } from '../types/PortfolioPiece';
 
 
 
@@ -40,8 +35,8 @@ function Scene3D({
   const controlsRef = useRef<OrbitControls>(null);
   const statsRef = useRef<Stats>(null);
   const artworksRef = useRef<PortfolioPiece[]>([]);
+  const addButtonRef = useRef<PortfolioPiece | null>(null)
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const radiusRef = useRef(3);
 
 
@@ -90,14 +85,11 @@ function Scene3D({
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
-
-
     const controls = new OrbitControls(camera, renderer.domElement);
     controlsRef.current = controls;
 
     const stats = new Stats();
     statsRef.current = stats;
-    //containerRef.current.appendChild(stats.dom);
 
     const light = new THREE.DirectionalLight(0xffffff, 1);
     light.position.set(10, 20, 10);
@@ -106,6 +98,7 @@ function Scene3D({
     const ambient = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambient);
 
+
     const buttonMesh = new THREE.Mesh(
       new THREE.SphereGeometry(1, 16, 16),
       new THREE.MeshBasicMaterial({ color: 0xffff00 })
@@ -113,44 +106,29 @@ function Scene3D({
     buttonMesh.position.set(0, 0, 0);
     let group = new THREE.Group();
     group.add(buttonMesh);
-    scene.add(group);
 
     let emptyArtworkInfo: ArtworkInfoData = {
-      title: 'Add button123',
+      title: 'Add Button',
       description: '',
       tools: [],
       year: '',
       category: '',
-      polyCount: '',
-      renderTime: '',
     };
 
-    artworksRef.current.push({ id: 'addButton', root: group, bounds: new THREE.Box3().setFromObject(group), infoData: emptyArtworkInfo });
-
-
-    console.log(artworksRef.current[0].infoData.title)
-    const onResize = () => {
-      // if (!containerRef.current) return;
-
-      // const width = containerRef.current.clientWidth;
-      // const height = containerRef.current.clientHeight;
-
-      // camera.aspect = width / height;
-      // camera.updateProjectionMatrix();
-      // renderer.setSize(width, height);
+    addButtonRef.current = {
+      id: 'addButton',
+      root: group,
+      bounds: new THREE.Box3().setFromObject(group),
+      infoData: emptyArtworkInfo
     };
-
-    //window.addEventListener('resize', onResize);
-    onResize();
 
     return () => {
-      //  window.removeEventListener('resize', onResize);
-
       renderer.dispose();
       containerRef.current?.removeChild(renderer.domElement);
       containerRef.current?.removeChild(stats.dom);
     };
   }, []);
+
 
   // --- Handle resizes ---
   useEffect(() => {
@@ -228,7 +206,8 @@ function Scene3D({
     const mouse = new THREE.Vector2();
 
     const onClick = async (event: MouseEvent) => {
-      if (!rendererRef.current || !cameraRef.current) return;
+      if (!editable) return;
+      if (!rendererRef.current || !cameraRef.current || !addButtonRef.current) return;
 
       // if (frontIndex !== 0) {
       //   console.log('Click ignored, frontIndex is not 0:', frontIndex);
@@ -241,20 +220,20 @@ function Scene3D({
 
       raycaster.setFromCamera(mouse, cameraRef.current);
 
-      let buttonBounds = artworksRef.current[0].bounds.clone();
-      buttonBounds.applyMatrix4(artworksRef.current[0].root.matrixWorld);
+      let buttonBounds = addButtonRef.current.bounds.clone();
+      buttonBounds.applyMatrix4(addButtonRef.current.root.matrixWorld);
 
       if (!raycaster.ray.intersectsBox(buttonBounds)) return;
 
       const newPiece = await pickPortfolioPiece(sceneRef.current!);
       if (!newPiece) return;
 
-      console.log(newPiece.infoData.title," <--- new object title")
+      console.log(newPiece.infoData.title, " <--- new object title")
 
       // Notify parent component instead of updating local ref
       onArtworkAdd?.(newPiece);
 
-      const portfolioPieces = [...artworksRef.current, newPiece];
+      const portfolioPieces = [addButtonRef.current, ...artworksRef.current, newPiece];
       let bbMax = 0;
 
       portfolioPieces.forEach(piece => {
@@ -269,14 +248,10 @@ function Scene3D({
         const angle = (i / portfolioPieces.length) * Math.PI * 2;
         let position = piece.root.position;
         position.x = -radiusRef.current * Math.sin(angle);
-        position.z = radiusRef.current * Math.cos(angle);
+        position.z = radiusRef.current * (Math.cos(angle) - 1);
       });
 
-      const offset = portfolioPieces[0].root.position.clone();
-      portfolioPieces.forEach((piece) => {
-        piece.root.position.sub(offset);
-      });
-
+      setFrontIndex(artworksRef.current.length);
     };
 
     window.addEventListener('click', onClick);
@@ -284,69 +259,89 @@ function Scene3D({
     return () => {
       window.removeEventListener('click', onClick);
     };
-  }, [frontIndex, onArtworkAdd]);
+  }, [onArtworkAdd]);
 
   // Show/hide button based on editable mode
   useEffect(() => {
     if (!sceneRef.current) return;
 
-    const buttonPiece = artworksRef.current.find(p => p.id === 'addButton');
-    if (!buttonPiece) return;
+
+    if (!addButtonRef.current) return;
 
     if (editable) {
-      // Add button to scene if not already added
-      if (!sceneRef.current.children.includes(buttonPiece.root)) {
-        sceneRef.current.add(buttonPiece.root);
+
+      if (!sceneRef.current.children.includes(addButtonRef.current.root)) {
+        sceneRef.current.add(addButtonRef.current.root);
       }
+      const circlePieces = [addButtonRef.current, ...artworksRef.current];
+
+      circlePieces.forEach((piece, i) => {
+        const angle = (i / circlePieces.length) * Math.PI * 2;
+        let position = piece.root.position;
+        position.x = -radiusRef.current * Math.sin(angle);
+        position.z = radiusRef.current * (Math.cos(angle) - 1);
+      });
+
+
+
     } else {
-      // Remove button from scene
-      sceneRef.current.remove(buttonPiece.root);
+
+      sceneRef.current.remove(addButtonRef.current.root);
+
+      const circlePieces = [...artworksRef.current];
+
+      circlePieces.forEach((piece, i) => {
+        const angle = (i / circlePieces.length) * Math.PI * 2;
+        let position = piece.root.position;
+        position.x = -radiusRef.current * Math.sin(angle);
+        position.z = radiusRef.current * (Math.cos(angle) - 1);
+      });
     }
   }, [editable]);
 
 
   // --- Sync artworks ---
-  useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene) return;
+  // useEffect(() => {
+  //   const scene = sceneRef.current;
+  //   if (!scene) return;
 
 
 
-    // Remove old meshes not in artworks
-    artworksRef.current.forEach((piece, index) => {
-      if (!artworks.find(a => a.id === piece.id) && piece.id !== 'addButton') {
+  //   // Remove old meshes not in artworks
+  //   artworksRef.current.forEach((piece, index) => {
+  //     if (!artworks.find(a => a.id === piece.id) && piece.id !== 'addButton') {
 
-        scene.remove(piece.root);
+  //       scene.remove(piece.root);
 
-        // dispose all geometries and materials inside the group
-        piece.root.traverse((obj) => {
-          if ((obj as THREE.Mesh).geometry) {
-            (obj as THREE.Mesh).geometry.dispose();
-          }
-          if ((obj as THREE.Mesh).material) {
-            const mat = (obj as THREE.Mesh).material;
-            if (Array.isArray(mat)) {
-              mat.forEach(m => m.dispose());
-            } else {
-              mat.dispose();
-            }
-          }
-        });
+  //       // dispose all geometries and materials inside the group
+  //       piece.root.traverse((obj) => {
+  //         if ((obj as THREE.Mesh).geometry) {
+  //           (obj as THREE.Mesh).geometry.dispose();
+  //         }
+  //         if ((obj as THREE.Mesh).material) {
+  //           const mat = (obj as THREE.Mesh).material;
+  //           if (Array.isArray(mat)) {
+  //             mat.forEach(m => m.dispose());
+  //           } else {
+  //             mat.dispose();
+  //           }
+  //         }
+  //       });
 
 
-        artworksRef.current.splice(index, 1);
-      }
-    });
+  //       artworksRef.current.splice(index, 1);
+  //     }
+  //   });
 
-    // Position in circle
-    const pieces = artworksRef.current.map(m => m.root);
-    pieces.forEach((piece, i) => {
-      if (!piece.userData.targetPosition) {
-        const angle = (i / pieces.length) * Math.PI * 2;
-        piece.position.set(radiusRef.current * Math.sin(angle), 0, radiusRef.current * Math.cos(angle));
-      }
-    });
-  }, [artworks]);
+  //   // Position in circle
+  //   const pieces = artworksRef.current.map(m => m.root);
+  //   pieces.forEach((piece, i) => {
+  //     if (!piece.userData.targetPosition) {
+  //       const angle = (i / pieces.length) * Math.PI * 2;
+  //       piece.position.set(radiusRef.current * Math.sin(angle), 0, radiusRef.current * (Math.cos(angle)-1));
+  //     }
+  //   });
+  // }, [artworks]);
 
 
   const rotateCounterClockwise = () => {

@@ -1,71 +1,31 @@
 import { useState, useEffect } from 'react';
-import type { PortfolioPiece } from '../PortfolioPiece';
+import type { PortfolioPiece } from '../types/PortfolioPiece';
 import RenderGallery from './RenderGallery';
 import ArtworkInfo from './ArtworkInfo';
 import '../css/ArtworkShowcase.css';
 import type { ArtworkInfoData } from '../types/ArtworkInfoData';
 
+
 import * as THREE from 'three';
 
 type ArtworkShowcaseProps = {
     artworks: PortfolioPiece[];
-
     selectedIndex: number;
+
     editable?: boolean;
-    onChange?: (next: ArtworkInfoData) => void;
+    onInfoUpdate: <K extends keyof ArtworkInfoData>(key: K, value: ArtworkInfoData[K]) => void;
+
 };
 
 export default function ArtworkShowcase({
     artworks,
     selectedIndex,
+
     editable = false,
-    onChange
+    onInfoUpdate,
+
 
 }: ArtworkShowcaseProps) {
-
-    useEffect(() => {
-        if (selectedArtwork) {
-            setInfoData(selectedArtwork.infoData);
-        } else {
-            setInfoData({
-                title: '',
-                description: '',
-                tools: [],
-                year: '',
-                category: '',
-                polyCount: '',
-                renderTime: '',
-            });
-        }
-        console.log("effect");
-    }, [selectedIndex]);
-
-    const selectedArtwork = artworks[selectedIndex];
-    const [infoData, setInfoData] = useState<ArtworkInfoData>(
-        selectedArtwork?.infoData ?? {
-            title: '',
-            description: '',
-            tools: [],
-            year: '',
-            category: '',
-            polyCount: '',
-            renderTime: '',
-        }
-    );
-
-
-
-    useEffect(() => {
-        if (selectedArtwork) setInfoData(selectedArtwork.infoData);
-    }, [selectedArtwork]);
-
-
-    const update = (key: keyof ArtworkInfoData, value: string | string[]) => {
-        const updated = { ...infoData, [key]: value };
-        setInfoData(updated);
-        onChange?.(updated);
-    };
-
 
 
 
@@ -79,16 +39,6 @@ export default function ArtworkShowcase({
         { id: 6, url: 'https://picsum.photos/seed/render6/800/600', caption: 'Material Test' },
         { id: 7, url: 'https://picsum.photos/seed/render7/800/600', caption: 'HOHO' },
     ];
-
-    const mockInfo = {
-        title: selectedArtwork?.id || 'Untitled Project',
-        description: 'A stunning 3D visualization showcasing advanced modeling techniques and realistic materials. This piece demonstrates proficiency in lighting, composition, and attention to detail.',
-        tools: ['Blender', 'Substance Painter', 'Three.js'],
-        year: '2024',
-        category: '3D Modeling',
-        polyCount: '45,230',
-        renderTime: '2h 15m',
-    };
 
 
     if (artworks.length === 0) {
@@ -112,24 +62,22 @@ export default function ArtworkShowcase({
         );
     }
 
-    const info = infoData;
+    let info = artworks[selectedIndex].infoData;
 
     return (
         <div className="artwork-showcase">
 
             <div className="artwork-title">
-                <h2>{info.title}1</h2>
+
+                <h2>{info.title}</h2>
+                
             </div>
-
-
-
-
 
             <div className="showcase-content">
 
                 <RenderGallery renders={mockRenders} editable={editable} selectedIndex={selectedIndex} />
 
-                <ArtworkInfo info={info} editable={editable} onUpdate={update} />
+                <ArtworkInfo info={info} editable={editable} onUpdate={onInfoUpdate} />
 
             </div>
 

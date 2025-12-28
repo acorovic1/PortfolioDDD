@@ -4,6 +4,4 @@ export type ArtworkInfoData = {
   tools: string[];
   year: string;
   category: string;
-  polyCount: string;
-  renderTime: string;
 };

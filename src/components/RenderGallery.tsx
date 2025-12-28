@@ -10,16 +10,13 @@ type Render = {
     caption: string;
 };
 
-type RenderGalleryProps = {
-    renders: Render[];
-    editable?: boolean;
-};
+
 
 export default function RenderGallery({
     renders,
     editable = false,
     selectedIndex,
-  
+
 }: {
     renders: Render[];
     editable: boolean;
@@ -36,12 +33,12 @@ export default function RenderGallery({
         if (!img) return;
 
         addImage(prev => {
-        const existing = prev[selectedIndex] ?? [];
-        return {
-            ...prev,
-            [selectedIndex]: [...existing, img],
-        };
-    });
+            const existing = prev[selectedIndex] ?? [];
+            return {
+                ...prev,
+                [selectedIndex]: [...existing, img],
+            };
+        });
     };
 
     // const handleAddRender = () => {
@@ -59,7 +56,7 @@ export default function RenderGallery({
     //     input.click();
     // };
 
-    const renderss = images[selectedIndex]??[];
+    const renderss = images[selectedIndex] ?? [];
 
     return (
         <>

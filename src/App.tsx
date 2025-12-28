@@ -1,14 +1,15 @@
 import { useState, useRef } from 'react';
-import Scene3D from './Scene3D';
+import Scene3D from './components/Scene3D';
 import Sidebar from './components/Sidebar';
 import Toolbar from './components/Toolbar';
 import ArtworkShowcase from './components/ArtworkShowcase';
 import type { ProfileData } from './types/ProfileData';
-import type { PortfolioPiece } from './PortfolioPiece';
+import type { PortfolioPiece } from './types/PortfolioPiece';
+import type { ArtworkInfoData } from './types/ArtworkInfoData';
 
 function App() {
   const sceneContainerRef = useRef<HTMLDivElement>(null);
-  
+
   const [profile, setProfile] = useState<ProfileData>({
     avatarUrl: 'public/vite.svg',
     name: 'Dadan Corelli',
@@ -33,7 +34,7 @@ function App() {
     console.log('Search query:', query);
   };
 
-  const handleArtworkAdd = (newArtwork: PortfolioPiece) => {
+  const onArtworkAdd = (newArtwork: PortfolioPiece) => {
     setArtworks(prev => [...prev, newArtwork]);
   };
 
@@ -42,36 +43,57 @@ function App() {
     console.log('Add render to artwork', artworkIndex, renderUrl, caption);
   };
 
+
+  // const [info, setInfo] = useState<ArtworkInfoData>(artworks[selectedArtworkIndex].infoData);
+  const info = artworks[selectedArtworkIndex]?.infoData ?? null;
+
+
+  const onInfoUpdate = (key: keyof ArtworkInfoData, value: string | string[]) => {
+    setArtworks(prev => {
+      const arr = [...prev];
+      arr[selectedArtworkIndex] = {
+        ...arr[selectedArtworkIndex],
+        infoData: {
+          ...arr[selectedArtworkIndex].infoData,
+          [key]: value
+        }
+      };
+      return arr;
+    });
+  };
+
   return (
     <div className="app-layout">
-      <Toolbar 
+      <Toolbar
         onViewModeChange={handleViewModeChange}
         onSearch={handleSearch}
       />
 
       <div className="portfolio">
         <div ref={sceneContainerRef} className="scene">
-          <Scene3D 
+          <Scene3D
             artworks={artworks}
             containerRef={sceneContainerRef}
             onArtworkIndexChange={setSelectedArtworkIndex}
-            onArtworkAdd={handleArtworkAdd}
+            onArtworkAdd={onArtworkAdd}
             editable={editable}
           />
         </div>
 
-        <ArtworkShowcase 
+        
+        <ArtworkShowcase
           artworks={artworks}
           selectedIndex={selectedArtworkIndex}
           editable={editable}
-          
+          onInfoUpdate={onInfoUpdate}
+
         />
       </div>
 
-      <Sidebar 
-        profile={profile} 
+      <Sidebar
+        profile={profile}
         editable={editable}
-        onChange={setProfile} 
+        onChange={setProfile}
       />
     </div>
   );

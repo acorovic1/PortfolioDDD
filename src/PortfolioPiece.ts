@@ -1,15 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { ArtworkInfoData } from './types/ArtworkInfoData'
+import type { PortfolioPiece } from './types/PortfolioPiece'
 import ArtworkInfo from './components/ArtworkInfo';
 
 /* ---- Portfolio item definition ---- */
-export type PortfolioPiece = {
-  id: string;
-  root: THREE.Group;   // logical object
-  bounds: THREE.Box3;  // local-space bounds
-  infoData: ArtworkInfoData;
-};
+
 
 /* ---- Loader ---- */
 const loader = new GLTFLoader();
@@ -39,8 +35,7 @@ export async function createPortfolioItem(
     tools: [],
     year: '',
     category: '',
-    polyCount: '',
-    renderTime: '',
+
   };
 
 

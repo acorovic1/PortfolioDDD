@@ -7,11 +7,20 @@ import type { ArtworkInfoData } from '../types/ArtworkInfoData';
 type ArtworkInfoProps = {
   info: ArtworkInfoData;
   editable: boolean;
-  
-  onUpdate: (key: keyof ArtworkInfoData, value: string | string[]) => void;
+
 };
 
-export default function ArtworkInfo({ info, editable, onUpdate }: ArtworkInfoProps) {
+export default function ArtworkInfo({
+  info,
+  editable,
+  onUpdate
+}: {
+  info: ArtworkInfoData,
+  editable: boolean
+  onUpdate: <K extends keyof ArtworkInfoData>(key: K, value: ArtworkInfoData[K]) => void;
+}) {
+
+
   return (
     <div className="artwork-info">
       <div className="info-section">
@@ -92,31 +101,6 @@ export default function ArtworkInfo({ info, editable, onUpdate }: ArtworkInfoPro
           </div>
         </div>
 
-        <div className="info-card">
-          <span className="info-label">Poly Count</span>
-          {editable ? (
-            <input
-              type="text"
-              value={info.polyCount}
-              onChange={(e) => onUpdate('polyCount', e.target.value)}
-            />
-          ) : (
-            <span className="info-value">{info.polyCount}</span>
-          )}
-        </div>
-
-        <div className="info-card">
-          <span className="info-label">Render Time</span>
-          {editable ? (
-            <input
-              type="text"
-              value={info.renderTime}
-              onChange={(e) => onUpdate('renderTime', e.target.value)}
-            />
-          ) : (
-            <span className="info-value">{info.renderTime}</span>
-          )}
-        </div>
       </div>
     </div>
   );
