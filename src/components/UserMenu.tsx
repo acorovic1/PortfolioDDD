@@ -1,20 +1,50 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const { user, logout } = useAuth();
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to sign out?')) {
+      logout();
+      setIsOpen(false);
+    }
+  };
+
+  if (!user) return null;
+
+  // Get first letter of name for avatar
+  const avatarLetter = user.name.charAt(0).toUpperCase();
 
   return (
-    <div className="user-menu-container">
+    <div className="user-menu-container" ref={menuRef}>
       <button 
         className="user-menu-button"
         onClick={() => setIsOpen(!isOpen)}
         title="User menu"
       >
-        <img 
-          src="https://api.dicebear.com/7.x/avataaars/svg?seed=User" 
-          alt="User" 
-          className="user-avatar-small"
-        />
+        <div className="user-avatar-small">
+          {avatarLetter}
+        </div>
         <svg 
           className={`chevron ${isOpen ? 'open' : ''}`}
           width="16" 
@@ -31,14 +61,13 @@ export default function UserMenu() {
       {isOpen && (
         <div className="user-dropdown">
           <div className="user-dropdown-header">
-            <img 
-              src="https://api.dicebear.com/7.x/avataaars/svg?seed=User" 
-              alt="User" 
-              className="user-avatar-large"
-            />
+            <div className="user-avatar-large">
+              {avatarLetter}
+            </div>
             <div>
-              <p className="user-name">Alex Rivera</p>
-              <p className="user-email">alex@example.com</p>
+              <p className="user-name">{user.name}</p>
+              <p className="user-username">@{user.username}</p>
+              <p className="user-email">{user.email}</p>
             </div>
           </div>
           <div className="user-dropdown-divider"></div>
@@ -64,7 +93,7 @@ export default function UserMenu() {
             <span>Help & Support</span>
           </button>
           <div className="user-dropdown-divider"></div>
-          <button className="user-dropdown-item danger">
+          <button className="user-dropdown-item danger" onClick={handleLogout}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />

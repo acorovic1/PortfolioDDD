@@ -5,7 +5,7 @@ import type { ArtworkInfoData } from './ArtworkInfoData'
 
 
 export type PortfolioImage = {
-  id: number;
+  id: string;
   url: string;
   caption: string;
 };
@@ -18,6 +18,11 @@ export type PortfolioPiece = {
   infoData: ArtworkInfoData;
 
 };
+
+export type PickedPortfolioPieceResult = {
+  piece: PortfolioPiece;
+  file: File;
+}
 
 
 const loader = new GLTFLoader();
@@ -61,7 +66,7 @@ export async function createPortfolioItem(
   };
 }
 
-export async function pickPortfolioPiece(scene: THREE.Scene): Promise<PortfolioPiece | null> {
+export async function pickPortfolioPiece(scene: THREE.Scene): Promise<PickedPortfolioPieceResult | null> {
   const file = await pickPortfolioFile();
   if (!file) return null;
 
@@ -72,7 +77,7 @@ export async function pickPortfolioPiece(scene: THREE.Scene): Promise<PortfolioP
     piece.infoData.title = prompt('Enter title for this model:') || 'Untitled';
 
 
-    return piece;
+    return { piece, file };
   } finally {
     URL.revokeObjectURL(url); // free memory
   }
@@ -97,10 +102,6 @@ function pickPortfolioFile(): Promise<File | null> {
 }
 
 
-
-
-
-
 let nextImageId = 1; // simple numeric ID generator
 
 export async function pickPortfolioImage(): Promise<PortfolioImage | null> {
@@ -111,7 +112,7 @@ export async function pickPortfolioImage(): Promise<PortfolioImage | null> {
   const caption = prompt('Enter caption for this image:') || 'Untitled';
 
   return {
-    id: nextImageId++,
+    id: (nextImageId++).toString(),
     url,
     caption
   };

@@ -227,12 +227,26 @@ function Scene3D({
 
       if (!raycaster.ray.intersectsBox(buttonBounds)) return;
 
-      const newPiece = await pickPortfolioPiece(sceneRef.current!);
-      if (!newPiece) return;
+      const result = await pickPortfolioPiece(sceneRef.current!);
+      if (!result) return;
 
+      const { piece: newPiece, file: newFile } = result;
       console.log(newPiece.infoData.title, " <--- new object title")
 
+      const formData = new FormData();
+      formData.append('model', newFile);
+      formData.append('title', newPiece.infoData.title);
+
+      await fetch('/api/models/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
+
       // Notify parent component instead of updating local ref
+
       onArtworkAdd?.(newPiece);
 
       const portfolioPieces = [addButtonRef.current, ...artworksRef.current, newPiece];

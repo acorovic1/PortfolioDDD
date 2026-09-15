@@ -7,21 +7,22 @@ import type { ProfileData } from './types/ProfileData';
 import type { PortfolioPiece } from './types/PortfolioPiece';
 import type { ArtworkInfoData } from './types/ArtworkInfoData';
 import { pickPortfolioImage } from './types/PortfolioPiece';
+import LoginForm from './components/LoginForm';
+import { useAuth } from './contexts/AuthContext';
+import { usePortfolio } from './hooks/usePortfolio';
+
+
+
+// Znaci... ovaj artworks sada mora biti tipa PortfolioPiece[]... 
+
+// u portfolioPiece razdvoji 3D djavole od slika i infoa.. 
+
 
 function App() {
   const sceneContainerRef = useRef<HTMLDivElement>(null);
 
-  const [profile, setProfile] = useState<ProfileData>({
-    avatarUrl: 'public/vite.svg',
-    name: 'Dadan Corelli',
-    title: '3D Graphics Engineer',
-    email: 'dcorelli1@example.com',
-    github: 'https://github.com/dcorelli1',
-    linkedin: 'https://linkedin.com/in/dcorelli1',
-    bio: 'Passionate about creating immersive 3D experiences. Specializing in WebGL, Three.js, and real-time graphics. Always learning, always building.',
-    skills: ['Three.js', 'WebGL', 'React', 'TypeScript', 'GLSL', 'Blender'],
-    location: 'Vogošća, Bosnia and Herzegovina'
-  });
+  const { user, isLoading } = useAuth();
+  // const { artworks , addArtwork, updateArtwork, addRender, deleteRender } = usePortfolio();
 
   const [editable, setEditable] = useState(false);
   const [selectedArtworkIndex, setSelectedArtworkIndex] = useState(0);
@@ -42,7 +43,8 @@ function App() {
   };
 
   const onArtworkAdd = (newArtwork: PortfolioPiece) => {
-    setArtworks(prev => [...prev, newArtwork]);
+     setArtworks(prev => [...prev, newArtwork]);
+    //addArtwork(newArtwork);
 
   };
 
@@ -70,6 +72,9 @@ function App() {
   };
 
   const onInfoUpdate = (key: keyof ArtworkInfoData, value: string | string[]) => {
+
+    console.log("User artworks: ",artworks?.length)
+
     setArtworks(prev => {
       const arr = [...prev];
       arr[selectedArtworkIndex] = {
@@ -83,42 +88,69 @@ function App() {
     });
   };
 
-  return (
-    <div className="app-layout">
-      <Toolbar
-        onViewModeChange={handleViewModeChange}
-        onSearch={handleSearch}
-      />
 
-      <div className="portfolio">
-        <div ref={sceneContainerRef} className="scene">
-          <Scene3D
+
+    const [profile, setProfile] = useState<ProfileData>({
+    avatarUrl: 'public/vite.svg',
+    name: user?.name || 'Captain Hook',
+    title: '3D Graphics Engineer',
+    email: user?.email || 'chook1@email.com',
+    bio:  'Passionate about creating immersive 3D experiences.',
+    skills:  ['Three.js', 'WebGL', 'React', 'TypeScript'],
+    location:  ''
+  });
+
+
+
+  if (isLoading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginForm />;
+  } else
+
+    return (
+      <div className="app-layout">
+        <Toolbar
+          onViewModeChange={handleViewModeChange}
+          onSearch={handleSearch}
+        />
+
+        <div className="portfolio">
+          <div ref={sceneContainerRef} className="scene">
+            <Scene3D
+              artworks={artworks}
+              containerRef={sceneContainerRef}
+              onArtworkIndexChange={setSelectedArtworkIndex}
+              onArtworkAdd={onArtworkAdd}
+              editable={editable}
+            />
+          </div>
+
+
+          <ArtworkShowcase
             artworks={artworks}
-            containerRef={sceneContainerRef}
-            onArtworkIndexChange={setSelectedArtworkIndex}
-            onArtworkAdd={onArtworkAdd}
+            selectedIndex={selectedArtworkIndex}
             editable={editable}
+            onRenderAdd={onRenderAdd}
+            onInfoUpdate={onInfoUpdate}
+
           />
         </div>
 
-
-        <ArtworkShowcase
-          artworks={artworks}
-          selectedIndex={selectedArtworkIndex}
+        <Sidebar
+          profile={profile}
           editable={editable}
-          onRenderAdd={onRenderAdd}
-          onInfoUpdate={onInfoUpdate}
-
+          onChange={setProfile}
         />
       </div>
-
-      <Sidebar
-        profile={profile}
-        editable={editable}
-        onChange={setProfile}
-      />
-    </div>
-  );
+    );
 }
 
 export default App;
