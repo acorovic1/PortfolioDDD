@@ -5,16 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "start": "nodemon --exec ts-node ./backend/src/server.ts",
+    "start": "nodemon --exec ts-node src/backend/server.ts",
+    "migrate": "ts-node src/backend/db/migrate.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:frontend": "vitest run -c vitest.frontend.config.ts",
+    "test:all": "vitest run && vitest run -c vitest.frontend.config.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
     "mysql": "^2.18.1",
@@ -22,11 +30,17 @@
     "nodemon": "^3.1.11",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^7.18.4",
     "three": "^0.182.0",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.63.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
@@ -36,6 +50,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
+    "@types/supertest": "^7.2.1",
     "@types/three": "^0.182.0",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^5.1.1",
@@ -43,9 +58,12 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "jsdom": "^29.1.1",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^5.0.1"
   }
 }

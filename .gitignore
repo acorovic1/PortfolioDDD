@@ -12,6 +12,18 @@ dist
 dist-ssr
 *.local
 
+# Env
+.env
+
+# Uploads
+uploads
+
+# Playwright
+test-results
+playwright-report
+blob-report
+playwright/.cache
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -22,3 +34,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code
+CLAUDE.md
