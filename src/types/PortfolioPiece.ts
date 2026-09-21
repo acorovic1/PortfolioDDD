@@ -16,6 +16,7 @@ export type PortfolioPiece = {
   bounds: THREE.Box3;  // local-space bounds
   renders: PortfolioImage[];
   infoData: ArtworkInfoData;
+  likeCount: number;
 
 };
 
@@ -43,7 +44,7 @@ export async function createPortfolioItem(
 
   bounds.setFromObject(gltf.scene);
 
-  let emptyArtworkInfo: ArtworkInfoData = {
+  const emptyArtworkInfo: ArtworkInfoData = {
     title: '',
     description: '',
     tools: [],
@@ -52,7 +53,7 @@ export async function createPortfolioItem(
 
   };
 
-  let emptyRenderImages: PortfolioImage[] = [];
+  const emptyRenderImages: PortfolioImage[] = [];
 
 
   scene.add(root);
@@ -63,7 +64,50 @@ export async function createPortfolioItem(
     bounds: bounds,
     infoData: emptyArtworkInfo,
     renders: emptyRenderImages,
+    likeCount: 0,
   };
+}
+
+export type RemoteArtwork = {
+  id: string;
+  title: string;
+  description: string;
+  year: string;
+  category: string;
+  tools: string[];
+  modelUrl: string;
+  renders: { id: string; url: string; caption: string }[];
+  likeCount: number;
+  // Populated by endpoints that can return artworks belonging to anyone
+  // (e.g. resolving a liked-posts or saved-collection list).
+  username?: string;
+};
+
+// Reconstructs a PortfolioPiece from a backend artwork record (used to load a
+// user's previously-saved portfolio into the 3D scene, e.g. after login).
+export async function createPortfolioItemFromRemote(
+  scene: THREE.Scene,
+  apiBaseUrl: string,
+  remote: RemoteArtwork
+): Promise<PortfolioPiece> {
+  const piece = await createPortfolioItem(scene, `${apiBaseUrl}${remote.modelUrl}`);
+
+  piece.id = remote.id;
+  piece.infoData = {
+    title: remote.title,
+    description: remote.description,
+    tools: remote.tools,
+    year: remote.year,
+    category: remote.category,
+  };
+  piece.renders = remote.renders.map(r => ({
+    id: r.id,
+    url: `${apiBaseUrl}${r.url}`,
+    caption: r.caption,
+  }));
+  piece.likeCount = remote.likeCount;
+
+  return piece;
 }
 
 export async function pickPortfolioPiece(scene: THREE.Scene): Promise<PickedPortfolioPieceResult | null> {
@@ -102,9 +146,12 @@ function pickPortfolioFile(): Promise<File | null> {
 }
 
 
-let nextImageId = 1; // simple numeric ID generator
+export type PickedPortfolioImageResult = {
+  image: PortfolioImage;
+  file: File;
+};
 
-export async function pickPortfolioImage(): Promise<PortfolioImage | null> {
+export async function pickPortfolioImage(): Promise<PickedPortfolioImageResult | null> {
   const file = await pickImageFile();
   if (!file) return null;
 
@@ -112,9 +159,12 @@ export async function pickPortfolioImage(): Promise<PortfolioImage | null> {
   const caption = prompt('Enter caption for this image:') || 'Untitled';
 
   return {
-    id: (nextImageId++).toString(),
-    url,
-    caption
+    image: {
+      id: crypto.randomUUID(),
+      url,
+      caption
+    },
+    file
   };
 }
 

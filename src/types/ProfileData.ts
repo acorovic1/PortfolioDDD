@@ -1,6 +1,6 @@
 export type ProfileData = {
+  username: string;
   avatarUrl: string;
-  name: string;
   title: string;
   email: string;
   github?: string;
@@ -9,3 +9,36 @@ export type ProfileData = {
   skills?: string[];
   location?: string;
 };
+
+export type SkillsSectionProps = {
+  profile: ProfileData;
+  editable: boolean;
+  onUpdate: (key: keyof ProfileData, value: string[]) => void;
+};
+
+export type SidebarProps = {
+  profile: ProfileData;
+  editable?: boolean;
+  onChange?: (next: ProfileData) => void;
+  onAvatarUpload?: (file: File) => void;
+};
+
+export type ProfileHeaderProps = {
+  profile: ProfileData;
+  editable: boolean;
+  onUpdate: (key: keyof ProfileData, value: string) => void;
+  onAvatarUpload?: (file: File) => void;
+};
+
+export type BioSectionProps = {
+  profile: ProfileData;
+  editable: boolean;
+  onUpdate: (key: keyof ProfileData, value: string) => void;
+};
+
+export type ContactSectionProps = {
+  profile: ProfileData;
+  editable: boolean;
+  onUpdate: (key: keyof ProfileData, value: string) => void;
+};
+

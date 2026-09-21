@@ -1,0 +1,244 @@
+.render-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+    padding: 0;
+}
+
+.render-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.render-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    border-color: var(--color-accent);
+}
+
+.render-image-container {
+    position: relative;
+    width: 100%;
+    padding-top: 75%;
+    /* 4:3 aspect ratio */
+    overflow: hidden;
+    background: var(--color-bg-alt);
+}
+
+.render-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.render-card:hover .render-image {
+    transform: scale(1.05);
+}
+
+.render-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+    color: var(--color-text);
+}
+
+.render-overlay.visible {
+    opacity: 1;
+}
+
+.render-caption {
+    padding: 16px;
+}
+
+.render-caption p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    justify-content: center;
+    color: var(--color-text);
+}
+
+/* Lightbox */
+.lightbox {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 40px;
+    animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.lightbox-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.lightbox-content img {
+    max-width: 100%;
+    max-height: calc(90vh - 80px);
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+}
+
+.lightbox-caption {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.lightbox-close {
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.lightbox-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+@media (max-width: 600px) {
+    .lightbox {
+        padding: 16px;
+    }
+
+    .lightbox-close {
+        top: -44px;
+        right: 0;
+    }
+
+    .render-gallery {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+
+
+.delete-render-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(220, 38, 38, 0.9);
+    border: none;
+    color: var(--color-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s;
+    z-index: 2;
+}
+
+.delete-render-btn:hover {
+    background: var(--color-danger-hover);
+    transform: scale(1.1);
+}
+
+.render-card:hover .delete-render-btn {
+    opacity: 1;
+}
+
+/* Touch devices have no hover state, so the delete button must stay visible
+   or it's undiscoverable - it would otherwise never appear at all. */
+@media (hover: none) {
+    .delete-render-btn {
+        opacity: 1;
+    }
+}
+
+
+
+.add-render-btn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    max-height: 50px;
+    overflow: hidden;
+    background: linear-gradient(45deg, #8b5cf6, #14b8a6, #b3d228);
+    background-size: 600% 600%;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Subtle animated gradient shimmer */
+.add-render-btn:hover {
+    animation: gradientShift 3s ease infinite;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4), 0 4px 8px rgba(20, 184, 166, 0.3);
+}
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}

@@ -1,15 +1,42 @@
-import { useState, useRef } from 'react';
-import Scene3D from './components/Scene3D';
-import Sidebar from './components/Sidebar';
-import Toolbar from './components/Toolbar';
-import ArtworkShowcase from './components/ArtworkShowcase';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import Scene3D from '@/frontend/components/Scene3D';
+import Sidebar from '@/frontend/components/sidebar/Sidebar';
+import Toolbar from '@/frontend/components/toolbar/Toolbar';
+import ArtworkShowcase from '@/frontend/components/ArtworkShowcase';
+import HomePage from '@/frontend/components/HomePage';
+import LikedPostsPage from '@/frontend/components/LikedPostsPage';
+import MyCommentsPage from '@/frontend/components/MyCommentsPage';
+import SavedPage from '@/frontend/components/SavedPage';
+import SettingsPage from '@/frontend/components/SettingsPage';
+import ResetPasswordPage from '@/frontend/components/ResetPasswordPage';
 import type { ProfileData } from './types/ProfileData';
-import type { PortfolioPiece } from './types/PortfolioPiece';
+import type { PortfolioPiece, RemoteArtwork } from './types/PortfolioPiece';
 import type { ArtworkInfoData } from './types/ArtworkInfoData';
+import type { Comment } from './types/Comment';
+import type { Collection } from './types/Collection';
 import { pickPortfolioImage } from './types/PortfolioPiece';
-import LoginForm from './components/LoginForm';
-import { useAuth } from './contexts/AuthContext';
-import { usePortfolio } from './hooks/usePortfolio';
+import LoginForm from '@/frontend/components/LoginForm';
+import { useAuth } from '@/frontend/hooks/useAuth';
+import { API_BASE_URL } from '@/frontend/config/api';
+import type { User } from '@/frontend/contexts/auth-types';
+
+type Page = 'home' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings';
+
+const PAGE_PATHS: Record<Page, string> = {
+  home: '/',
+  login: '/login',
+  portfolio: '/portfolio',
+  'liked-posts': '/liked-posts',
+  'my-comments': '/my-comments',
+  saved: '/saved',
+  settings: '/settings',
+};
+
+function pageForPath(pathname: string): Page {
+  const entry = Object.entries(PAGE_PATHS).find(([, path]) => path === pathname);
+  return (entry?.[0] as Page) ?? 'home';
+}
 
 
 
@@ -21,12 +48,171 @@ import { usePortfolio } from './hooks/usePortfolio';
 function App() {
   const sceneContainerRef = useRef<HTMLDivElement>(null);
 
-  const { user, isLoading } = useAuth();
-  // const { artworks , addArtwork, updateArtwork, addRender, deleteRender } = usePortfolio();
+  const { user, isLoading, token, updateProfile: updateAuthProfile, uploadAvatar } = useAuth();
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const page = pageForPath(location.pathname);
+  const setPage = (next: Page) => navigate(PAGE_PATHS[next]);
+  const publicProfileMatch = location.pathname.match(/^\/u\/([^/]+)$/);
+  const publicProfileUsername = publicProfileMatch ? decodeURIComponent(publicProfileMatch[1]) : null;
 
   const [editable, setEditable] = useState(false);
   const [selectedArtworkIndex, setSelectedArtworkIndex] = useState(0);
   const [artworks, setArtworks] = useState<PortfolioPiece[]>([]);
+  const [remoteArtworksToLoad, setRemoteArtworksToLoad] = useState<RemoteArtwork[] | null>(null);
+  const [likedArtworkIds, setLikedArtworkIds] = useState<Record<string, boolean>>({});
+  const [commentsByArtwork, setCommentsByArtwork] = useState<Record<string, Comment[]>>({});
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const hasFetchedPortfolioRef = useRef(false);
+  const fetchedCommentsRef = useRef<Set<string>>(new Set());
+
+  // Read-only view of another user's portfolio (/u/:username) - mirrors the
+  // owner's own scene/showcase state above, but hydrated from the public
+  // portfolio API instead of the authenticated user's own artworks.
+  const publicSceneContainerRef = useRef<HTMLDivElement>(null);
+  const [publicProfileUser, setPublicProfileUser] = useState<User | null>(null);
+  const [publicArtworks, setPublicArtworks] = useState<PortfolioPiece[]>([]);
+  const [publicRemoteArtworksToLoad, setPublicRemoteArtworksToLoad] = useState<RemoteArtwork[] | null>(null);
+  const [publicSelectedArtworkIndex, setPublicSelectedArtworkIndex] = useState(0);
+  const [publicProfileError, setPublicProfileError] = useState('');
+
+  useEffect(() => {
+    if (user && page === 'login') {
+      navigate(PAGE_PATHS.portfolio, { replace: true });
+    }
+  }, [user, page, navigate]);
+
+  // Load the user's persisted likes, collections, and their own saved artworks
+  // (reconstructed into the 3D scene via Scene3D's remoteArtworksToLoad prop)
+  // once they're signed in. Guarded to run only once per login, so navigating
+  // between pages doesn't keep re-fetching/re-adding the same artworks.
+  useEffect(() => {
+    if (!user || !token) return;
+
+    fetch(`${API_BASE_URL}/api/portfolio/likes`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => (res.ok ? res.json() : []))
+      .then((ids: string[]) => setLikedArtworkIds(Object.fromEntries(ids.map(id => [id, true]))))
+      .catch(err => console.error('Failed to load likes:', err));
+
+    fetch(`${API_BASE_URL}/api/collections`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => (res.ok ? res.json() : []))
+      .then((data: Collection[]) => setCollections(data))
+      .catch(err => console.error('Failed to load collections:', err));
+
+    if (!hasFetchedPortfolioRef.current) {
+      hasFetchedPortfolioRef.current = true;
+      fetch(`${API_BASE_URL}/api/portfolio`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(res => (res.ok ? res.json() : []))
+        .then((data: RemoteArtwork[]) => setRemoteArtworksToLoad(data))
+        .catch(err => console.error('Failed to load saved artworks:', err));
+    }
+  }, [user, token]);
+
+  // Fetch persisted comments for an artwork the first time it's viewed (comments
+  // are public, no auth needed). Previously comments only ever came from local
+  // optimistic state, so anything posted in an earlier session - or by anyone
+  // else - never showed up.
+  const fetchCommentsForArtwork = (artwork: PortfolioPiece) => {
+    if (fetchedCommentsRef.current.has(artwork.id)) return;
+    fetchedCommentsRef.current.add(artwork.id);
+
+    fetch(`${API_BASE_URL}/api/portfolio/artworks/${artwork.id}/comments`)
+      .then(res => (res.ok ? res.json() : null))
+      .then((serverComments: Comment[] | null) => {
+        if (!serverComments) return;
+        setCommentsByArtwork(prev => {
+          const existing = prev[artwork.id] ?? [];
+          const serverIds = new Set(serverComments.map(c => c.id));
+          // Keep any comment not yet reflected on the server (e.g. one whose
+          // POST is still in flight) instead of dropping it on overwrite.
+          const localOnly = existing.filter(c => !serverIds.has(c.id));
+          return { ...prev, [artwork.id]: [...serverComments, ...localOnly] };
+        });
+      })
+      .catch(err => console.error('Failed to load comments:', err));
+  };
+
+  useEffect(() => {
+    const artwork = artworks[selectedArtworkIndex];
+    if (artwork) fetchCommentsForArtwork(artwork);
+  }, [artworks, selectedArtworkIndex]);
+
+  // Same as above, for the read-only public-profile scene.
+  useEffect(() => {
+    const artwork = publicArtworks[publicSelectedArtworkIndex];
+    if (artwork) fetchCommentsForArtwork(artwork);
+  }, [publicArtworks, publicSelectedArtworkIndex]);
+
+  // Fetch another user's public portfolio when visiting /u/:username, so the
+  // 3D scene can be hydrated the same way the owner's own scene is.
+  useEffect(() => {
+    if (!publicProfileUsername) return;
+
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPublicProfileError('');
+    setPublicProfileUser(null);
+    setPublicArtworks([]);
+    setPublicRemoteArtworksToLoad(null);
+    setPublicSelectedArtworkIndex(0);
+
+    fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(publicProfileUsername)}/portfolio?all=true`)
+      .then(async res => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || 'User not found');
+        }
+        return res.json();
+      })
+      .then((body: { user: User; artworks: RemoteArtwork[] }) => {
+        if (cancelled) return;
+        setPublicProfileUser(body.user);
+        setPublicRemoteArtworksToLoad(body.artworks);
+      })
+      .catch(err => {
+        if (!cancelled) setPublicProfileError(err instanceof Error ? err.message : 'Failed to load profile');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [publicProfileUsername]);
+
+  // Deep-link to a specific artwork on a public profile (e.g. from search),
+  // once that artwork has loaded into the scene.
+  useEffect(() => {
+    if (!publicProfileUsername) return;
+    const highlightId = new URLSearchParams(location.search).get('artwork');
+    if (!highlightId) return;
+    const index = publicArtworks.findIndex(a => a.id === highlightId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (index >= 0) setPublicSelectedArtworkIndex(index);
+  }, [publicArtworks, publicProfileUsername, location.search]);
+
+  // Reset all per-session state when the user logs out, so a different user
+  // logging in afterwards (without a full page reload) gets a clean slate
+  // instead of the previous account's portfolio/likes/collections.
+  useEffect(() => {
+    if (user) return;
+    hasFetchedPortfolioRef.current = false;
+    fetchedCommentsRef.current.clear();
+    // logout() is triggered from other components (e.g. UserMenu) with no
+    // shared callback to hook into, so reacting to `user` becoming null is
+    // the only place this reset can live.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setArtworks([]);
+    setRemoteArtworksToLoad(null);
+    setLikedArtworkIds({});
+    setCommentsByArtwork({});
+    setCollections([]);
+  }, [user]);
 
   const handleViewModeChange = (mode: 'view' | 'edit') => {
     setEditable(mode === 'edit');
@@ -42,63 +228,303 @@ function App() {
     console.log('Search query:', query);
   };
 
+  const goToUserProfile = (username: string) => navigate(`/u/${username}`);
+  const goToArtworkOnProfile = (username: string, artworkId: string) =>
+    navigate(`/u/${username}?artwork=${artworkId}`);
+
   const onArtworkAdd = (newArtwork: PortfolioPiece) => {
      setArtworks(prev => [...prev, newArtwork]);
     //addArtwork(newArtwork);
 
   };
 
-  const onRenderAdd = async () => {
-    const img = await pickPortfolioImage();
-    if (!img) return;
+  const onPublicArtworkAdd = (newArtwork: PortfolioPiece) => {
+    setPublicArtworks(prev => [...prev, newArtwork]);
+  };
 
-    setArtworks(prev => {
-      if (selectedArtworkIndex < 0 || selectedArtworkIndex >= prev.length) {
-        return prev; // safety
+  const onRenderAdd = async () => {
+    const picked = await pickPortfolioImage();
+    if (!picked || selectedArtworkIndex < 0 || selectedArtworkIndex >= artworks.length) return;
+
+    const artwork = artworks[selectedArtworkIndex];
+    const { image, file } = picked;
+
+    if (!token) return;
+
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('caption', image.caption);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/portfolio/artworks/${artwork.id}/renders`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        console.error('Failed to upload render:', res.status);
+        return;
       }
 
-      const updated = [...prev];
+      const saved = await res.json();
+      // Use the backend's persisted render (real URL + id) rather than the
+      // local blob URL, so it's still valid after this session ends.
+      setArtworks(prev => prev.map(a => (
+        a.id === artwork.id ? { ...a, renders: [...a.renders, { id: saved.id, url: `${API_BASE_URL}${saved.url}`, caption: saved.caption }] } : a
+      )));
+    } catch (error) {
+      console.error('Failed to upload render:', error);
+    }
+  };
 
-      updated[selectedArtworkIndex] = {
-        ...updated[selectedArtworkIndex],
-        renders: [
-          ...(updated[selectedArtworkIndex].renders ?? []),
-          img
-        ]
-      };
+  const onDeleteRender = (renderId: string) => {
+    if (selectedArtworkIndex < 0 || selectedArtworkIndex >= artworks.length) return;
+    const artwork = artworks[selectedArtworkIndex];
 
-      return updated;
+    setArtworks(prev => prev.map(a => (
+      a.id === artwork.id ? { ...a, renders: a.renders.filter(r => r.id !== renderId) } : a
+    )));
+
+    if (!token) return;
+    fetch(`${API_BASE_URL}/api/portfolio/artworks/${artwork.id}/renders/${renderId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(err => console.error('Failed to delete render:', err));
+  };
+
+  const onDeleteArtwork = (artworkId: string) => {
+    setArtworks(prev => prev.filter(a => a.id !== artworkId));
+    setSelectedArtworkIndex(0);
+
+    if (!token) return;
+    fetch(`${API_BASE_URL}/api/portfolio/artworks/${artworkId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(err => console.error('Failed to delete artwork:', err));
+  };
+
+  const onToggleLike = (artworkId: string) => {
+    const wasLiked = !!likedArtworkIds[artworkId];
+    setLikedArtworkIds(prev => ({ ...prev, [artworkId]: !wasLiked }));
+
+    const delta = wasLiked ? -1 : 1;
+    const bump = (a: PortfolioPiece) => (a.id === artworkId ? { ...a, likeCount: Math.max(0, a.likeCount + delta) } : a);
+    setArtworks(prev => prev.map(bump));
+    setPublicArtworks(prev => prev.map(bump));
+
+    if (!token) return;
+    fetch(`${API_BASE_URL}/api/portfolio/artworks/${artworkId}/like`, {
+      method: wasLiked ? 'DELETE' : 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(err => console.error('Failed to sync like:', err));
+  };
+
+  const onAddComment = (artworkId: string, text: string) => {
+    if (!user) return;
+
+    const tempId = crypto.randomUUID();
+    const comment: Comment = {
+      id: tempId,
+      author: user.username,
+      text,
+      postedAt: 'Just now',
+      artworkId,
+    };
+
+    setCommentsByArtwork(prev => ({
+      ...prev,
+      [artworkId]: [...(prev[artworkId] ?? []), comment],
+    }));
+
+    if (!token) return;
+
+    const rollback = () => {
+      setCommentsByArtwork(prev => ({
+        ...prev,
+        [artworkId]: (prev[artworkId] ?? []).filter(c => c.id !== tempId),
+      }));
+    };
+
+    fetch(`${API_BASE_URL}/api/portfolio/artworks/${artworkId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ text }),
+    })
+      .then(async res => {
+        if (!res.ok) {
+          console.error('Failed to persist comment: server returned', res.status);
+          rollback();
+          return;
+        }
+
+        // Swap the optimistic temp id/timestamp for the backend's real ones,
+        // so later actions (e.g. deleting this comment) target the right record.
+        const saved: Comment = await res.json();
+        setCommentsByArtwork(prev => ({
+          ...prev,
+          [artworkId]: (prev[artworkId] ?? []).map(c => (c.id === tempId ? saved : c)),
+        }));
+      })
+      .catch(err => {
+        console.error('Failed to persist comment:', err);
+        rollback();
+      });
+  };
+
+  const onDeleteComment = (artworkId: string, commentId: string) => {
+    const previous = commentsByArtwork[artworkId] ?? [];
+    setCommentsByArtwork(prev => ({
+      ...prev,
+      [artworkId]: (prev[artworkId] ?? []).filter(c => c.id !== commentId),
+    }));
+
+    if (!token) return;
+    fetch(`${API_BASE_URL}/api/portfolio/artworks/${artworkId}/comments/${commentId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(res => {
+      if (!res.ok) {
+        console.error('Failed to delete comment: server returned', res.status);
+        setCommentsByArtwork(prev => ({ ...prev, [artworkId]: previous }));
+      }
+    }).catch(err => {
+      console.error('Failed to delete comment:', err);
+      setCommentsByArtwork(prev => ({ ...prev, [artworkId]: previous }));
     });
   };
+
+  const onCreateCollection = (name: string) => {
+    if (!token) return;
+
+    fetch(`${API_BASE_URL}/api/collections`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name }),
+    })
+      .then(res => (res.ok ? res.json() : null))
+      .then((collection: Collection | null) => {
+        if (collection) setCollections(prev => [...prev, collection]);
+      })
+      .catch(err => console.error('Failed to create collection:', err));
+  };
+
+  const onRenameCollection = (collectionId: string, name: string) => {
+    const previousName = collections.find(c => c.id === collectionId)?.name;
+    setCollections(prev => prev.map(c => (c.id === collectionId ? { ...c, name } : c)));
+
+    if (!token) return;
+    fetch(`${API_BASE_URL}/api/collections/${collectionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ name }),
+    }).then(res => {
+      if (!res.ok && previousName !== undefined) {
+        console.error('Failed to rename collection: server returned', res.status);
+        setCollections(prev => prev.map(c => (c.id === collectionId ? { ...c, name: previousName } : c)));
+      }
+    }).catch(err => console.error('Failed to rename collection:', err));
+  };
+
+  const onDeleteCollection = (collectionId: string) => {
+    setCollections(prev => prev.filter(c => c.id !== collectionId));
+
+    if (!token) return;
+    fetch(`${API_BASE_URL}/api/collections/${collectionId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(err => console.error('Failed to delete collection:', err));
+  };
+
+  const onToggleArtworkInCollection = (collectionId: string, artworkId: string) => {
+    const collection = collections.find(c => c.id === collectionId);
+    const wasInCollection = collection?.artworkIds.includes(artworkId) ?? false;
+
+    setCollections(prev => prev.map(c => {
+      if (c.id !== collectionId) return c;
+      return {
+        ...c,
+        artworkIds: wasInCollection
+          ? c.artworkIds.filter(id => id !== artworkId)
+          : [...c.artworkIds, artworkId],
+      };
+    }));
+
+    if (!token) return;
+    fetch(`${API_BASE_URL}/api/collections/${collectionId}/artworks/${artworkId}`, {
+      method: wasInCollection ? 'DELETE' : 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(err => console.error('Failed to sync collection:', err));
+  };
+
+  const goToArtwork = (artworkId: string) => {
+    const index = artworks.findIndex(a => a.id === artworkId);
+    if (index >= 0) setSelectedArtworkIndex(index);
+    setPage('portfolio');
+  };
+
+  // Liked/saved artworks can belong to anyone, not just the current user -
+  // route to the owner's own editable page or the read-only public profile.
+  const goToArtworkAnywhere = (artworkId: string, username: string) => {
+    if (user && username === user.username) {
+      goToArtwork(artworkId);
+    } else {
+      goToArtworkOnProfile(username, artworkId);
+    }
+  };
+
+  const infoUpdateTimeoutRef = useRef<number | null>(null);
 
   const onInfoUpdate = (key: keyof ArtworkInfoData, value: string | string[]) => {
+    if (selectedArtworkIndex < 0 || selectedArtworkIndex >= artworks.length) return;
+    const artwork = artworks[selectedArtworkIndex];
 
-    console.log("User artworks: ",artworks?.length)
+    setArtworks(prev => prev.map(a => (
+      a.id === artwork.id ? { ...a, infoData: { ...a.infoData, [key]: value } } : a
+    )));
 
-    setArtworks(prev => {
-      const arr = [...prev];
-      arr[selectedArtworkIndex] = {
-        ...arr[selectedArtworkIndex],
-        infoData: {
-          ...arr[selectedArtworkIndex].infoData,
-          [key]: value
-        }
-      };
-      return arr;
-    });
+    if (!token) return;
+
+    // Debounce: these fields update on every keystroke, so wait for a pause
+    // before persisting instead of firing a request per character typed.
+    if (infoUpdateTimeoutRef.current) window.clearTimeout(infoUpdateTimeoutRef.current);
+    infoUpdateTimeoutRef.current = window.setTimeout(() => {
+      fetch(`${API_BASE_URL}/api/portfolio/artworks/${artwork.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ [key]: value }),
+      }).catch(err => console.error('Failed to persist artwork info:', err));
+    }, 600);
   };
 
+  // Profile is derived directly from the authenticated user - editing it
+  // calls the backend (via AuthContext) rather than keeping separate local state.
+  const profile: ProfileData = {
+    username: user?.username || '',
+    avatarUrl: user?.avatarUrl ? `${API_BASE_URL}${user.avatarUrl}` : '/vite.svg',
+    title: user?.title || '',
+    email: user?.email || '',
+    github: user?.github || undefined,
+    linkedin: user?.linkedin || undefined,
+    bio: user?.bio || undefined,
+    skills: user?.skills || [],
+    location: user?.location || undefined,
+  };
 
+  const onProfileChange = (next: ProfileData) => {
+    updateAuthProfile({
+      title: next.title,
+      bio: next.bio,
+      location: next.location,
+      github: next.github,
+      linkedin: next.linkedin,
+      skills: next.skills,
+    }).catch(err => console.error('Failed to save profile:', err));
+  };
 
-    const [profile, setProfile] = useState<ProfileData>({
-    avatarUrl: 'public/vite.svg',
-    name: user?.name || 'Captain Hook',
-    title: '3D Graphics Engineer',
-    email: user?.email || 'chook1@email.com',
-    bio:  'Passionate about creating immersive 3D experiences.',
-    skills:  ['Three.js', 'WebGL', 'React', 'TypeScript'],
-    location:  ''
-  });
+  const onAvatarChange = (file: File) => {
+    uploadAvatar(file).catch(err => console.error('Failed to upload avatar:', err));
+  };
 
 
 
@@ -111,15 +537,122 @@ function App() {
     );
   }
 
-  if (!user) {
-    return <LoginForm />;
-  } else
+  const goHome = () => setPage('home');
+  const goToLogin = () => setPage('login');
+  const goToProfile = () => setPage('portfolio');
+  const goToLikedPosts = () => setPage('liked-posts');
+  const goToMyComments = () => setPage('my-comments');
+  const goToSaved = () => setPage('saved');
+  const goToSettings = () => setPage('settings');
 
+  if (location.pathname === '/reset-password') {
+    const resetToken = new URLSearchParams(location.search).get('token') ?? '';
+    return <ResetPasswordPage token={resetToken} onDone={() => navigate(PAGE_PATHS.login, { replace: true })} />;
+  }
+
+  if (publicProfileUsername) {
+    const viewedProfile: ProfileData | null = publicProfileUser ? {
+      username: publicProfileUser.username,
+      avatarUrl: publicProfileUser.avatarUrl ? `${API_BASE_URL}${publicProfileUser.avatarUrl}` : '/vite.svg',
+      title: publicProfileUser.title || '',
+      email: '',
+      github: publicProfileUser.github || undefined,
+      linkedin: publicProfileUser.linkedin || undefined,
+      bio: publicProfileUser.bio || undefined,
+      skills: publicProfileUser.skills || [],
+      location: publicProfileUser.location || undefined,
+    } : null;
+
+    return (
+      <div className="app-layout" key={publicProfileUsername}>
+        <Toolbar
+          onLogoClick={goHome}
+          onLoginClick={goToLogin}
+          onProfileClick={goToProfile}
+          onLikedPostsClick={goToLikedPosts}
+          onMyCommentsClick={goToMyComments}
+          onSavedClick={goToSaved}
+          onSettingsClick={goToSettings}
+          onSelectUser={goToUserProfile}
+          onSelectArtwork={goToArtworkOnProfile}
+          showViewModeToggle={false}
+        />
+
+        {publicProfileError ? (
+          <div className="activity-empty">
+            <h3>Couldn't load this profile</h3>
+            <p>{publicProfileError}</p>
+          </div>
+        ) : (
+          <>
+            <div className="portfolio">
+              <div ref={publicSceneContainerRef} className="scene">
+                <Scene3D
+                  artworks={publicArtworks}
+                  containerRef={publicSceneContainerRef}
+                  onArtworkIndexChange={setPublicSelectedArtworkIndex}
+                  onArtworkAdd={onPublicArtworkAdd}
+                  editable={false}
+                  initialIndex={publicSelectedArtworkIndex}
+                  remoteArtworksToLoad={publicRemoteArtworksToLoad}
+                />
+              </div>
+
+              <ArtworkShowcase
+                artworks={publicArtworks}
+                selectedIndex={publicSelectedArtworkIndex}
+                editable={false}
+                onRenderAdd={() => {}}
+                onDeleteRender={() => {}}
+                onInfoUpdate={() => {}}
+                onDeleteArtwork={() => {}}
+                likedArtworkIds={likedArtworkIds}
+                onToggleLike={onToggleLike}
+                commentsByArtwork={commentsByArtwork}
+                onAddComment={onAddComment}
+                onDeleteComment={onDeleteComment}
+                collections={collections}
+                onToggleArtworkInCollection={onToggleArtworkInCollection}
+                onCreateCollection={onCreateCollection}
+              />
+            </div>
+
+            {viewedProfile && <Sidebar profile={viewedProfile} editable={false} />}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  if (page === 'login' && !user) {
+    return (
+      <div className="app-layout single-column">
+        <Toolbar
+          onLogoClick={goHome}
+          onLoginClick={goToLogin}
+          onProfileClick={goToProfile}
+          showViewModeToggle={false}
+        />
+        <LoginForm />
+      </div>
+    );
+  }
+
+  if (page === 'portfolio' && user) {
     return (
       <div className="app-layout">
         <Toolbar
           onViewModeChange={handleViewModeChange}
           onSearch={handleSearch}
+          onLogoClick={goHome}
+          onLoginClick={goToLogin}
+          onProfileClick={goToProfile}
+          onLikedPostsClick={goToLikedPosts}
+          onMyCommentsClick={goToMyComments}
+          onSavedClick={goToSaved}
+          onSettingsClick={goToSettings}
+          onSelectUser={goToUserProfile}
+          onSelectArtwork={goToArtworkOnProfile}
         />
 
         <div className="portfolio">
@@ -130,6 +663,8 @@ function App() {
               onArtworkIndexChange={setSelectedArtworkIndex}
               onArtworkAdd={onArtworkAdd}
               editable={editable}
+              initialIndex={selectedArtworkIndex}
+              remoteArtworksToLoad={remoteArtworksToLoad}
             />
           </div>
 
@@ -139,7 +674,17 @@ function App() {
             selectedIndex={selectedArtworkIndex}
             editable={editable}
             onRenderAdd={onRenderAdd}
+            onDeleteRender={onDeleteRender}
             onInfoUpdate={onInfoUpdate}
+            onDeleteArtwork={onDeleteArtwork}
+            likedArtworkIds={likedArtworkIds}
+            onToggleLike={onToggleLike}
+            commentsByArtwork={commentsByArtwork}
+            onAddComment={onAddComment}
+            onDeleteComment={onDeleteComment}
+            collections={collections}
+            onToggleArtworkInCollection={onToggleArtworkInCollection}
+            onCreateCollection={onCreateCollection}
 
           />
         </div>
@@ -147,10 +692,123 @@ function App() {
         <Sidebar
           profile={profile}
           editable={editable}
-          onChange={setProfile}
+          onChange={onProfileChange}
+          onAvatarUpload={onAvatarChange}
         />
       </div>
     );
+  }
+
+  if (page === 'liked-posts' && user) {
+    return (
+      <div className="app-layout single-column">
+        <Toolbar
+          onLogoClick={goHome}
+          onLoginClick={goToLogin}
+          onProfileClick={goToProfile}
+          onLikedPostsClick={goToLikedPosts}
+          onMyCommentsClick={goToMyComments}
+          onSavedClick={goToSaved}
+          onSettingsClick={goToSettings}
+          onSelectUser={goToUserProfile}
+          onSelectArtwork={goToArtworkOnProfile}
+          showViewModeToggle={false}
+        />
+        <LikedPostsPage
+          likedArtworkIds={likedArtworkIds}
+          onSelectArtwork={goToArtworkAnywhere}
+        />
+      </div>
+    );
+  }
+
+  if (page === 'my-comments' && user) {
+    return (
+      <div className="app-layout single-column">
+        <Toolbar
+          onLogoClick={goHome}
+          onLoginClick={goToLogin}
+          onProfileClick={goToProfile}
+          onLikedPostsClick={goToLikedPosts}
+          onMyCommentsClick={goToMyComments}
+          onSavedClick={goToSaved}
+          onSettingsClick={goToSettings}
+          onSelectUser={goToUserProfile}
+          onSelectArtwork={goToArtworkOnProfile}
+          showViewModeToggle={false}
+        />
+        <MyCommentsPage
+          commentsByArtwork={commentsByArtwork}
+          currentUserName={user.username}
+          onSelectArtwork={goToArtworkAnywhere}
+        />
+      </div>
+    );
+  }
+
+  if (page === 'saved' && user) {
+    return (
+      <div className="app-layout single-column">
+        <Toolbar
+          onLogoClick={goHome}
+          onLoginClick={goToLogin}
+          onProfileClick={goToProfile}
+          onLikedPostsClick={goToLikedPosts}
+          onMyCommentsClick={goToMyComments}
+          onSavedClick={goToSaved}
+          onSettingsClick={goToSettings}
+          onSelectUser={goToUserProfile}
+          onSelectArtwork={goToArtworkOnProfile}
+          showViewModeToggle={false}
+        />
+        <SavedPage
+          collections={collections}
+          onCreateCollection={onCreateCollection}
+          onRenameCollection={onRenameCollection}
+          onDeleteCollection={onDeleteCollection}
+          onSelectArtwork={goToArtworkAnywhere}
+        />
+      </div>
+    );
+  }
+
+  if (page === 'settings' && user) {
+    return (
+      <div className="app-layout single-column">
+        <Toolbar
+          onLogoClick={goHome}
+          onLoginClick={goToLogin}
+          onProfileClick={goToProfile}
+          onLikedPostsClick={goToLikedPosts}
+          onMyCommentsClick={goToMyComments}
+          onSavedClick={goToSaved}
+          onSettingsClick={goToSettings}
+          onSelectUser={goToUserProfile}
+          onSelectArtwork={goToArtworkOnProfile}
+          showViewModeToggle={false}
+        />
+        <SettingsPage />
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-layout single-column">
+      <Toolbar
+        onLogoClick={goHome}
+        onLoginClick={goToLogin}
+        onProfileClick={goToProfile}
+        onLikedPostsClick={goToLikedPosts}
+        onMyCommentsClick={goToMyComments}
+        onSavedClick={goToSaved}
+        onSettingsClick={goToSettings}
+        onSelectUser={goToUserProfile}
+        onSelectArtwork={goToArtworkOnProfile}
+        showViewModeToggle={false}
+      />
+      <HomePage />
+    </div>
+  );
 }
 
 export default App;
