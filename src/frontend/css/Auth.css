@@ -3,7 +3,7 @@
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+    background: linear-gradient(135deg, var(--color-bg-alt) 0%, var(--color-surface) 100%);
     padding: 20px;
 }
 
@@ -11,8 +11,8 @@
     width: 100%;
     
     max-width: 460px;
-    background: #1a1a1a;
-    border: 1px solid #333;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 20px;
     padding: 0px 40px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
@@ -54,8 +54,8 @@
     text-align: center;
     font-size: 28px;
     font-weight: 700;
-    color: white;
-    background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
+    color: var(--color-text);
+    background: linear-gradient(135deg, var(--color-text) 0%, var(--color-text-secondary) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -66,8 +66,8 @@
     text-align: center;
     font-size: 20px;
     font-weight: 700;
-    color: white;
-    background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
+    color: var(--color-text);
+    background: linear-gradient(135deg, var(--color-text) 0%, var(--color-text-secondary) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -92,17 +92,17 @@
 .form-group label {
     font-size: 14px;
     font-weight: 600;
-    color: #ccc;
+    color: var(--color-text);
 }
 
 /*  hoop */
 .form-group input {
     width: 100%;
     padding: 8px 0px;
-    background: #252525;
-    border: 2px solid #333;
+    background: var(--color-surface-hover);
+    border: 2px solid var(--color-border);
     border-radius: 10px;
-    color: white;
+    color: var(--color-text);
     font-size: 15px;
     transition: all 0.2s;
 }
@@ -110,19 +110,19 @@
 .form-group input:focus {
     padding-left: 2%;
     outline: none;
-    border-color: #2563eb;
-    background: #2a2a2a;
+    border-color: var(--color-accent);
+    background: var(--color-border-subtle);
     box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
 }
 
 .form-group input::placeholder {
     padding-left: 2%;
-    color: #555;
+    color: var(--color-border-strong);
 }
 
 .field-hint {
     font-size: 12px;
-    color: #666;
+    color: var(--color-text-faint);
     /* margin-top: 8px; */
     margin-left: 2%;
 }
@@ -133,9 +133,9 @@
     gap: 10px;
     padding: 14px 16px;
     background: rgba(220, 38, 38, 0.1);
-    border: 1px solid #dc2626;
+    border: 1px solid var(--color-danger-hover);
     border-radius: 10px;
-    color: #ef4444;
+    color: var(--color-danger);
     font-size: 14px;
 }
 
@@ -146,10 +146,10 @@
 .auth-submit-btn {
     width: 100%;
     padding: 16px;
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
     border: none;
     border-radius: 10px;
-    color: white;
+    color: var(--color-text);
     font-size: 16px;
     font-weight: 700;
     cursor: pointer;
@@ -161,7 +161,7 @@
 }
 
 .auth-submit-btn:hover:not(:disabled) {
-    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+    background: linear-gradient(135deg, var(--color-accent-hover) 0%, #1e40af 100%);
     transform: translateY(-2px);
     box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
 }
@@ -180,7 +180,7 @@
     width: 16px;
     height: 16px;
     border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: white;
+    border-top-color: var(--color-text);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
 }
@@ -204,15 +204,15 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: #333;
+    background: var(--color-border);
 }
 
 .auth-divider span {
     position: relative;
     display: inline-block;
     padding: 0 16px;
-    background: #1a1a1a;
-    color: #666;
+    background: var(--color-surface);
+    color: var(--color-text-faint);
     font-size: 13px;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -228,13 +228,13 @@
 
     margin-right: 3%;
     font-size: 14px;
-    color: #888;
+    color: var(--color-text-secondary);
 }
 
 .toggle-btn {
     background: none;
     border: none;
-    color: #2563eb;
+    color: var(--color-accent);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
@@ -244,8 +244,14 @@
 }
 
 .toggle-btn:hover {
-    color: #1d4ed8;
+    color: var(--color-accent-hover);
     text-decoration: underline;
+}
+
+.forgot-password-link {
+    align-self: flex-end;
+    font-size: 13px;
+    margin-top: -8px;
 }
 
 /* Responsive */
