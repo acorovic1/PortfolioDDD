@@ -1,0 +1,16 @@
+{
+  "scenes" : [ { "nodes" : [ 0 ] } ],
+  "nodes" : [ { "mesh" : 0 } ],
+  "meshes" : [ { "primitives" : [ { "attributes" : { "POSITION" : 1 }, "indices" : 0, "material": 0 } ] } ],
+  "materials": [ { "name": "Blue", "pbrMetallicRoughness": { "baseColorFactor": [0, 0.3, 1, 1] } } ],
+  "buffers" : [ { "uri" : "data:application/octet-stream;base64,AAABAAIAAAACAAMAAAADAAEAAQADAAIAAAAAAM3MTD8AAAAAMzMzv83MzL4zMzM/MzMzP83MzL4zMzM/AAAAAM3MzL6kcH2/", "byteLength" : 72 } ],
+  "bufferViews" : [
+    { "buffer" : 0, "byteOffset" : 0, "byteLength" : 24, "target" : 34963 },
+    { "buffer" : 0, "byteOffset" : 24, "byteLength" : 48, "target" : 34962 }
+  ],
+  "accessors" : [
+    { "bufferView" : 0, "byteOffset" : 0, "componentType" : 5123, "count" : 12, "type" : "SCALAR", "max" : [ 3 ], "min" : [ 0 ] },
+    { "bufferView" : 1, "byteOffset" : 0, "componentType" : 5126, "count" : 4, "type" : "VEC3", "max" : [ 0.7, 0.8, 0.7 ], "min" : [ -0.7, -0.4, -0.99 ] }
+  ],
+  "asset" : { "version" : "2.0" }
+}
