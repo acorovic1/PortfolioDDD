@@ -21,7 +21,7 @@ export async function registerTestUser(overrides: { username?: string; email?: s
 
 export async function deleteTestUsers(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
-  await pool.query('DELETE FROM users WHERE id IN (?)', [ids]);
+  await pool.query('DELETE FROM users WHERE id = ANY($1)', [ids]);
 }
 
 export async function closePool(): Promise<void> {

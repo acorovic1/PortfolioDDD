@@ -1,6 +1,5 @@
 import { pool } from '../config/db.ts';
 import type { RenderRecord, RenderDTO } from '../types.ts';
-import type { RowDataPacket, ResultSetHeader } from 'mysql2';
 
 export function toRenderDTO(row: RenderRecord): RenderDTO {
   return {
@@ -12,8 +11,8 @@ export function toRenderDTO(row: RenderRecord): RenderDTO {
 }
 
 export async function findRendersByArtworkId(artworkId: string): Promise<RenderRecord[]> {
-  const [rows] = await pool.query<(RenderRecord & RowDataPacket)[]>(
-    'SELECT * FROM renders WHERE artwork_id = ? ORDER BY created_at ASC',
+  const { rows } = await pool.query<RenderRecord>(
+    'SELECT * FROM renders WHERE artwork_id = $1 ORDER BY created_at ASC',
     [artworkId]
   );
   return rows;
@@ -23,8 +22,8 @@ export async function findRendersByArtworkIds(artworkIds: string[]): Promise<Map
   const byArtwork = new Map<string, RenderRecord[]>();
   if (artworkIds.length === 0) return byArtwork;
 
-  const [rows] = await pool.query<(RenderRecord & RowDataPacket)[]>(
-    `SELECT * FROM renders WHERE artwork_id IN (?) ORDER BY created_at ASC`,
+  const { rows } = await pool.query<RenderRecord>(
+    `SELECT * FROM renders WHERE artwork_id = ANY($1) ORDER BY created_at ASC`,
     [artworkIds]
   );
   for (const row of rows) {
@@ -41,16 +40,16 @@ export async function createRender(render: {
   url: string;
   caption: string;
 }): Promise<void> {
-  await pool.query<ResultSetHeader>(
-    `INSERT INTO renders (id, artwork_id, url, caption) VALUES (?, ?, ?, ?)`,
+  await pool.query(
+    `INSERT INTO renders (id, artwork_id, url, caption) VALUES ($1, $2, $3, $4)`,
     [render.id, render.artworkId, render.url, render.caption]
   );
 }
 
 export async function deleteRender(id: string, artworkId: string): Promise<boolean> {
-  const [result] = await pool.query<ResultSetHeader>(
-    'DELETE FROM renders WHERE id = ? AND artwork_id = ?',
+  const result = await pool.query(
+    'DELETE FROM renders WHERE id = $1 AND artwork_id = $2',
     [id, artworkId]
   );
-  return result.affectedRows > 0;
+  return (result.rowCount ?? 0) > 0;
 }

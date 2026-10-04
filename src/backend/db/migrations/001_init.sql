@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
   location VARCHAR(255) NULL,
   github VARCHAR(255) NULL,
   linkedin VARCHAR(255) NULL,
-  skills JSON NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  skills JSONB NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS artworks (
@@ -21,10 +21,11 @@ CREATE TABLE IF NOT EXISTS artworks (
   description TEXT NULL,
   year VARCHAR(16) NULL,
   category VARCHAR(128) NULL,
-  tools JSON NULL,
+  tools JSONB NULL,
   model_path VARCHAR(512) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- Postgres has no ON UPDATE CURRENT_TIMESTAMP; updateArtwork() sets this explicitly.
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT fk_artworks_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -33,7 +34,7 @@ CREATE TABLE IF NOT EXISTS renders (
   artwork_id CHAR(36) NOT NULL,
   url VARCHAR(512) NOT NULL,
   caption VARCHAR(255) NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT fk_renders_artwork FOREIGN KEY (artwork_id) REFERENCES artworks(id) ON DELETE CASCADE
 );
 
@@ -41,14 +42,14 @@ CREATE TABLE IF NOT EXISTS collections (
   id CHAR(36) PRIMARY KEY,
   user_id CHAR(36) NOT NULL,
   name VARCHAR(255) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT fk_collections_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS collection_artworks (
   collection_id CHAR(36) NOT NULL,
   artwork_id CHAR(36) NOT NULL,
-  added_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  added_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (collection_id, artwork_id),
   CONSTRAINT fk_ca_collection FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
   CONSTRAINT fk_ca_artwork FOREIGN KEY (artwork_id) REFERENCES artworks(id) ON DELETE CASCADE
@@ -59,12 +60,12 @@ CREATE TABLE IF NOT EXISTS comments (
   artwork_id CHAR(36) NOT NULL,
   user_id CHAR(36) NOT NULL,
   text TEXT NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT fk_comments_artwork FOREIGN KEY (artwork_id) REFERENCES artworks(id) ON DELETE CASCADE,
   CONSTRAINT fk_comments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_artworks_user_id ON artworks(user_id);
-CREATE INDEX idx_renders_artwork_id ON renders(artwork_id);
-CREATE INDEX idx_collections_user_id ON collections(user_id);
-CREATE INDEX idx_comments_artwork_id ON comments(artwork_id);
+CREATE INDEX IF NOT EXISTS idx_artworks_user_id ON artworks(user_id);
+CREATE INDEX IF NOT EXISTS idx_renders_artwork_id ON renders(artwork_id);
+CREATE INDEX IF NOT EXISTS idx_collections_user_id ON collections(user_id);
+CREATE INDEX IF NOT EXISTS idx_comments_artwork_id ON comments(artwork_id);

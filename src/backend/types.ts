@@ -115,7 +115,7 @@ export interface NotificationRecord {
   type: string;
   message: string;
   artwork_id: string | null;
-  is_read: number;
+  is_read: boolean;
   created_at: string;
 }
 
