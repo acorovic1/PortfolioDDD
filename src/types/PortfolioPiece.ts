@@ -17,7 +17,8 @@ export type PortfolioPiece = {
   renders: PortfolioImage[];
   infoData: ArtworkInfoData;
   likeCount: number;
-
+  // Animation clips shipped with the model (played back in the inspector).
+  animations: THREE.AnimationClip[];
 };
 
 export type PickedPortfolioPieceResult = {
@@ -34,6 +35,16 @@ export async function createPortfolioItem(
 ): Promise<PortfolioPiece> {
 
   const gltf = await loader.loadAsync(path);
+
+  // glTF allows omitting normals (clients then shade flat - GLTFLoader turns
+  // on flatShading for those). Normal-based rendering such as the inspector's
+  // matcap/normals views and ambient occlusion still needs the attribute.
+  gltf.scene.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (mesh.isMesh && !mesh.geometry.attributes.normal) {
+      mesh.geometry.computeVertexNormals();
+    }
+  });
 
   const root = new THREE.Group();
   root.add(gltf.scene);
@@ -65,6 +76,7 @@ export async function createPortfolioItem(
     infoData: emptyArtworkInfo,
     renders: emptyRenderImages,
     likeCount: 0,
+    animations: gltf.animations,
   };
 }
 

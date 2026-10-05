@@ -12,7 +12,10 @@ import {
   type PortfolioImage,
   type RemoteArtwork,
 } from '@/types/PortfolioPiece';
-import { FocusIcon } from '@/frontend/svg/Icons';
+import { FocusIcon, CubeIcon } from '@/frontend/svg/Icons';
+import InspectorPanel from '@/frontend/components/InspectorPanel';
+import { ModelInspector } from '@/frontend/inspector/ModelInspector';
+import { PostProcessing, DEFAULT_POST_SETTINGS, type PostSettings } from '@/frontend/inspector/PostProcessing';
 import { API_BASE_URL } from '@/frontend/config/api';
 import { uploadWithProgress } from '@/frontend/utils/uploadWithProgress';
 
@@ -30,6 +33,36 @@ function countVertices(piece?: PortfolioPiece): number {
 
 function easeInOutQuad(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+// The model currently opened in the inspector (focus mode).
+type FocusSession = {
+  piece: PortfolioPiece;
+  inspector: ModelInspector;
+  // Camera viewing direction when focus began - "reset camera" returns to it.
+  entryDirection: THREE.Vector3;
+};
+
+function modelSize(piece: PortfolioPiece): number {
+  return piece.bounds.getSize(new THREE.Vector3()).length();
+}
+
+// Camera distance at which the whole model fits the view with a little margin.
+function inspectionDistance(piece: PortfolioPiece, camera: THREE.PerspectiveCamera): number {
+  const radius = Math.max(modelSize(piece) / 2, 0.01);
+  return radius / Math.sin(THREE.MathUtils.degToRad(camera.fov) / 2);
+}
+
+const DEFAULT_CAMERA_NEAR = 0.1;
+const DEFAULT_CAMERA_FAR = 1000;
+
+// Fit the clipping planes to the model while inspecting it: depth precision
+// with a fixed 0.1-1000 range is too coarse for very large or very small
+// models, which breaks depth-based effects like ambient occlusion.
+function fitCameraClipping(camera: THREE.PerspectiveCamera, distance: number): void {
+  camera.near = distance / 100;
+  camera.far = distance * 100;
+  camera.updateProjectionMatrix();
 }
 
 type FocusAnimation = {
@@ -76,6 +109,16 @@ function Scene3D({
   const radiusRef = useRef(3);
   const focusAnimationRef = useRef<FocusAnimation | null>(null);
 
+  // Focus/inspector mode: the selected model is isolated, framed by the
+  // camera and opened in the inspector panel; the carousel stays intact.
+  const focusRef = useRef<FocusSession | null>(null);
+  const postRef = useRef<PostProcessing | null>(null);
+  const postSettingsRef = useRef<PostSettings>(DEFAULT_POST_SETTINGS);
+  const [focus, setFocus] = useState<FocusSession | null>(null);
+  const [postSettings, setPostSettings] = useState<PostSettings>(DEFAULT_POST_SETTINGS);
+  const [autoRotate, setAutoRotate] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
 
   const [frontIndex, setFrontIndex] = useState(initialIndex);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
@@ -96,6 +139,13 @@ function Scene3D({
       }
     });
 
+    // Leave the inspector first if its artwork is the one being removed, so
+    // its material swaps are undone before the materials get disposed.
+    const focused = focusRef.current;
+    if (focused && !artworks.some(a => a.id === focused.piece.id)) {
+      exitFocus();
+    }
+
     // Detach and dispose artworks that were removed (e.g. deleted by the user),
     // so they stop rendering and don't leak GPU resources.
     const scene = sceneRef.current;
@@ -112,6 +162,8 @@ function Scene3D({
       });
       return false;
     });
+    // exitFocus only goes through refs/setters, so it never goes stale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artworks]);
 
   // Load artworks the user already saved previously (e.g. right after login),
@@ -132,6 +184,7 @@ function Scene3D({
           const piece = await createPortfolioItemFromRemote(scene, API_BASE_URL, remote);
           if (cancelled) return;
 
+          piece.root.visible = !focusRef.current;
           artworksRef.current.push(piece);
 
           const pieces = artworksRef.current;
@@ -186,8 +239,8 @@ function Scene3D({
     const camera = new THREE.PerspectiveCamera(
       45,
       clientWidth / clientHeight,
-      0.1,
-      1000
+      DEFAULT_CAMERA_NEAR,
+      DEFAULT_CAMERA_FAR
     );
     camera.position.y = 0;
     camera.position.z = 20;
@@ -232,7 +285,8 @@ function Scene3D({
       bounds: new THREE.Box3().setFromObject(group),
       infoData: emptyArtworkInfo,
       renders: renders,
-      likeCount: 0
+      likeCount: 0,
+      animations: [],
     };
 
     // Re-attach artworks that already existed before this mount (e.g. the
@@ -254,6 +308,17 @@ function Scene3D({
     }
 
     return () => {
+      // Pieces outlive this scene (they're kept in React state), so a focused
+      // one must get its materials/visibility restored before unmounting.
+      focusRef.current?.inspector.dispose();
+      focusRef.current = null;
+      artworksRef.current.forEach(piece => {
+        piece.root.visible = true;
+      });
+      postRef.current?.dispose();
+      postRef.current = null;
+      controls.dispose();
+
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -292,6 +357,7 @@ function Scene3D({
             cameraRef.current.aspect = width / height;
             cameraRef.current.updateProjectionMatrix();
             rendererRef.current.setSize(width, height);
+            postRef.current?.setSize(width, height);
           }
         }
       }, 16); // ~60fps
@@ -355,9 +421,12 @@ function Scene3D({
   // --- Animation loop ---
   useEffect(() => {
     let frameId: number;
+    const clock = new THREE.Clock();
 
     const animate = () => {
+      const delta = clock.getDelta();
       statsRef.current?.update();
+      focusRef.current?.inspector.update(delta);
       //controls.update();
 
       // Animate meshes toward target positions
@@ -390,9 +459,14 @@ function Scene3D({
         if (t >= 1) {
           focusAnimationRef.current = null;
         }
+      } else if (controlsRef.current?.autoRotate) {
+        controlsRef.current.update(delta);
       }
 
-      if (sceneRef.current && cameraRef.current) {
+      const post = postRef.current;
+      if (focusRef.current && post?.usesComposer) {
+        post.render();
+      } else if (sceneRef.current && cameraRef.current) {
         rendererRef.current?.render(sceneRef.current, cameraRef.current);
       }
       frameId = requestAnimationFrame(animate);
@@ -408,7 +482,12 @@ function Scene3D({
   // scaled to its size, over ~1s, keeping the current viewing angle.
   // Uses the piece's pending targetPosition (if it's mid-rotation) so the
   // camera arrives together with the object, otherwise its current position.
-  const startFocusAnimation = (piece: PortfolioPiece) => {
+  // `options` overrides the framing - the inspector frames the model tightly
+  // and "reset camera" restores a specific viewing direction.
+  const startFocusAnimation = (
+    piece: PortfolioPiece,
+    options: { distance?: number; direction?: THREE.Vector3 } = {}
+  ) => {
     const camera = cameraRef.current;
     const controls = controlsRef.current;
     if (!camera || !controls) return;
@@ -417,10 +496,9 @@ function Scene3D({
       (piece.root.userData.targetPosition as THREE.Vector3 | undefined)?.clone()
       ?? piece.root.position.clone();
 
-    const size = piece.bounds.getSize(new THREE.Vector3()).length();
-    const distance = Math.max(6, size * 1.8);
+    const distance = options.distance ?? Math.max(6, modelSize(piece) * 1.8);
 
-    const direction = camera.position.clone().sub(controls.target);
+    const direction = options.direction?.clone() ?? camera.position.clone().sub(controls.target);
     if (direction.lengthSq() === 0) direction.set(0, 0, 1);
     direction.normalize().multiplyScalar(distance);
 
@@ -455,6 +533,175 @@ function Scene3D({
     setFrontIndex(index);
     startFocusAnimation(meshes[index]);
   };
+
+  // --- Focus / inspector mode ---
+
+  // Isolates `piece`, frames it and opens it in the inspector. Only uses refs
+  // and state setters, so it's safe to call from long-lived event listeners.
+  const enterFocus = (piece: PortfolioPiece) => {
+    const renderer = rendererRef.current;
+    const scene = sceneRef.current;
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (focusRef.current || !renderer || !scene || !camera || !controls) return;
+
+    artworksRef.current.forEach(p => {
+      p.root.visible = p === piece;
+    });
+    if (addButtonRef.current) addButtonRef.current.root.visible = false;
+
+    if (!postRef.current) postRef.current = new PostProcessing(renderer, scene, camera);
+    postRef.current.apply(postSettingsRef.current, modelSize(piece));
+
+    const direction = camera.position.clone().sub(controls.target);
+    if (direction.lengthSq() === 0) direction.set(0, 0, 1);
+
+    fitCameraClipping(camera, inspectionDistance(piece, camera));
+
+    const session: FocusSession = {
+      piece,
+      inspector: new ModelInspector(piece.root, piece.animations, piece.bounds),
+      entryDirection: direction.normalize(),
+    };
+    focusRef.current = session;
+    setFocus(session);
+
+    startFocusAnimation(piece, { distance: inspectionDistance(piece, camera), direction: session.entryDirection });
+  };
+
+  const exitFocus = () => {
+    const session = focusRef.current;
+    if (!session) return;
+
+    session.inspector.dispose();
+    focusRef.current = null;
+    setFocus(null);
+
+    artworksRef.current.forEach(p => {
+      p.root.visible = true;
+    });
+    if (addButtonRef.current) addButtonRef.current.root.visible = true;
+    postRef.current?.reset();
+
+    if (controlsRef.current) controlsRef.current.autoRotate = false;
+    setAutoRotate(false);
+
+    const camera = cameraRef.current;
+    if (camera) {
+      camera.near = DEFAULT_CAMERA_NEAR;
+      camera.far = DEFAULT_CAMERA_FAR;
+      camera.updateProjectionMatrix();
+    }
+
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+
+    // Back out to the regular carousel framing (if the piece still exists).
+    if (artworksRef.current.includes(session.piece)) {
+      startFocusAnimation(session.piece);
+    }
+  };
+
+  const inspectFrontArtwork = () => {
+    const frontId = getCurrentFrontPieceId();
+    const piece = artworksRef.current.find(p => p.id === frontId);
+    if (piece) enterFocus(piece);
+  };
+
+  const handlePostSettingsChange = (settings: PostSettings) => {
+    postSettingsRef.current = settings;
+    setPostSettings(settings);
+    const session = focusRef.current;
+    if (session) postRef.current?.apply(settings, modelSize(session.piece));
+  };
+
+  const toggleAutoRotate = () => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    controls.autoRotate = !controls.autoRotate;
+    controls.autoRotateSpeed = 1.5;
+    setAutoRotate(controls.autoRotate);
+  };
+
+  const resetInspectorCamera = () => {
+    const session = focusRef.current;
+    const camera = cameraRef.current;
+    if (!session || !camera) return;
+    startFocusAnimation(session.piece, {
+      distance: inspectionDistance(session.piece, camera),
+      direction: session.entryDirection,
+    });
+  };
+
+  const toggleFullscreen = () => {
+    const container = containerRef.current;
+    if (!container) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      container.requestFullscreen().catch(err => console.error('Fullscreen request failed:', err));
+    }
+  };
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement === containerRef.current);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, [containerRef]);
+
+  // Esc leaves the inspector (the browser handles Esc for fullscreen itself).
+  useEffect(() => {
+    if (!focus) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !document.fullscreenElement) exitFocus();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
+
+  // Double-clicking the front model opens it in the inspector; double-clicking
+  // any other model rotates the carousel to it first.
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer) return;
+    const canvas = renderer.domElement;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+
+    const onDoubleClick = (event: MouseEvent) => {
+      const camera = cameraRef.current;
+      if (focusRef.current || !camera) return;
+
+      const rect = canvas.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+
+      const pieces = artworksRef.current;
+      const [hit] = raycaster.intersectObjects(pieces.map(p => p.root), true);
+      if (!hit) return;
+
+      const index = pieces.findIndex(p => {
+        let node: THREE.Object3D | null = hit.object;
+        while (node && node !== p.root) node = node.parent;
+        return node === p.root;
+      });
+      if (index === -1) return;
+
+      if (pieces[index].id === getCurrentFrontPieceId()) {
+        enterFocus(pieces[index]);
+      } else {
+        goToIndex(index);
+      }
+    };
+
+    canvas.addEventListener('dblclick', onDoubleClick);
+    return () => canvas.removeEventListener('dblclick', onDoubleClick);
+    // Handlers only go through refs/setters, so binding once is enough.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Which piece is actually front-and-center right now, read from the scene
   // itself rather than the `frontIndex` bookkeeping - the remote-load effect
@@ -503,7 +750,7 @@ function Scene3D({
     const mouse = new THREE.Vector2();
 
     const onClick = async (event: MouseEvent) => {
-      if (!editable) return;
+      if (!editable || focusRef.current) return;
       if (!rendererRef.current || !cameraRef.current || !addButtonRef.current) return;
 
       // if (frontIndex !== 0) {
@@ -611,6 +858,7 @@ function Scene3D({
       }
       // Add button is fixed at the center, excluded from the rotating circle.
       addButtonRef.current.root.position.set(0, 0, 0);
+      addButtonRef.current.root.visible = !focusRef.current;
     } else {
       sceneRef.current.remove(addButtonRef.current.root);
     }
@@ -687,20 +935,48 @@ function Scene3D({
     <>
       {/* <div ref={containerRef} style={{ width: '100%', height: '100%' }} /> */}
 
-      {/* Rotate buttons overlay */}
-      <div className="rotateButtons">
-        <button onClick={rotateCounterClockwise} title="Rotate carousel counter-clockwise">⟲</button>
-        <button onClick={rotateClockwise} title="Rotate carousel clockwise">⟳</button>
-        <button onClick={focusOnActiveArtwork} title="Center camera on active artwork">
-          <FocusIcon />
-        </button>
-      </div>
+      {focus ? (
+        <InspectorPanel
+          key={focus.piece.id}
+          title={artworks.find(a => a.id === focus.piece.id)?.infoData.title ?? focus.piece.infoData.title}
+          inspector={focus.inspector}
+          postSettings={postSettings}
+          onPostSettingsChange={handlePostSettingsChange}
+          autoRotate={autoRotate}
+          onToggleAutoRotate={toggleAutoRotate}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+          onResetCamera={resetInspectorCamera}
+          onExit={exitFocus}
+        />
+      ) : (
+        <>
+          {/* Rotate buttons overlay */}
+          <div className="rotateButtons">
+            <button onClick={rotateCounterClockwise} title="Rotate carousel counter-clockwise">⟲</button>
+            <button onClick={rotateClockwise} title="Rotate carousel clockwise">⟳</button>
+            <button onClick={focusOnActiveArtwork} title="Center camera on active artwork">
+              <FocusIcon />
+            </button>
+            <button
+              className="inspect-btn"
+              onClick={inspectFrontArtwork}
+              disabled={artworks.length === 0}
+              title="Inspect the front model (or double-click it)"
+            >
+              <CubeIcon />
+              Inspect
+            </button>
+          </div>
 
-      <div className="controls-hint">
-        <div>Drag to rotate view</div>
-        <div>Right-click + drag to pan</div>
-        <div>Ctrl + Scroll to zoom, or click here first</div>
-      </div>
+          <div className="controls-hint">
+            <div>Drag to rotate view</div>
+            <div>Right-click + drag to pan</div>
+            <div>Ctrl + Scroll to zoom, or click here first</div>
+            <div>Double-click the front model to inspect it</div>
+          </div>
+        </>
+      )}
 
       {uploadProgress !== null && (
         <div className="upload-progress-overlay">
@@ -712,7 +988,7 @@ function Scene3D({
       )}
 
       {/* Analytics panel, edit mode only */}
-      {editable && (
+      {editable && !focus && (
         <div className="info-panel">
           <h4 className="info-panel-title">Portfolio Analytics</h4>
           <div className="info-panel-row">

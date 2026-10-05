@@ -399,3 +399,55 @@ export function CubeIcon(props: IconProps) {
         </svg>
     );
 }
+
+export function PlayIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" {...props}>
+            <polygon points="6 4 20 12 6 20 6 4" />
+        </svg>
+    );
+}
+
+export function PauseIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" {...props}>
+            <rect x="5" y="4" width="5" height="16" rx="1" />
+            <rect x="14" y="4" width="5" height="16" rx="1" />
+        </svg>
+    );
+}
+
+export function FullscreenIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" />
+        </svg>
+    );
+}
+
+export function ExitFullscreenIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" />
+        </svg>
+    );
+}
+
+export function OrbitIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M21 12a9 9 0 1 1-3-6.7" />
+            <polyline points="21 3 21 9 15 9" />
+        </svg>
+    );
+}
+
+export function ResetViewIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <polyline points="3 3 3 9 9 9" />
+            <circle cx="12" cy="12" r="2" />
+        </svg>
+    );
+}
