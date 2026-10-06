@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PortfolioPiece } from '@/types/PortfolioPiece';
+import { publishStatus, type PortfolioPiece, type PublishingState } from '@/types/PortfolioPiece';
+import PublishingPanel from '@/frontend/components/PublishingPanel';
 import type { Comment } from '@/types/Comment';
 import type { Collection } from '@/types/Collection';
 import RenderGallery from './RenderGallery';
@@ -8,7 +9,7 @@ import SaveToCollectionPanel from '@/frontend/components/SaveToCollectionPanel';
 import '../css/ArtworkShowcase.css';
 import '../css/ArtworkInfo.css';
 import type { ArtworkInfoData } from '@/types/ArtworkInfoData';
-import { ImageIcon, HeartIcon, BookmarkIcon, CloseIcon } from '@/frontend/svg/Icons';
+import { ImageIcon, HeartIcon, BookmarkIcon, CloseIcon, ShareIcon, EyeIcon } from '@/frontend/svg/Icons';
 
 type ArtworkShowcaseProps = {
     artworks: PortfolioPiece[];
@@ -27,7 +28,9 @@ type ArtworkShowcaseProps = {
     collections: Collection[];
     onToggleArtworkInCollection: (collectionId: string, artworkId: string) => void;
     onCreateCollection: (name: string) => void;
-
+    // Whose portfolio this is (for share links).
+    ownerUsername: string;
+    onPublishingUpdate?: (artworkId: string, fields: Partial<PublishingState>) => void;
 };
 
 export default function ArtworkShowcase({
@@ -47,10 +50,11 @@ export default function ArtworkShowcase({
     collections,
     onToggleArtworkInCollection,
     onCreateCollection,
-
-
+    ownerUsername,
+    onPublishingUpdate,
 }: ArtworkShowcaseProps) {
     const [isSavePanelOpen, setIsSavePanelOpen] = useState(false);
+    const [shareCopied, setShareCopied] = useState(false);
     const savePanelRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -96,12 +100,45 @@ export default function ArtworkShowcase({
         onToggleLike(artwork.id);
     };
 
+    const publishing = artwork.publishing;
+    const status = publishing ? publishStatus(publishing.publishedAt) : 'published';
+
+    const share = async () => {
+        const url = `${window.location.origin}/u/${encodeURIComponent(ownerUsername)}?artwork=${artwork.id}`;
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: info.title, url });
+                return;
+            }
+            await navigator.clipboard.writeText(url);
+            setShareCopied(true);
+            setTimeout(() => setShareCopied(false), 2000);
+        } catch {
+            // Share sheet dismissed / clipboard unavailable - nothing to do.
+        }
+    };
+
     return (
         <div className="artwork-showcase">
 
             <div className="artwork-title">
 
-                <h2>{info.title}</h2>
+                <div className="artwork-title-main">
+                    <h2>{info.title}</h2>
+                    <div className="artwork-badges">
+                        {status !== 'published' && <span className={`content-badge ${status}`}>{status === 'draft' ? 'Draft' : 'Scheduled'}</span>}
+                        {publishing && publishing.visibility !== 'public' && (
+                            <span className={`content-badge ${publishing.visibility}`}>
+                                {publishing.visibility === 'private' ? 'Private' : 'Unlisted'}
+                            </span>
+                        )}
+                        {publishing?.isMature && <span className="content-badge mature">18+</span>}
+                        {publishing?.aiGenerated && <span className="content-badge ai">AI generated</span>}
+                        {publishing && (
+                            <span className="artwork-views" title="Views"><EyeIcon width={14} height={14} /> {publishing.viewCount}</span>
+                        )}
+                    </div>
+                </div>
 
                 <div className="title-actions">
                     <button
@@ -129,6 +166,10 @@ export default function ArtworkShowcase({
                             />
                         )}
                     </div>
+                    <button className="action-btn secondary" onClick={share} title="Share a link to this artwork">
+                        <ShareIcon />
+                        {shareCopied ? 'Link copied' : 'Share'}
+                    </button>
                     {editable && (
                         <button
                             className="action-btn danger"
@@ -146,6 +187,14 @@ export default function ArtworkShowcase({
                 </div>
 
             </div>
+
+            {editable && publishing && onPublishingUpdate && (
+                <PublishingPanel
+                    key={artwork.id}
+                    publishing={publishing}
+                    onChange={(fields) => onPublishingUpdate(artwork.id, fields)}
+                />
+            )}
 
             <div className="showcase-content">
 

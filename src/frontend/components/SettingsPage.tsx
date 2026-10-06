@@ -5,7 +5,15 @@ import { useTheme } from '@/frontend/hooks/useTheme';
 import { SunIcon, MoonIcon } from '@/frontend/svg/Icons';
 
 export default function SettingsPage() {
-    const { user, updateUsername, updateEmail, changePassword, deleteAccount } = useAuth();
+    const { user, updateUsername, updateEmail, changePassword, deleteAccount, updateProfile } = useAuth();
+    const [preferenceError, setPreferenceError] = useState('');
+
+    const setPreference = (key: 'showMature' | 'hideAi' | 'noAiTraining', value: boolean) => {
+        setPreferenceError('');
+        updateProfile({ [key]: value }).catch(err => {
+            setPreferenceError(err instanceof Error ? err.message : 'Failed to save preference');
+        });
+    };
     const { theme, toggleTheme } = useTheme();
 
     const [deletePassword, setDeletePassword] = useState('');
@@ -182,6 +190,46 @@ export default function SettingsPage() {
                             {passwordSaved && <span className="settings-saved-hint">Saved</span>}
                         </div>
                     </form>
+                </section>
+
+                <section className="settings-section">
+                    <h3 className="settings-section-title">Content</h3>
+                    <div className="settings-preferences">
+                        <label className="settings-preference">
+                            <input
+                                type="checkbox"
+                                checked={!!user?.showMature}
+                                onChange={(e) => setPreference('showMature', e.target.checked)}
+                            />
+                            <span>
+                                Show mature content
+                                <small>Artworks marked 18+ are blurred until you click them otherwise.</small>
+                            </span>
+                        </label>
+                        <label className="settings-preference">
+                            <input
+                                type="checkbox"
+                                checked={!!user?.hideAi}
+                                onChange={(e) => setPreference('hideAi', e.target.checked)}
+                            />
+                            <span>
+                                Hide AI-generated work
+                                <small>Leaves artworks labelled as made with generative AI out of Explore.</small>
+                            </span>
+                        </label>
+                        <label className="settings-preference">
+                            <input
+                                type="checkbox"
+                                checked={!!user?.noAiTraining}
+                                onChange={(e) => setPreference('noAiTraining', e.target.checked)}
+                            />
+                            <span>
+                                NoAI: opt my work out of AI training
+                                <small>Shows a NoAI badge on your profile and asks crawlers not to use your uploads for AI training.</small>
+                            </span>
+                        </label>
+                        {preferenceError && <span className="settings-error-hint">{preferenceError}</span>}
+                    </div>
                 </section>
 
                 <section className="settings-section settings-section-danger">

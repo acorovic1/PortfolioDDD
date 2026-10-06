@@ -21,6 +21,9 @@ export const updateProfileSchema = z.object({
   github: z.string().trim().max(255).optional(),
   linkedin: z.string().trim().max(255).optional(),
   skills: z.array(z.string().trim().max(64)).max(50).optional(),
+  showMature: z.boolean().optional(),
+  hideAi: z.boolean().optional(),
+  noAiTraining: z.boolean().optional(),
 });
 
 export const updateUsernameSchema = z.object({
@@ -44,7 +47,19 @@ export const createArtworkSchema = z.object({
   tools: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
-export const updateArtworkSchema = createArtworkSchema;
+// Upload form fields arrive as multipart strings.
+export const uploadArtworkSchema = createArtworkSchema.extend({
+  draft: z.enum(['true', 'false']).optional(),
+});
+
+export const updateArtworkSchema = createArtworkSchema.extend({
+  tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+  visibility: z.enum(['public', 'unlisted', 'private']).optional(),
+  // null = back to draft; a future time schedules the publish
+  publishedAt: z.union([z.string().datetime({ offset: true }), z.null()]).optional(),
+  isMature: z.boolean().optional(),
+  aiGenerated: z.boolean().optional(),
+});
 
 export const createCollectionSchema = z.object({
   name: z.string().trim().min(1).max(255),

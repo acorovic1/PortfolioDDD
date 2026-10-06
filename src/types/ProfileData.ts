@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 export type ProfileData = {
   username: string;
   avatarUrl: string;
@@ -21,6 +23,8 @@ export type SidebarProps = {
   editable?: boolean;
   onChange?: (next: ProfileData) => void;
   onAvatarUpload?: (file: File) => void;
+  // Rendered under the profile header (follow stats, actions...).
+  children?: ReactNode;
 };
 
 export type ProfileHeaderProps = {

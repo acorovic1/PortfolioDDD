@@ -12,6 +12,24 @@ export function signToken(payload: { id: string; email: string; username: string
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
 }
 
+// For public endpoints that personalize when the caller is signed in (feeds,
+// profiles, view counting): attaches req.user for a valid token, otherwise
+// carries on anonymously instead of rejecting.
+export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) {
+    next();
+    return;
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (!err && decoded && typeof decoded !== 'string') {
+      (req as AuthRequest).user = decoded as { id: string; email: string; username: string };
+    }
+    next();
+  });
+}
+
 export function authenticateToken(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers['authorization'];
   const token = authHeader?.split(' ')[1];

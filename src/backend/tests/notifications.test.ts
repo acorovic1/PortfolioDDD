@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.ts';
-import { registerTestUser, deleteTestUsers } from './helpers.ts';
+import { registerTestUser, deleteTestUsers, createProcessedArtwork } from './helpers.ts';
 
 const createdUserIds: string[] = [];
-const fakeGlb = Buffer.from('glTF\x02\x00\x00\x00');
 
 afterAll(async () => {
   await deleteTestUsers(createdUserIds);
@@ -20,12 +19,7 @@ describe('notifications', () => {
     actor = await registerTestUser();
     createdUserIds.push(owner.id, actor.id);
 
-    const artwork = await request(app)
-      .post('/api/portfolio/artworks')
-      .set('Authorization', `Bearer ${owner.token}`)
-      .field('title', 'Notify Piece')
-      .attach('model', fakeGlb, 'test.glb');
-    artworkId = artwork.body.id;
+    artworkId = await createProcessedArtwork(owner.token, { title: 'Notify Piece' });
   });
 
   it('notifies the owner when someone else likes their artwork, but not on self-like', async () => {

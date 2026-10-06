@@ -13,8 +13,11 @@ import { portfolioRoutes } from './routes/portfolio.routes.ts';
 import { collectionsRoutes } from './routes/collections.routes.ts';
 import { artworksRoutes } from './routes/artworks.routes.ts';
 import { notificationsRoutes } from './routes/notifications.routes.ts';
+import { feedRoutes } from './routes/feed.routes.ts';
+import { noAiHeaders } from './middleware/noai.middleware.ts';
 import { generalApiRateLimiter } from './middleware/rate-limit.middleware.ts';
 import { resumeInterruptedModelJobs } from './pipeline/processor.ts';
+import { startPublisher } from './services/publisher.ts';
 
 dotenv.config();
 
@@ -41,7 +44,7 @@ app.use(express.json());
 app.use(['/uploads/sources', '/uploads/tmp'], (_req: Request, res: Response) => {
   res.status(404).end();
 });
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', noAiHeaders, express.static('uploads'));
 app.use('/api', generalApiRateLimiter);
 
 app.use('/api/auth', authRoutes);
@@ -50,6 +53,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/collections', collectionsRoutes);
 app.use('/api/artworks', artworksRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/feed', feedRoutes);
 
 let dbReady = false;
 let reconnecting = false;
@@ -90,6 +94,7 @@ export function scheduleReconnect(delayMs = 2000): void {
       if (!resumedModelJobs) {
         resumedModelJobs = true;
         resumeInterruptedModelJobs().catch(err => console.error('Failed to resume model processing:', err));
+        startPublisher();
       }
     } catch (err) {
       console.error(`Database unreachable, retrying in ${delay}ms:`, (err as Error).message);

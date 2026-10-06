@@ -12,7 +12,8 @@ export default function Sidebar({
   profile,
   editable = false,
   onChange,
-  onAvatarUpload
+  onAvatarUpload,
+  children,
 }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -29,6 +30,9 @@ export default function Sidebar({
         onUpdate={update}
         onAvatarUpload={onAvatarUpload}
       />
+
+      {children}
+
       
       <ContactSection 
         profile={profile} 

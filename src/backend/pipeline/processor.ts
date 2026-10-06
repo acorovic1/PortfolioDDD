@@ -10,6 +10,7 @@ import {
   findInterruptedProcessing,
 } from '../repositories/artworks.repository.ts';
 import { toPublicPath, deletePublicFile } from '../utils/upload.util.ts';
+import { announceNewlyPublishedInBackground } from '../services/publisher.ts';
 
 export type ModelJob = {
   artworkId: string;
@@ -72,7 +73,10 @@ async function processJob(job: ModelJob): Promise<void> {
     if (previousPath === null) {
       // The artwork was deleted while it was processing.
       await deletePublicFile(outputPublicPath);
-    } else if (previousPath) {
+    } else if (previousPath === '') {
+      // A first upload just became viewable - followers may be waiting on it.
+      announceNewlyPublishedInBackground();
+    } else {
       // The new version is live at this point; a leftover old file is harmless.
       await deletePublicFile(previousPath).catch(err => console.error('Failed to delete replaced model:', err));
     }

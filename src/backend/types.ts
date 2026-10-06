@@ -16,6 +16,9 @@ export interface UserRecord {
   created_at: string;
   reset_token_hash: string | null;
   reset_token_expires: string | null;
+  show_mature: boolean;
+  hide_ai: boolean;
+  no_ai_training: boolean;
 }
 
 export type PublicUser = {
@@ -30,6 +33,9 @@ export type PublicUser = {
   github: string | null;
   linkedin: string | null;
   skills: string[];
+  showMature: boolean;
+  hideAi: boolean;
+  noAiTraining: boolean;
 };
 
 export interface RenderRecord {
@@ -65,7 +71,16 @@ export interface ArtworkRecord {
   model_version: number;
   model_size_bytes: string | number | null;
   thumbnail_path: string | null;
+  tags: string[];
+  visibility: Visibility;
+  published_at: string | null;
+  is_mature: boolean;
+  ai_generated: boolean;
+  view_count: number;
+  followers_notified: boolean;
 }
+
+export type Visibility = 'public' | 'unlisted' | 'private';
 
 // 'processing' while an upload is being converted, 'failed' if the latest
 // upload couldn't be converted (an earlier version may still be served).
@@ -86,6 +101,13 @@ export type ArtworkDTO = {
   modelVersion: number;
   modelSizeBytes: number | null;
   thumbnailUrl: string | null;
+  tags: string[];
+  visibility: Visibility;
+  // null = draft; in the future = scheduled
+  publishedAt: string | null;
+  isMature: boolean;
+  aiGenerated: boolean;
+  viewCount: number;
   renders: RenderDTO[];
   createdAt: string;
   updatedAt: string;
@@ -141,6 +163,7 @@ export type NotificationDTO = {
   id: string;
   type: string;
   message: string;
+  actorUsername: string;
   artworkId: string | null;
   isRead: boolean;
   createdAt: string;

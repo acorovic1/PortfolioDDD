@@ -21,7 +21,26 @@ export type PortfolioPiece = {
   animations: THREE.AnimationClip[];
   // The processed model file this piece was loaded from (backend artworks).
   modelInfo?: ModelFileInfo;
+  publishing?: PublishingState;
 };
+
+export type Visibility = 'public' | 'unlisted' | 'private';
+
+export type PublishingState = {
+  visibility: Visibility;
+  // null = draft; in the future = scheduled
+  publishedAt: string | null;
+  isMature: boolean;
+  aiGenerated: boolean;
+  viewCount: number;
+};
+
+export type PublishStatus = 'draft' | 'scheduled' | 'published';
+
+export function publishStatus(publishedAt: string | null): PublishStatus {
+  if (!publishedAt) return 'draft';
+  return new Date(publishedAt).getTime() > Date.now() ? 'scheduled' : 'published';
+}
 
 export type ModelFileInfo = {
   sourceFormat: string | null;
@@ -73,7 +92,7 @@ export async function createPortfolioItem(
     tools: [],
     year: '',
     category: '',
-
+    tags: [],
   };
 
   const emptyRenderImages: PortfolioImage[] = [];
@@ -109,6 +128,12 @@ export type RemoteArtwork = {
   modelVersion: number;
   modelSizeBytes: number | null;
   thumbnailUrl: string | null;
+  tags: string[];
+  visibility: Visibility;
+  publishedAt: string | null;
+  isMature: boolean;
+  aiGenerated: boolean;
+  viewCount: number;
   renders: { id: string; url: string; caption: string }[];
   likeCount: number;
   // Populated by endpoints that can return artworks belonging to anyone
@@ -132,6 +157,7 @@ export async function createPortfolioItemFromRemote(
     tools: remote.tools,
     year: remote.year,
     category: remote.category,
+    tags: remote.tags ?? [],
   };
   piece.renders = remote.renders.map(r => ({
     id: r.id,
@@ -139,6 +165,13 @@ export async function createPortfolioItemFromRemote(
     caption: r.caption,
   }));
   piece.likeCount = remote.likeCount;
+  piece.publishing = {
+    visibility: remote.visibility,
+    publishedAt: remote.publishedAt,
+    isMature: remote.isMature,
+    aiGenerated: remote.aiGenerated,
+    viewCount: remote.viewCount,
+  };
   piece.modelInfo = {
     sourceFormat: remote.sourceFormat,
     version: remote.modelVersion,

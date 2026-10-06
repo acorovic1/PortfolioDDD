@@ -21,9 +21,20 @@ import {
 } from '../repositories/renders.repository.ts';
 import { countLikes, countLikesForArtworkIds } from '../repositories/likes.repository.ts';
 import { toPublicPath, deletePublicFile } from '../utils/upload.util.ts';
-import { enqueueModelJob } from '../pipeline/processor.ts';
 import path from 'node:path';
 import { rm } from 'node:fs/promises';
+import { enqueueModelJob } from '../pipeline/processor.ts';
+import { announceNewlyPublishedInBackground } from '../services/publisher.ts';
+
+// Tags are stored normalized ("Hard Surface" / "#hard-surface" -> "hard-surface")
+// so filtering by them is exact and case-insensitive.
+export function normalizeTags(tags: string[]): string[] {
+  const normalized = tags
+    .map(tag => tag.trim().toLowerCase().replace(/^#+/, '').replace(/\s+/g, '-').replace(/[^\p{L}\p{N}_-]/gu, ''))
+    .filter(tag => tag.length > 0)
+    .map(tag => tag.slice(0, 32));
+  return [...new Set(normalized)].slice(0, 15);
+}
 
 // The upload's extension without the dot ('fbx', 'zip', ...).
 function uploadFormat(file: Express.Multer.File): string {
@@ -82,7 +93,7 @@ export async function createArtworkWithModel(req: Request, res: Response): Promi
     return;
   }
 
-  const { title, description, year, category, tools } = req.body;
+  const { title, description, year, category, tools, draft } = req.body;
   const id = uuidv4();
 
   // The artwork exists right away (status 'processing'); the upload is
@@ -97,6 +108,7 @@ export async function createArtworkWithModel(req: Request, res: Response): Promi
     tools: parseTools(tools),
     pendingSourcePath: file.path,
     sourceFormat: uploadFormat(file),
+    draft: draft === 'true',
   });
   enqueueModelJob({ artworkId: id, sourcePath: file.path, originalName: file.originalname });
 
@@ -197,14 +209,22 @@ export async function updateOwnArtwork(req: Request, res: Response): Promise<voi
     return;
   }
 
-  const { title, description, year, category, tools } = req.body;
+  const { title, description, year, category, tools, tags, visibility, publishedAt, isMature, aiGenerated } = req.body;
   await updateArtwork(artworkId, {
     title,
     description,
     year,
     category,
     tools: tools !== undefined ? parseTools(tools) : undefined,
+    tags: tags !== undefined ? normalizeTags(tags) : undefined,
+    visibility,
+    publishedAt,
+    isMature,
+    aiGenerated,
   });
+
+  // Publishing (now, or by making it public) may have put it live.
+  if (publishedAt !== undefined || visibility !== undefined) announceNewlyPublishedInBackground();
 
   const updated = await findArtworkById(artworkId);
   const renders = await findRendersByArtworkId(artworkId);

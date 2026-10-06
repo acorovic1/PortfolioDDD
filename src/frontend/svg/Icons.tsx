@@ -451,3 +451,116 @@ export function ResetViewIcon(props: IconProps) {
         </svg>
     );
 }
+
+export function FlagIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+            <line x1="4" y1="22" x2="4" y2="15" />
+        </svg>
+    );
+}
+
+export function ShareIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.6" y1="13.5" x2="15.4" y2="17.5" />
+            <line x1="15.4" y1="6.5" x2="8.6" y2="10.5" />
+        </svg>
+    );
+}
+
+export function MessageIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2z" />
+        </svg>
+    );
+}
+
+export function BriefcaseIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <rect x="2" y="7" width="20" height="14" rx="2" />
+            <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+        </svg>
+    );
+}
+
+export function StoreIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M3 9l1.5-5h15L21 9" />
+            <path d="M3 9h18v2a3 3 0 0 1-6 0 3 3 0 0 1-6 0 3 3 0 0 1-6 0z" />
+            <path d="M5 13v8h14v-8" />
+        </svg>
+    );
+}
+
+export function TrophyIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z" />
+            <path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3" />
+        </svg>
+    );
+}
+
+export function ChartIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <line x1="4" y1="20" x2="20" y2="20" />
+            <rect x="6" y="11" width="3" height="6" />
+            <rect x="11" y="6" width="3" height="11" />
+            <rect x="16" y="13" width="3" height="4" />
+        </svg>
+    );
+}
+
+export function ShieldIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+    );
+}
+
+export function BlockIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="4.9" y1="4.9" x2="19.1" y2="19.1" />
+        </svg>
+    );
+}
+
+export function LinkIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+            <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+        </svg>
+    );
+}
+
+export function CompassIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <circle cx="12" cy="12" r="10" />
+            <polygon points="16.2 7.8 14.1 14.1 7.8 16.2 9.9 9.9 16.2 7.8" />
+        </svg>
+    );
+}
+
+export function DownloadIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+    );
+}

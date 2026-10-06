@@ -205,3 +205,30 @@
 .theme-toggle-switch.on .theme-toggle-knob {
   transform: translateX(18px);
 }
+
+.settings-preferences {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-preference {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.settings-preference input {
+  margin-top: 3px;
+  accent-color: var(--color-accent);
+}
+
+.settings-preference small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}

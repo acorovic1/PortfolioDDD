@@ -10,4 +10,9 @@ export interface User {
   github?: string | null;
   linkedin?: string | null;
   skills?: string[];
+  // Viewer content preferences
+  showMature?: boolean;
+  hideAi?: boolean;
+  // Creator opt-out of AI training ("NoAI")
+  noAiTraining?: boolean;
 }

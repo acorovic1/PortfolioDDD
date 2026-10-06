@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { BellIcon } from '@/frontend/svg/Icons';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { API_BASE_URL } from '@/frontend/config/api';
+import { useNavigate } from 'react-router-dom';
 
 type Notification = {
   id: string;
   type: string;
   message: string;
+  actorUsername: string;
   artworkId: string | null;
   isRead: boolean;
   createdAt: string;
@@ -23,8 +25,27 @@ function timeAgo(iso: string): string {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
+// Where clicking a notification takes you.
+function notificationTarget(n: Notification, ownUsername: string | undefined): string | null {
+  switch (n.type) {
+    case 'follow':
+      return `/u/${encodeURIComponent(n.actorUsername)}`;
+    case 'new_artwork':
+      return n.artworkId ? `/u/${encodeURIComponent(n.actorUsername)}?artwork=${n.artworkId}&src=notification` : null;
+    case 'message':
+    case 'hire':
+      return `/messages?with=${encodeURIComponent(n.actorUsername)}`;
+    case 'like':
+    case 'comment':
+      return ownUsername ? '/portfolio' : null;
+    default:
+      return null;
+  }
+}
+
 export default function NotificationBell() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -111,7 +132,14 @@ export default function NotificationBell() {
               <div
                 key={n.id}
                 className={`notification-item ${n.isRead ? '' : 'unread'}`}
-                onClick={() => !n.isRead && markRead(n.id)}
+                onClick={() => {
+                  if (!n.isRead) markRead(n.id);
+                  const target = notificationTarget(n, user?.username);
+                  if (target) {
+                    setIsOpen(false);
+                    navigate(target);
+                  }
+                }}
               >
                 <div className="notification-dot"></div>
                 <div className="notification-content">

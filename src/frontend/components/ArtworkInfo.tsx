@@ -4,6 +4,9 @@ import type { ArtworkInfoData } from '@/types/ArtworkInfoData';
 import type { Comment } from '@/types/Comment';
 import { LaptopIcon, CalendarIcon, ActivityIcon } from '@/frontend/svg/Icons';
 import CommentSection from '@/frontend/components/CommentSection';
+import { useNavigate } from 'react-router-dom';
+
+const splitList = (value: string) => value.split(',').map(t => t.trim());
 
 
 
@@ -22,7 +25,8 @@ export default function ArtworkInfo({
   onAddComment: (text: string) => void;
   onDeleteComment?: (commentId: string) => void;
 }) {
-
+  const navigate = useNavigate();
+  const explore = (key: 'tag' | 'tool', value: string) => navigate(`/?${key}=${encodeURIComponent(value)}`);
 
   return (
     <div className="artwork-info">
@@ -49,13 +53,15 @@ export default function ArtworkInfo({
               <input
                 type="text"
                 value={info.tools.join(', ')}
-                onChange={(e) => onUpdate('tools', e.target.value.split(',').map(t => t.trim()))}
+                onChange={(e) => onUpdate('tools', splitList(e.target.value))}
                 placeholder="Enter tools separated by commas"
               />
             ) : (
               <div className="info-tools">
-                {info.tools.map((tool, i) => (
-                  <span key={i} className="tool-tag">{tool}</span>
+                {info.tools.filter(Boolean).map((tool, i) => (
+                  <button key={i} className="tool-tag" onClick={() => explore('tool', tool)} title={`More made with ${tool}`}>
+                    {tool}
+                  </button>
                 ))}
               </div>
             )}
@@ -95,6 +101,27 @@ export default function ArtworkInfo({
         </div>
 
       </div>
+
+      {(editable || info.tags.length > 0) && (
+        <div className="info-section info-tags-section">
+          <h3 className="info-section-title">Tags</h3>
+          {editable ? (
+            <input
+              className="info-tags-input"
+              type="text"
+              value={info.tags.join(', ')}
+              onChange={(e) => onUpdate('tags', splitList(e.target.value))}
+              placeholder="e.g. hard-surface, sci-fi, game-ready"
+            />
+          ) : (
+            <div className="info-tags">
+              {info.tags.map(tag => (
+                <button key={tag} className="info-tag" onClick={() => explore('tag', tag)}>#{tag}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <CommentSection comments={comments} onAddComment={onAddComment} onDeleteComment={onDeleteComment} />
     </div>

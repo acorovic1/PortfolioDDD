@@ -371,6 +371,7 @@ function Scene3D({
       tools: [],
       year: '',
       category: '',
+      tags: [],
     };
     const renders: PortfolioImage[] = [];
 
@@ -967,10 +968,15 @@ function Scene3D({
       const file = await pickModelFile();
       if (!file) return;
       const title = prompt('Enter title for this model:') || 'Untitled';
+      const publishNow = confirm(
+        'Publish this artwork as soon as it has processed?\n\n'
+        + 'OK = publish, Cancel = save as a draft (only you can see it until you publish it).'
+      );
 
       const formData = new FormData();
       formData.append('model', file);
       formData.append('title', title);
+      formData.append('draft', publishNow ? 'false' : 'true');
 
       // Upload, then wait for the server to convert/optimize it - the scene
       // only ever loads the processed GLB.

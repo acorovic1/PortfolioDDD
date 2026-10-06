@@ -154,10 +154,44 @@
 .tool-tag {
     padding: 4px 12px;
     background: var(--color-accent);
+    border: none;
     border-radius: 12px;
     font-size: 12px;
     font-weight: 500;
+    color: #fff;
+    cursor: pointer;
+}
+
+.info-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.info-tag {
+    padding: 4px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.info-tag:hover {
+    border-color: var(--color-accent);
     color: var(--color-text);
+}
+
+.info-tags-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface-inset);
+    color: var(--color-text);
+    font-size: 14px;
 }
 
 .info-actions {

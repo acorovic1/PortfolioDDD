@@ -8,14 +8,14 @@ import {
   deleteComment,
   toCommentDTO,
 } from '../repositories/comments.repository.ts';
-import { findArtworkById } from '../repositories/artworks.repository.ts';
+import { findArtworkById, canViewArtwork } from '../repositories/artworks.repository.ts';
 import { createNotification } from '../repositories/notifications.repository.ts';
 
 export async function listComments(req: Request, res: Response): Promise<void> {
   const artworkId = req.params.artworkId as string;
 
   const artwork = await findArtworkById(artworkId);
-  if (!artwork) {
+  if (!artwork || !canViewArtwork(artwork, (req as AuthRequest).user?.id ?? null)) {
     res.status(404).json({ error: 'Artwork not found' });
     return;
   }
@@ -30,7 +30,7 @@ export async function addComment(req: Request, res: Response): Promise<void> {
   const { text } = req.body;
 
   const artwork = await findArtworkById(artworkId);
-  if (!artwork) {
+  if (!artwork || !canViewArtwork(artwork, authReq.user!.id)) {
     res.status(404).json({ error: 'Artwork not found' });
     return;
   }

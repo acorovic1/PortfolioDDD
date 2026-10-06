@@ -1,0 +1,360 @@
+/* Shared styles for community features: modals, profile social bar, forms
+   and the standalone pages (messages, jobs, marketplace, challenges, admin). */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.modal-card {
+  width: min(480px, 100%);
+  max-height: min(640px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  color: var(--color-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  overflow: hidden;
+}
+
+.modal-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.modal-card > header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-close {
+  display: flex;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+/* --- Form controls --- */
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.form-field input,
+.form-field select,
+.form-field textarea {
+  padding: 9px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-inset);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.form-field textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.form-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.form-check input {
+  accent-color: var(--color-accent);
+}
+
+.form-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: 13px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.btn.danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: transparent;
+}
+
+.btn.small {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* --- Profile social bar --- */
+
+.profile-social {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.profile-social.placeholder {
+  min-height: 56px;
+}
+
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  text-align: center;
+}
+
+.profile-stats > * {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-text);
+  font-family: inherit;
+}
+
+.profile-stats button {
+  cursor: pointer;
+}
+
+.profile-stats button:hover {
+  background: var(--color-surface-hover);
+}
+
+.profile-stats strong {
+  font-size: 16px;
+}
+
+.profile-stats span {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.profile-social > .content-badge {
+  align-self: center;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-follow-btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 9px 16px;
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+  background: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.profile-follow-btn.following {
+  background: transparent;
+  color: var(--color-text);
+  border-color: var(--color-border-strong);
+}
+
+.follow-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+}
+
+.follow-list li button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.follow-list li button:hover {
+  background: var(--color-surface-hover);
+}
+
+.follow-list img,
+.follow-list .artwork-card-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.follow-list li span {
+  display: flex;
+  flex-direction: column;
+}
+
+.follow-list small {
+  color: var(--color-text-secondary);
+}
+
+.follow-list-empty {
+  padding: 16px 18px;
+  color: var(--color-text-secondary);
+}
+
+/* --- Full-height community pages --- */
+
+.community-page {
+  grid-area: portfolio;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 32px 40px 60px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.community-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.community-page-header h2 {
+  margin: 0 0 6px;
+  font-size: 28px;
+}
+
+.community-page-header p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.empty-note {
+  padding: 48px 0;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+/* Mature-content gate on public profiles */
+.mature-gate {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(10, 10, 10, 0.92);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.mature-gate h3 {
+  margin: 0;
+}
+
+.mature-gate p {
+  margin: 0;
+  max-width: 420px;
+  color: #bbb;
+}
+
+@media (max-width: 600px) {
+  .community-page {
+    padding: 20px 16px 40px;
+  }
+}

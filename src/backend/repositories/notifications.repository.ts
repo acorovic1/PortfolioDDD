@@ -6,6 +6,7 @@ export function toNotificationDTO(row: NotificationRecord): NotificationDTO {
     id: row.id,
     type: row.type,
     message: row.message,
+    actorUsername: row.actor_username,
     artworkId: row.artwork_id,
     isRead: row.is_read,
     createdAt: row.created_at,

@@ -3,6 +3,24 @@ import type { ArtworkRecord, ArtworkDTO, RenderRecord } from '../types.ts';
 import { toRenderDTO } from './renders.repository.ts';
 import { parseJsonArray } from '../utils/json.util.ts';
 
+// SQL condition for artworks anyone may discover in listings (feeds, search,
+// public portfolios): processed, public and published (not a draft, and not
+// scheduled for later). `alias` is the artworks table alias in the query.
+export function listedCondition(alias = 'artworks'): string {
+  return `${alias}.model_path <> '' AND ${alias}.visibility = 'public' AND ${alias}.published_at <= NOW()`;
+}
+
+// Whether `viewerId` (null for anonymous) may open a single artwork: the
+// owner always can; anyone else needs it processed, published and not private
+// (unlisted artworks are reachable by link).
+export function canViewArtwork(row: ArtworkRecord, viewerId: string | null): boolean {
+  if (viewerId && row.user_id === viewerId) return true;
+  return row.model_path !== ''
+    && row.visibility !== 'private'
+    && row.published_at !== null
+    && new Date(row.published_at).getTime() <= Date.now();
+}
+
 export function toArtworkDTO(
   row: ArtworkRecord,
   renders: RenderRecord[],
@@ -24,6 +42,12 @@ export function toArtworkDTO(
     // BIGINT comes back from pg as a string.
     modelSizeBytes: row.model_size_bytes === null ? null : Number(row.model_size_bytes),
     thumbnailUrl: row.thumbnail_path,
+    tags: row.tags ?? [],
+    visibility: row.visibility,
+    publishedAt: row.published_at,
+    isMature: row.is_mature,
+    aiGenerated: row.ai_generated,
+    viewCount: row.view_count,
     renders: renders.map(toRenderDTO),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -38,9 +62,9 @@ export async function findArtworksByUserId(
   offset?: number,
   options: { viewableOnly?: boolean } = {}
 ): Promise<ArtworkRecord[]> {
-  // Other people only see artworks that have a processed model to show; the
-  // owner also sees ones still processing (or whose first upload failed).
-  const viewable = options.viewableOnly ? "AND model_path <> ''" : '';
+  // Other people only see listed artworks; the owner also sees drafts,
+  // private/unlisted ones and ones still processing (or whose upload failed).
+  const viewable = options.viewableOnly ? `AND ${listedCondition()}` : '';
 
   // No limit means "all of this user's artworks" - used to rebuild someone's
   // own 3D scene, which must never be silently truncated by pagination.
@@ -100,11 +124,13 @@ export async function createArtwork(artwork: {
   // processing pipeline (see markModelReady).
   pendingSourcePath: string;
   sourceFormat: string;
+  // Drafts get no publish time (and aren't listed) until published.
+  draft?: boolean;
 }): Promise<void> {
   await pool.query(
     `INSERT INTO artworks (id, user_id, title, description, year, category, tools, model_path,
-                           processing_status, pending_source_path, source_format)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, '', 'processing', $8, $9)`,
+                           processing_status, pending_source_path, source_format, published_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, '', 'processing', $8, $9, CASE WHEN $10 THEN NULL ELSE NOW() END)`,
     [
       artwork.id,
       artwork.userId,
@@ -115,6 +141,7 @@ export async function createArtwork(artwork: {
       JSON.stringify(artwork.tools),
       artwork.pendingSourcePath,
       artwork.sourceFormat,
+      artwork.draft ?? false,
     ]
   );
 }
@@ -184,16 +211,31 @@ export async function setThumbnail(id: string, thumbnailPath: string): Promise<s
   return rows[0]?.previous_path ?? null;
 }
 
-export async function updateArtwork(
-  id: string,
-  fields: Partial<{ title: string; description: string; year: string; category: string; tools: string[] }>
-): Promise<void> {
+export type ArtworkUpdate = Partial<{
+  title: string;
+  description: string;
+  year: string;
+  category: string;
+  tools: string[];
+  tags: string[];
+  visibility: string;
+  publishedAt: string | null;
+  isMature: boolean;
+  aiGenerated: boolean;
+}>;
+
+export async function updateArtwork(id: string, fields: ArtworkUpdate): Promise<void> {
   const columnMap: Record<string, string> = {
     title: 'title',
     description: 'description',
     year: 'year',
     category: 'category',
     tools: 'tools',
+    tags: 'tags',
+    visibility: 'visibility',
+    publishedAt: 'published_at',
+    isMature: 'is_mature',
+    aiGenerated: 'ai_generated',
   };
 
   const entries = Object.entries(fields).filter(([, v]) => v !== undefined);
@@ -227,11 +269,11 @@ export async function searchArtworks(query: string, limit: number, offset: numbe
     `SELECT artworks.id, artworks.title, artworks.category, artworks.year, users.username
      FROM artworks
      JOIN users ON users.id = artworks.user_id
-     WHERE artworks.model_path <> ''
-       AND (artworks.title ILIKE $1 OR artworks.category ILIKE $1 OR artworks.description ILIKE $1)
-     ORDER BY artworks.created_at DESC
-     LIMIT $2 OFFSET $3`,
-    [like, limit, offset]
+     WHERE ${listedCondition()}
+       AND (artworks.title ILIKE $1 OR $2 = ANY(artworks.tags) OR artworks.category ILIKE $1 OR artworks.description ILIKE $1)
+     ORDER BY artworks.published_at DESC
+     LIMIT $3 OFFSET $4`,
+    [like, query.trim().toLowerCase(), limit, offset]
   );
   return rows;
 }

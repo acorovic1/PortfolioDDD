@@ -1,25 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.ts';
-import { registerTestUser, deleteTestUsers } from './helpers.ts';
+import { registerTestUser, deleteTestUsers, createProcessedArtwork } from './helpers.ts';
 
 const createdUserIds: string[] = [];
-const fakeGlb = Buffer.from('glTF\x02\x00\x00\x00');
 
 afterAll(async () => {
   await deleteTestUsers(createdUserIds);
 });
 
+// A processed (viewable) artwork: others can only like/comment on those.
 async function createArtwork(token: string, title = 'Test Piece') {
+  const id = await createProcessedArtwork(token, { title });
   const res = await request(app)
-    .post('/api/portfolio/artworks')
-    .set('Authorization', `Bearer ${token}`)
-    .field('title', title)
-    .attach('model', fakeGlb, 'test.glb');
-
-  if (res.status !== 201) {
-    throw new Error(`Failed to create artwork: ${res.status} ${JSON.stringify(res.body)}`);
-  }
+    .get(`/api/portfolio/artworks/${id}/status`)
+    .set('Authorization', `Bearer ${token}`);
   return res.body;
 }
 

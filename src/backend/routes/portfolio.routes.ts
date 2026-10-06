@@ -13,9 +13,9 @@ import {
 } from '../controllers/portfolio.controller.ts';
 import { listComments, addComment, removeComment } from '../controllers/comments.controller.ts';
 import { listMyLikes, likeArtwork, unlikeArtwork } from '../controllers/likes.controller.ts';
-import { authenticateToken } from '../middleware/auth.middleware.ts';
+import { authenticateToken, optionalAuth } from '../middleware/auth.middleware.ts';
 import { validateBody } from '../middleware/validate.middleware.ts';
-import { createArtworkSchema, updateArtworkSchema, addCommentSchema } from '../validation/schemas.ts';
+import { uploadArtworkSchema, updateArtworkSchema, addCommentSchema } from '../validation/schemas.ts';
 import { uploadModel, uploadImage, uploadThumbnail } from '../utils/upload.util.ts';
 import { statusPollRateLimiter } from '../middleware/rate-limit.middleware.ts';
 
@@ -26,7 +26,7 @@ portfolioRoutes.get('/artworks/batch', listArtworksByIds);
 portfolioRoutes.post('/artworks',
   authenticateToken,
   uploadModel.single('model'),
-  validateBody(createArtworkSchema),
+  validateBody(uploadArtworkSchema),
   createArtworkWithModel
 );
 portfolioRoutes.put('/artworks/:artworkId', authenticateToken, validateBody(updateArtworkSchema), updateOwnArtwork);
@@ -37,7 +37,7 @@ portfolioRoutes.delete('/artworks/:artworkId', authenticateToken, deleteOwnArtwo
 portfolioRoutes.post('/artworks/:artworkId/renders', authenticateToken, uploadImage.single('image'), addRender);
 portfolioRoutes.delete('/artworks/:artworkId/renders/:renderId', authenticateToken, removeRender);
 
-portfolioRoutes.get('/artworks/:artworkId/comments', listComments);
+portfolioRoutes.get('/artworks/:artworkId/comments', optionalAuth, listComments);
 portfolioRoutes.post('/artworks/:artworkId/comments',
   authenticateToken,
   validateBody(addCommentSchema),

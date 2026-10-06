@@ -15,6 +15,9 @@ export function toPublicUser(row: UserRecord): PublicUser {
     github: row.github,
     linkedin: row.linkedin,
     skills: parseJsonArray(row.skills),
+    showMature: row.show_mature,
+    hideAi: row.hide_ai,
+    noAiTraining: row.no_ai_training,
   };
 }
 
@@ -50,13 +53,24 @@ export async function findUserByUsername(username: string): Promise<UserRecord |
   return rows[0] ?? null;
 }
 
-export async function searchUsers(query: string, limit: number, offset: number): Promise<PublicUser[]> {
+export type UserSearchResult = Pick<PublicUser, 'id' | 'username' | 'name' | 'avatarUrl' | 'title'>;
+
+// Only public profile fields: search used to return full user rows,
+// including other people's email addresses. Matching on email is kept so
+// people can still be found by it, it's just never sent back.
+export async function searchUsers(query: string, limit: number, offset: number): Promise<UserSearchResult[]> {
   const like = `%${query}%`;
   const { rows } = await pool.query<UserRecord>(
     `SELECT * FROM users WHERE username ILIKE $1 OR name ILIKE $1 OR email ILIKE $1 LIMIT $2 OFFSET $3`,
     [like, limit, offset]
   );
-  return rows.map(toPublicUser);
+  return rows.map(row => ({
+    id: row.id,
+    username: row.username,
+    name: row.name,
+    avatarUrl: row.avatar_url,
+    title: row.title,
+  }));
 }
 
 export async function createUser(user: {
@@ -75,9 +89,14 @@ export async function createUser(user: {
 
 export async function updateUserProfile(
   id: string,
-  fields: Partial<Pick<PublicUser, 'avatarUrl' | 'title' | 'bio' | 'location' | 'github' | 'linkedin' | 'skills' | 'name'>>
+  fields: Partial<Pick<PublicUser,
+    'avatarUrl' | 'title' | 'bio' | 'location' | 'github' | 'linkedin' | 'skills' | 'name'
+    | 'showMature' | 'hideAi' | 'noAiTraining'>>
 ): Promise<void> {
   const columnMap: Record<string, string> = {
+    showMature: 'show_mature',
+    hideAi: 'hide_ai',
+    noAiTraining: 'no_ai_training',
     avatarUrl: 'avatar_url',
     title: 'title',
     bio: 'bio',

@@ -9,6 +9,9 @@ export interface ProfileUpdateFields {
   github?: string;
   linkedin?: string;
   skills?: string[];
+  showMature?: boolean;
+  hideAi?: boolean;
+  noAiTraining?: boolean;
 }
 
 export interface AuthContextType {

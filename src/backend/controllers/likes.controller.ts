@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import type { AuthRequest } from '../types.ts';
 import { findLikedArtworkIds, addLike, removeLike } from '../repositories/likes.repository.ts';
-import { findArtworkById } from '../repositories/artworks.repository.ts';
+import { findArtworkById, canViewArtwork } from '../repositories/artworks.repository.ts';
 import { createNotification } from '../repositories/notifications.repository.ts';
 
 export async function listMyLikes(req: Request, res: Response): Promise<void> {
@@ -16,7 +16,7 @@ export async function likeArtwork(req: Request, res: Response): Promise<void> {
   const artworkId = req.params.artworkId as string;
 
   const artwork = await findArtworkById(artworkId);
-  if (!artwork) {
+  if (!artwork || !canViewArtwork(artwork, authReq.user!.id)) {
     res.status(404).json({ error: 'Artwork not found' });
     return;
   }

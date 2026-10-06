@@ -4,14 +4,17 @@ import Scene3D from '@/frontend/components/Scene3D';
 import Sidebar from '@/frontend/components/sidebar/Sidebar';
 import Toolbar from '@/frontend/components/toolbar/Toolbar';
 import ArtworkShowcase from '@/frontend/components/ArtworkShowcase';
-import HomePage from '@/frontend/components/HomePage';
+import ExplorePage from '@/frontend/components/explore/ExplorePage';
+import ProfileSocialBar from '@/frontend/components/sidebar/ProfileSocialBar';
 import LikedPostsPage from '@/frontend/components/LikedPostsPage';
 import MyCommentsPage from '@/frontend/components/MyCommentsPage';
 import SavedPage from '@/frontend/components/SavedPage';
 import SettingsPage from '@/frontend/components/SettingsPage';
 import ResetPasswordPage from '@/frontend/components/ResetPasswordPage';
 import type { ProfileData } from './types/ProfileData';
-import type { PortfolioPiece, RemoteArtwork } from './types/PortfolioPiece';
+import type { PortfolioPiece, PublishingState, RemoteArtwork } from './types/PortfolioPiece';
+import type { ViewSource } from './types/Feed';
+import { apiFetch } from '@/frontend/utils/api';
 import type { ArtworkInfoData } from './types/ArtworkInfoData';
 import type { Comment } from './types/Comment';
 import type { Collection } from './types/Collection';
@@ -115,15 +118,18 @@ function App() {
     }
   }, [user, token]);
 
-  // Fetch persisted comments for an artwork the first time it's viewed (comments
-  // are public, no auth needed). Previously comments only ever came from local
+  // Fetch persisted comments for an artwork the first time it's viewed. The
+  // token is optional (comments on public work are public) but lets owners
+  // read comments on their own drafts/private work. Previously comments only ever came from local
   // optimistic state, so anything posted in an earlier session - or by anyone
   // else - never showed up.
-  const fetchCommentsForArtwork = (artwork: PortfolioPiece) => {
+  const fetchCommentsForArtwork = (artwork: PortfolioPiece, authToken: string | null) => {
     if (fetchedCommentsRef.current.has(artwork.id)) return;
     fetchedCommentsRef.current.add(artwork.id);
 
-    fetch(`${API_BASE_URL}/api/portfolio/artworks/${artwork.id}/comments`)
+    fetch(`${API_BASE_URL}/api/portfolio/artworks/${artwork.id}/comments`, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    })
       .then(res => (res.ok ? res.json() : null))
       .then((serverComments: Comment[] | null) => {
         if (!serverComments) return;
@@ -141,14 +147,14 @@ function App() {
 
   useEffect(() => {
     const artwork = artworks[selectedArtworkIndex];
-    if (artwork) fetchCommentsForArtwork(artwork);
-  }, [artworks, selectedArtworkIndex]);
+    if (artwork) fetchCommentsForArtwork(artwork, token);
+  }, [artworks, selectedArtworkIndex, token]);
 
   // Same as above, for the read-only public-profile scene.
   useEffect(() => {
     const artwork = publicArtworks[publicSelectedArtworkIndex];
-    if (artwork) fetchCommentsForArtwork(artwork);
-  }, [publicArtworks, publicSelectedArtworkIndex]);
+    if (artwork) fetchCommentsForArtwork(artwork, token);
+  }, [publicArtworks, publicSelectedArtworkIndex, token]);
 
   // Fetch another user's public portfolio when visiting /u/:username, so the
   // 3D scene can be hydrated the same way the owner's own scene is.
@@ -163,7 +169,15 @@ function App() {
     setPublicRemoteArtworksToLoad(null);
     setPublicSelectedArtworkIndex(0);
 
-    fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(publicProfileUsername)}/portfolio?all=true`)
+    // A linked artwork (?artwork=id) is requested explicitly, so unlisted
+    // artworks open from their share link.
+    // (Read from window.location: a ?artwork= switch within the same profile
+    // is handled by the deep-link effect below, not by refetching.)
+    const linkedArtwork = new URLSearchParams(window.location.search).get('artwork');
+    const linkedParam = linkedArtwork ? `&artwork=${encodeURIComponent(linkedArtwork)}` : '';
+    fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(publicProfileUsername)}/portfolio?all=true${linkedParam}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then(async res => {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -183,7 +197,50 @@ function App() {
     return () => {
       cancelled = true;
     };
+  }, [publicProfileUsername, token]);
+
+  // View tracking for other people's artworks. The first artwork seen gets
+  // the source it was opened from (?src=, e.g. explore/search), or external/
+  // direct; moving around the carousel afterwards counts as 'profile'.
+  const viewedArtworkIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    viewedArtworkIdsRef.current = new Set();
   }, [publicProfileUsername]);
+
+  useEffect(() => {
+    if (!publicProfileUsername) return;
+    const artwork = publicArtworks[publicSelectedArtworkIndex];
+    if (!artwork || viewedArtworkIdsRef.current.has(artwork.id)) return;
+
+    const isFirst = viewedArtworkIdsRef.current.size === 0;
+    viewedArtworkIdsRef.current.add(artwork.id);
+
+    const params = new URLSearchParams(window.location.search);
+    const linkedSource = params.get('artwork') === artwork.id ? params.get('src') as ViewSource | null : null;
+    let source: ViewSource = 'profile';
+    if (linkedSource) {
+      source = linkedSource;
+    } else if (isFirst) {
+      const fromElsewhere = document.referrer && new URL(document.referrer).origin !== window.location.origin;
+      source = fromElsewhere ? 'external' : 'direct';
+    }
+
+    apiFetch<{ counted: boolean; viewCount: number }>(`/api/artworks/${artwork.id}/view`, {
+      method: 'POST',
+      token,
+      body: { source },
+    })
+      .then(({ viewCount }) => {
+        setPublicArtworks(prev => prev.map(a => (
+          a.id === artwork.id && a.publishing ? { ...a, publishing: { ...a.publishing, viewCount } } : a
+        )));
+      })
+      .catch(err => console.error('Failed to record view:', err));
+  }, [publicArtworks, publicSelectedArtworkIndex, publicProfileUsername, token]);
+
+  // Profiles with 18+ work ask before showing it to viewers who haven't
+  // opted in to mature content.
+  const [matureAcknowledged, setMatureAcknowledged] = useState<string | null>(null);
 
   // Deep-link to a specific artwork on a public profile (e.g. from search),
   // once that artwork has loaded into the scene.
@@ -228,9 +285,13 @@ function App() {
     console.log('Search query:', query);
   };
 
-  const goToUserProfile = (username: string) => navigate(`/u/${username}`);
-  const goToArtworkOnProfile = (username: string, artworkId: string) =>
-    navigate(`/u/${username}?artwork=${artworkId}`);
+  const goToUserProfile = (username: string) => {
+    if (user && username === user.username) navigate(PAGE_PATHS.portfolio);
+    else navigate(`/u/${username}`);
+  };
+  // `source` is recorded with the view (creator analytics' traffic sources).
+  const goToArtworkOnProfile = (username: string, artworkId: string, source: ViewSource = 'search') =>
+    navigate(`/u/${username}?artwork=${artworkId}&src=${source}`);
 
   const onArtworkAdd = (newArtwork: PortfolioPiece) => {
      setArtworks(prev => [...prev, newArtwork]);
@@ -302,6 +363,27 @@ function App() {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     }).catch(err => console.error('Failed to delete artwork:', err));
+  };
+
+  const onPublishingUpdate = (artworkId: string, fields: Partial<PublishingState>) => {
+    const previous = artworks.find(a => a.id === artworkId)?.publishing;
+    setArtworks(prev => prev.map(a => (
+      a.id === artworkId && a.publishing ? { ...a, publishing: { ...a.publishing, ...fields } } : a
+    )));
+
+    if (!token) return;
+    const body: Record<string, unknown> = {};
+    if (fields.visibility !== undefined) body.visibility = fields.visibility;
+    if (fields.publishedAt !== undefined) body.publishedAt = fields.publishedAt;
+    if (fields.isMature !== undefined) body.isMature = fields.isMature;
+    if (fields.aiGenerated !== undefined) body.aiGenerated = fields.aiGenerated;
+
+    apiFetch(`/api/portfolio/artworks/${artworkId}`, { method: 'PUT', token, body }).catch(err => {
+      console.error('Failed to update publishing settings:', err);
+      if (previous) {
+        setArtworks(prev => prev.map(a => (a.id === artworkId ? { ...a, publishing: previous } : a)));
+      }
+    });
   };
 
   const onToggleLike = (artworkId: string) => {
@@ -469,7 +551,7 @@ function App() {
     if (user && username === user.username) {
       goToArtwork(artworkId);
     } else {
-      goToArtworkOnProfile(username, artworkId);
+      goToArtworkOnProfile(username, artworkId, 'direct');
     }
   };
 
@@ -587,6 +669,17 @@ function App() {
           <>
             <div className="portfolio">
               <div ref={publicSceneContainerRef} className="scene">
+                {publicArtworks.some(a => a.publishing?.isMature)
+                  && !user?.showMature
+                  && matureAcknowledged !== publicProfileUsername && (
+                  <div className="mature-gate" role="dialog" aria-label="Mature content warning">
+                    <h3>This portfolio contains mature content</h3>
+                    <p>Some artworks are marked 18+. You can always show mature content in Settings.</p>
+                    <button className="btn primary" onClick={() => setMatureAcknowledged(publicProfileUsername)}>
+                      I'm 18 or older - show it
+                    </button>
+                  </div>
+                )}
                 <Scene3D
                   artworks={publicArtworks}
                   containerRef={publicSceneContainerRef}
@@ -614,10 +707,19 @@ function App() {
                 collections={collections}
                 onToggleArtworkInCollection={onToggleArtworkInCollection}
                 onCreateCollection={onCreateCollection}
+                ownerUsername={publicProfileUsername}
               />
             </div>
 
-            {viewedProfile && <Sidebar profile={viewedProfile} editable={false} />}
+            {viewedProfile && (
+              <Sidebar profile={viewedProfile} editable={false}>
+                <ProfileSocialBar
+                  username={publicProfileUsername}
+                  onOpenUser={goToUserProfile}
+                  onRequireLogin={goToLogin}
+                />
+              </Sidebar>
+            )}
           </>
         )}
       </div>
@@ -686,7 +788,8 @@ function App() {
             collections={collections}
             onToggleArtworkInCollection={onToggleArtworkInCollection}
             onCreateCollection={onCreateCollection}
-
+            ownerUsername={user.username}
+            onPublishingUpdate={onPublishingUpdate}
           />
         </div>
 
@@ -695,7 +798,9 @@ function App() {
           editable={editable}
           onChange={onProfileChange}
           onAvatarUpload={onAvatarChange}
-        />
+        >
+          <ProfileSocialBar username={user.username} onOpenUser={goToUserProfile} onRequireLogin={goToLogin} />
+        </Sidebar>
       </div>
     );
   }
@@ -807,7 +912,13 @@ function App() {
         onSelectArtwork={goToArtworkOnProfile}
         showViewModeToggle={false}
       />
-      <HomePage />
+      <ExplorePage
+        onOpenArtwork={(username, artworkId, source) => {
+          if (user && username === user.username) goToArtwork(artworkId);
+          else goToArtworkOnProfile(username, artworkId, source);
+        }}
+        onOpenUser={goToUserProfile}
+      />
     </div>
   );
 }
