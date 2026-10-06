@@ -23,6 +23,7 @@ services:
       context: .
       args:
         VITE_API_URL: http://localhost:3001
+        INSTALL_BLENDER: ${INSTALL_BLENDER:-false}
     restart: unless-stopped
     depends_on:
       postgres:
@@ -36,6 +37,10 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       PORT: 3001
       CORS_ORIGIN: http://localhost:3001
+      # Model pipeline: geometry compression (meshopt | draco | none) and the
+      # max texture size uploads are downscaled to.
+      MODEL_COMPRESSION: ${MODEL_COMPRESSION:-meshopt}
+      MODEL_MAX_TEXTURE_SIZE: ${MODEL_MAX_TEXTURE_SIZE:-4096}
     ports:
       - "3001:3001"
     volumes:

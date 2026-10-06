@@ -138,8 +138,8 @@ export default function SavedPage({ collections, onCreateCollection, onRenameCol
                                 onClick={() => onSelectArtwork(artwork.id, artwork.username!)}
                             >
                                 <div className="liked-card-thumb">
-                                    {artwork.renders[0] ? (
-                                        <img src={`${API_BASE_URL}${artwork.renders[0].url}`} alt={artwork.title} />
+                                    {artwork.renders[0] || artwork.thumbnailUrl ? (
+                                        <img src={`${API_BASE_URL}${artwork.renders[0]?.url ?? artwork.thumbnailUrl}`} alt={artwork.title} />
                                     ) : (
                                         <ImageIcon />
                                     )}

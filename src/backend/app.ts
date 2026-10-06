@@ -14,6 +14,7 @@ import { collectionsRoutes } from './routes/collections.routes.ts';
 import { artworksRoutes } from './routes/artworks.routes.ts';
 import { notificationsRoutes } from './routes/notifications.routes.ts';
 import { generalApiRateLimiter } from './middleware/rate-limit.middleware.ts';
+import { resumeInterruptedModelJobs } from './pipeline/processor.ts';
 
 dotenv.config();
 
@@ -35,6 +36,11 @@ app.use(helmet({
 }));
 app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
+// Raw model uploads and the pipeline's scratch space live under uploads/ too,
+// but only the processed output is meant to be served.
+app.use(['/uploads/sources', '/uploads/tmp'], (_req: Request, res: Response) => {
+  res.status(404).end();
+});
 app.use('/uploads', express.static('uploads'));
 app.use('/api', generalApiRateLimiter);
 
@@ -47,6 +53,7 @@ app.use('/api/notifications', notificationsRoutes);
 
 let dbReady = false;
 let reconnecting = false;
+let resumedModelJobs = false;
 
 app.get('/api/health', (_req: Request, res: Response) => {
   res.status(dbReady ? 200 : 503).json({ status: dbReady ? 'ok' : 'degraded', database: dbReady });
@@ -77,6 +84,13 @@ export function scheduleReconnect(delayMs = 2000): void {
       dbReady = true;
       reconnecting = false;
       console.log('Database connection (re)established');
+
+      // Only on the first connection: later reconnects mean the process kept
+      // running, so its queue is still intact.
+      if (!resumedModelJobs) {
+        resumedModelJobs = true;
+        resumeInterruptedModelJobs().catch(err => console.error('Failed to resume model processing:', err));
+      }
     } catch (err) {
       console.error(`Database unreachable, retrying in ${delay}ms:`, (err as Error).message);
       setTimeout(() => attempt(Math.min(delay * 2, 30_000)), delay);

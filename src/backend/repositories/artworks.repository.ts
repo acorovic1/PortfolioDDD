@@ -17,6 +17,13 @@ export function toArtworkDTO(
     category: row.category ?? '',
     tools: parseJsonArray(row.tools),
     modelUrl: row.model_path,
+    processingStatus: row.processing_status,
+    processingError: row.processing_error,
+    sourceFormat: row.source_format,
+    modelVersion: row.model_version,
+    // BIGINT comes back from pg as a string.
+    modelSizeBytes: row.model_size_bytes === null ? null : Number(row.model_size_bytes),
+    thumbnailUrl: row.thumbnail_path,
     renders: renders.map(toRenderDTO),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -28,8 +35,13 @@ export function toArtworkDTO(
 export async function findArtworksByUserId(
   userId: string,
   limit?: number,
-  offset?: number
+  offset?: number,
+  options: { viewableOnly?: boolean } = {}
 ): Promise<ArtworkRecord[]> {
+  // Other people only see artworks that have a processed model to show; the
+  // owner also sees ones still processing (or whose first upload failed).
+  const viewable = options.viewableOnly ? "AND model_path <> ''" : '';
+
   // No limit means "all of this user's artworks" - used to rebuild someone's
   // own 3D scene, which must never be silently truncated by pagination.
   // Artworks created in the same instant tie on `created_at` - `id` as a
@@ -37,14 +49,14 @@ export async function findArtworksByUserId(
   // shuffling (which visibly reshuffles the 3D carousel between page loads).
   if (limit === undefined) {
     const { rows } = await pool.query<ArtworkRecord>(
-      'SELECT * FROM artworks WHERE user_id = $1 ORDER BY created_at DESC, id DESC',
+      `SELECT * FROM artworks WHERE user_id = $1 ${viewable} ORDER BY created_at DESC, id DESC`,
       [userId]
     );
     return rows;
   }
 
   const { rows } = await pool.query<ArtworkRecord>(
-    'SELECT * FROM artworks WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3',
+    `SELECT * FROM artworks WHERE user_id = $1 ${viewable} ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
     [userId, limit, offset ?? 0]
   );
   return rows;
@@ -84,11 +96,15 @@ export async function createArtwork(artwork: {
   year: string;
   category: string;
   tools: string[];
-  modelPath: string;
+  // The raw upload awaiting conversion; the model itself is filled in by the
+  // processing pipeline (see markModelReady).
+  pendingSourcePath: string;
+  sourceFormat: string;
 }): Promise<void> {
   await pool.query(
-    `INSERT INTO artworks (id, user_id, title, description, year, category, tools, model_path)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    `INSERT INTO artworks (id, user_id, title, description, year, category, tools, model_path,
+                           processing_status, pending_source_path, source_format)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, '', 'processing', $8, $9)`,
     [
       artwork.id,
       artwork.userId,
@@ -97,9 +113,75 @@ export async function createArtwork(artwork: {
       artwork.year,
       artwork.category,
       JSON.stringify(artwork.tools),
-      artwork.modelPath,
+      artwork.pendingSourcePath,
+      artwork.sourceFormat,
     ]
   );
+}
+
+// --- Model processing state ---
+
+// Queues a new upload (a new version) for an existing artwork. Returns false
+// if it's already processing one, so two uploads can't race each other.
+export async function startModelReprocessing(id: string, pendingSourcePath: string, sourceFormat: string): Promise<boolean> {
+  const result = await pool.query(
+    `UPDATE artworks
+     SET processing_status = 'processing', processing_error = NULL,
+         pending_source_path = $2, source_format = $3, updated_at = NOW()
+     WHERE id = $1 AND processing_status <> 'processing'`,
+    [id, pendingSourcePath, sourceFormat]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+// Swaps in a freshly processed model. Returns the model path it replaced
+// ('' for a first upload), or null if the artwork no longer exists.
+export async function markModelReady(
+  id: string,
+  modelPath: string,
+  sizeBytes: number,
+  sourceFormat: string
+): Promise<string | null> {
+  const { rows } = await pool.query<{ previous_path: string }>(
+    `UPDATE artworks AS a
+     SET model_path = $2, model_size_bytes = $3, source_format = $4,
+         model_version = CASE WHEN old.model_path = '' THEN a.model_version ELSE a.model_version + 1 END,
+         processing_status = 'ready', processing_error = NULL, pending_source_path = NULL, updated_at = NOW()
+     FROM (SELECT id, model_path FROM artworks WHERE id = $1 FOR UPDATE) AS old
+     WHERE a.id = old.id
+     RETURNING old.model_path AS previous_path`,
+    [id, modelPath, sizeBytes, sourceFormat]
+  );
+  return rows[0]?.previous_path ?? null;
+}
+
+export async function markModelFailed(id: string, error: string): Promise<void> {
+  await pool.query(
+    `UPDATE artworks
+     SET processing_status = 'failed', processing_error = $2, pending_source_path = NULL, updated_at = NOW()
+     WHERE id = $1`,
+    [id, error]
+  );
+}
+
+// Uploads that were mid-processing when the server stopped.
+export async function findInterruptedProcessing(): Promise<{ id: string; pending_source_path: string | null; source_format: string | null }[]> {
+  const { rows } = await pool.query<{ id: string; pending_source_path: string | null; source_format: string | null }>(
+    "SELECT id, pending_source_path, source_format FROM artworks WHERE processing_status = 'processing'"
+  );
+  return rows;
+}
+
+// Returns the previous thumbnail path so the caller can delete the file.
+export async function setThumbnail(id: string, thumbnailPath: string): Promise<string | null> {
+  const { rows } = await pool.query<{ previous_path: string | null }>(
+    `UPDATE artworks AS a SET thumbnail_path = $2
+     FROM (SELECT id, thumbnail_path FROM artworks WHERE id = $1 FOR UPDATE) AS old
+     WHERE a.id = old.id
+     RETURNING old.thumbnail_path AS previous_path`,
+    [id, thumbnailPath]
+  );
+  return rows[0]?.previous_path ?? null;
 }
 
 export async function updateArtwork(
@@ -145,7 +227,8 @@ export async function searchArtworks(query: string, limit: number, offset: numbe
     `SELECT artworks.id, artworks.title, artworks.category, artworks.year, users.username
      FROM artworks
      JOIN users ON users.id = artworks.user_id
-     WHERE artworks.title ILIKE $1 OR artworks.category ILIKE $1 OR artworks.description ILIKE $1
+     WHERE artworks.model_path <> ''
+       AND (artworks.title ILIKE $1 OR artworks.category ILIKE $1 OR artworks.description ILIKE $1)
      ORDER BY artworks.created_at DESC
      LIMIT $2 OFFSET $3`,
     [like, limit, offset]

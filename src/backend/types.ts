@@ -58,7 +58,18 @@ export interface ArtworkRecord {
   model_path: string;
   created_at: string;
   updated_at: string;
+  processing_status: ProcessingStatus;
+  processing_error: string | null;
+  pending_source_path: string | null;
+  source_format: string | null;
+  model_version: number;
+  model_size_bytes: string | number | null;
+  thumbnail_path: string | null;
 }
+
+// 'processing' while an upload is being converted, 'failed' if the latest
+// upload couldn't be converted (an earlier version may still be served).
+export type ProcessingStatus = 'processing' | 'ready' | 'failed';
 
 export type ArtworkDTO = {
   id: string;
@@ -67,7 +78,14 @@ export type ArtworkDTO = {
   year: string;
   category: string;
   tools: string[];
+  // '' until the first upload has finished processing.
   modelUrl: string;
+  processingStatus: ProcessingStatus;
+  processingError: string | null;
+  sourceFormat: string | null;
+  modelVersion: number;
+  modelSizeBytes: number | null;
+  thumbnailUrl: string | null;
   renders: RenderDTO[];
   createdAt: string;
   updatedAt: string;

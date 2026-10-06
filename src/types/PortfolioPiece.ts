@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { ArtworkInfoData } from './ArtworkInfoData'
+import { getGLTFLoader } from '@/frontend/three/gltfLoader';
 
 
 
@@ -19,22 +19,26 @@ export type PortfolioPiece = {
   likeCount: number;
   // Animation clips shipped with the model (played back in the inspector).
   animations: THREE.AnimationClip[];
+  // The processed model file this piece was loaded from (backend artworks).
+  modelInfo?: ModelFileInfo;
 };
 
-export type PickedPortfolioPieceResult = {
-  piece: PortfolioPiece;
-  file: File;
-}
+export type ModelFileInfo = {
+  sourceFormat: string | null;
+  version: number;
+  sizeBytes: number | null;
+  thumbnailUrl: string | null;
+};
 
+export type LoadedModel = {
+  scene: THREE.Group;
+  bounds: THREE.Box3;  // local-space bounds, after centering
+  animations: THREE.AnimationClip[];
+};
 
-const loader = new GLTFLoader();
-
-export async function createPortfolioItem(
-  scene: THREE.Scene,
-  path: string
-): Promise<PortfolioPiece> {
-
-  const gltf = await loader.loadAsync(path);
+// Loads a GLB/glTF and centers it on the origin, without adding it anywhere.
+export async function loadModel(path: string): Promise<LoadedModel> {
+  const gltf = await getGLTFLoader().loadAsync(path);
 
   // glTF allows omitting normals (clients then shade flat - GLTFLoader turns
   // on flatShading for those). Normal-based rendering such as the inspector's
@@ -46,14 +50,22 @@ export async function createPortfolioItem(
     }
   });
 
-  const root = new THREE.Group();
-  root.add(gltf.scene);
-
   const bounds = new THREE.Box3().setFromObject(gltf.scene);
   const center = bounds.getCenter(new THREE.Vector3());
   gltf.scene.position.sub(center);
-
   bounds.setFromObject(gltf.scene);
+
+  return { scene: gltf.scene, bounds, animations: gltf.animations };
+}
+
+export async function createPortfolioItem(
+  scene: THREE.Scene,
+  path: string
+): Promise<PortfolioPiece> {
+  const model = await loadModel(path);
+
+  const root = new THREE.Group();
+  root.add(model.scene);
 
   const emptyArtworkInfo: ArtworkInfoData = {
     title: '',
@@ -72,13 +84,15 @@ export async function createPortfolioItem(
   return {
     id: crypto.randomUUID(),
     root: root,
-    bounds: bounds,
+    bounds: model.bounds,
     infoData: emptyArtworkInfo,
     renders: emptyRenderImages,
     likeCount: 0,
-    animations: gltf.animations,
+    animations: model.animations,
   };
 }
+
+export type ModelProcessingStatus = 'processing' | 'ready' | 'failed';
 
 export type RemoteArtwork = {
   id: string;
@@ -87,7 +101,14 @@ export type RemoteArtwork = {
   year: string;
   category: string;
   tools: string[];
+  // '' until the uploaded model has finished server-side processing.
   modelUrl: string;
+  processingStatus: ModelProcessingStatus;
+  processingError: string | null;
+  sourceFormat: string | null;
+  modelVersion: number;
+  modelSizeBytes: number | null;
+  thumbnailUrl: string | null;
   renders: { id: string; url: string; caption: string }[];
   likeCount: number;
   // Populated by endpoints that can return artworks belonging to anyone
@@ -118,32 +139,25 @@ export async function createPortfolioItemFromRemote(
     caption: r.caption,
   }));
   piece.likeCount = remote.likeCount;
+  piece.modelInfo = {
+    sourceFormat: remote.sourceFormat,
+    version: remote.modelVersion,
+    sizeBytes: remote.modelSizeBytes,
+    thumbnailUrl: remote.thumbnailUrl,
+  };
 
   return piece;
 }
 
-export async function pickPortfolioPiece(scene: THREE.Scene): Promise<PickedPortfolioPieceResult | null> {
-  const file = await pickPortfolioFile();
-  if (!file) return null;
+// Formats the server's processing pipeline accepts (a .zip bundles a model
+// with its textures / .bin / .mtl files).
+export const MODEL_FILE_ACCEPT = '.glb,.gltf,.fbx,.obj,.stl,.blend,.usdz,.usd,.usda,.usdc,.zip';
 
-
-  const url = URL.createObjectURL(file);
-  try {
-    const piece = await createPortfolioItem(scene, url);
-    piece.infoData.title = prompt('Enter title for this model:') || 'Untitled';
-
-
-    return { piece, file };
-  } finally {
-    URL.revokeObjectURL(url); // free memory
-  }
-}
-
-function pickPortfolioFile(): Promise<File | null> {
+export function pickModelFile(): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.glb,.gltf';
+    input.accept = MODEL_FILE_ACCEPT;
     input.style.display = 'none';
 
     input.onchange = () => {

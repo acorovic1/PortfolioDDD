@@ -2,6 +2,9 @@ import { describe, it, expect, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.ts';
 import { registerTestUser, deleteTestUsers } from './helpers.ts';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { waitForModelJobs } from '../pipeline/processor.ts';
 
 const createdUserIds: string[] = [];
 const fakeGlb = Buffer.from('glTF\x02\x00\x00\x00');
@@ -56,12 +59,15 @@ describe('artwork search', () => {
     createdUserIds.push(user.id);
 
     const uniqueTitle = `Zorbthing_${crypto.randomUUID().slice(0, 8)}`;
+    // Only artworks with a processed model are searchable, so this needs a
+    // real (convertible) model rather than the fake GLB.
     await request(app)
       .post('/api/portfolio/artworks')
       .set('Authorization', `Bearer ${user.token}`)
       .field('title', uniqueTitle)
       .field('category', 'Sculpture')
-      .attach('model', fakeGlb, 'test.glb');
+      .attach('model', readFileSync(path.join(process.cwd(), 'e2e', 'fixtures', 'blue-triangle.gltf')), 'test.gltf');
+    await waitForModelJobs();
 
     const res = await request(app)
       .get(`/api/artworks/search?q=${uniqueTitle}`)

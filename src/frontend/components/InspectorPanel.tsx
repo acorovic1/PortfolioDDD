@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ModelInspector, ViewMode, ShadingMode } from '@/frontend/inspector/ModelInspector';
 import type { TextureChannel } from '@/frontend/inspector/modelStats';
 import type { PostSettings, ToneMappingOption } from '@/frontend/inspector/PostProcessing';
+import type { ModelFileInfo } from '@/types/PortfolioPiece';
 import {
   CloseIcon,
   PlayIcon,
@@ -48,6 +49,12 @@ function formatDimension(value: number): string {
   return value >= 100 ? value.toFixed(0) : value.toFixed(2);
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 type InspectorPanelProps = {
   title: string;
   inspector: ModelInspector;
@@ -59,6 +66,10 @@ type InspectorPanelProps = {
   onToggleFullscreen: () => void;
   onResetCamera: () => void;
   onExit: () => void;
+  modelInfo?: ModelFileInfo;
+  // Only passed to the artwork's owner.
+  onReplaceModel?: () => void;
+  replaceBusy?: boolean;
 };
 
 // Focus-mode UI: shading/texture-channel modes, post-processing, animation
@@ -76,6 +87,9 @@ export default function InspectorPanel({
   onToggleFullscreen,
   onResetCamera,
   onExit,
+  modelInfo,
+  onReplaceModel,
+  replaceBusy = false,
 }: InspectorPanelProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('lit');
@@ -380,6 +394,31 @@ export default function InspectorPanel({
                 </div>
               </dl>
             </section>
+
+            {modelInfo && (
+              <section className="inspector-section">
+                <h5>Model file</h5>
+                <dl className="inspector-stats">
+                  <div><dt>Version</dt><dd>v{modelInfo.version}</dd></div>
+                  {modelInfo.sourceFormat && (
+                    <div><dt>Uploaded as</dt><dd>.{modelInfo.sourceFormat}</dd></div>
+                  )}
+                  {modelInfo.sizeBytes !== null && (
+                    <div><dt>Optimized GLB</dt><dd>{formatBytes(modelInfo.sizeBytes)}</dd></div>
+                  )}
+                </dl>
+                {onReplaceModel && (
+                  <button
+                    className="inspector-chip inspector-replace-btn"
+                    onClick={onReplaceModel}
+                    disabled={replaceBusy}
+                    title="Upload a new version - likes, comments and renders are kept"
+                  >
+                    {replaceBusy ? 'Processing…' : 'Upload new version'}
+                  </button>
+                )}
+              </section>
+            )}
           </div>
         )}
       </aside>

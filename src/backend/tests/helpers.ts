@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { app } from '../app.ts';
 import { pool } from '../config/db.ts';
+import { waitForModelJobs } from '../pipeline/processor.ts';
 
 export async function registerTestUser(overrides: { username?: string; email?: string; password?: string } = {}) {
   const suffix = crypto.randomUUID().slice(0, 8);
@@ -20,6 +21,9 @@ export async function registerTestUser(overrides: { username?: string; email?: s
 }
 
 export async function deleteTestUsers(ids: string[]): Promise<void> {
+  // Let queued model uploads finish first, so none is left half-processed
+  // (and its raw upload orphaned) when the test process exits.
+  await waitForModelJobs();
   if (ids.length === 0) return;
   await pool.query('DELETE FROM users WHERE id = ANY($1)', [ids]);
 }

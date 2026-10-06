@@ -663,6 +663,7 @@ function App() {
               onArtworkIndexChange={setSelectedArtworkIndex}
               onArtworkAdd={onArtworkAdd}
               editable={editable}
+              canManage
               initialIndex={selectedArtworkIndex}
               remoteArtworksToLoad={remoteArtworksToLoad}
             />

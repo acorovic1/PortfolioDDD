@@ -6,11 +6,12 @@ export function uploadWithProgress(
   url: string,
   formData: FormData,
   headers: Record<string, string>,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  method: 'POST' | 'PUT' = 'POST'
 ): Promise<UploadResult> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', url);
+    xhr.open(method, url);
 
     Object.entries(headers).forEach(([key, value]) => {
       xhr.setRequestHeader(key, value);

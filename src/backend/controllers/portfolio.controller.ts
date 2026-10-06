@@ -9,6 +9,8 @@ import {
   updateArtwork,
   deleteArtwork,
   toArtworkDTO,
+  startModelReprocessing,
+  setThumbnail,
 } from '../repositories/artworks.repository.ts';
 import {
   createRender,
@@ -19,6 +21,14 @@ import {
 } from '../repositories/renders.repository.ts';
 import { countLikes, countLikesForArtworkIds } from '../repositories/likes.repository.ts';
 import { toPublicPath, deletePublicFile } from '../utils/upload.util.ts';
+import { enqueueModelJob } from '../pipeline/processor.ts';
+import path from 'node:path';
+import { rm } from 'node:fs/promises';
+
+// The upload's extension without the dot ('fbx', 'zip', ...).
+function uploadFormat(file: Express.Multer.File): string {
+  return path.extname(file.originalname).toLowerCase().slice(1);
+}
 
 function parseTools(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.map(String);
@@ -74,8 +84,9 @@ export async function createArtworkWithModel(req: Request, res: Response): Promi
 
   const { title, description, year, category, tools } = req.body;
   const id = uuidv4();
-  const modelPath = toPublicPath('models', file.filename);
 
+  // The artwork exists right away (status 'processing'); the upload is
+  // converted/optimized in the background - poll GET .../status for the result.
   await createArtwork({
     id,
     userId: authReq.user!.id,
@@ -84,11 +95,90 @@ export async function createArtworkWithModel(req: Request, res: Response): Promi
     year: year || '',
     category: category || '',
     tools: parseTools(tools),
-    modelPath,
+    pendingSourcePath: file.path,
+    sourceFormat: uploadFormat(file),
   });
+  enqueueModelJob({ artworkId: id, sourcePath: file.path, originalName: file.originalname });
 
   const artwork = await findArtworkById(id);
   res.status(201).json(toArtworkDTO(artwork!, []));
+}
+
+// Uploads a new version of an artwork's model. The current model keeps being
+// served until the new one is ready, and likes/comments/renders stay put.
+export async function replaceArtworkModel(req: Request, res: Response): Promise<void> {
+  const authReq = req as AuthRequest;
+  const artworkId = req.params.artworkId as string;
+  const file = req.file;
+
+  const discardUpload = () => (file ? rm(file.path, { force: true }) : Promise.resolve());
+
+  const artwork = await assertOwnedArtwork(authReq.user!.id, artworkId);
+  if (!artwork) {
+    await discardUpload();
+    res.status(404).json({ error: 'Artwork not found' });
+    return;
+  }
+
+  if (!file) {
+    res.status(400).json({ error: 'Model file is required' });
+    return;
+  }
+
+  const started = await startModelReprocessing(artworkId, file.path, uploadFormat(file));
+  if (!started) {
+    await discardUpload();
+    res.status(409).json({ error: 'A previous upload for this artwork is still processing' });
+    return;
+  }
+  enqueueModelJob({ artworkId, sourcePath: file.path, originalName: file.originalname });
+
+  const updated = await findArtworkById(artworkId);
+  const renders = await findRendersByArtworkId(artworkId);
+  const likeCount = await countLikes(artworkId);
+  res.status(202).json(toArtworkDTO(updated!, renders, likeCount));
+}
+
+// Lightweight polling endpoint for an upload's processing state.
+export async function getArtworkStatus(req: Request, res: Response): Promise<void> {
+  const authReq = req as AuthRequest;
+  const artworkId = req.params.artworkId as string;
+
+  const artwork = await assertOwnedArtwork(authReq.user!.id, artworkId);
+  if (!artwork) {
+    res.status(404).json({ error: 'Artwork not found' });
+    return;
+  }
+
+  const renders = await findRendersByArtworkId(artworkId);
+  const likeCount = await countLikes(artworkId);
+  res.json(toArtworkDTO(artwork, renders, likeCount));
+}
+
+// Stores a preview image of the model, rendered client-side once the model
+// has processed (used for cards in liked/saved lists).
+export async function uploadArtworkThumbnail(req: Request, res: Response): Promise<void> {
+  const authReq = req as AuthRequest;
+  const artworkId = req.params.artworkId as string;
+  const file = req.file;
+
+  const artwork = await assertOwnedArtwork(authReq.user!.id, artworkId);
+  if (!artwork) {
+    if (file) await rm(file.path, { force: true });
+    res.status(404).json({ error: 'Artwork not found' });
+    return;
+  }
+
+  if (!file) {
+    res.status(400).json({ error: 'Image file is required' });
+    return;
+  }
+
+  const thumbnailUrl = toPublicPath('thumbnails', file.filename);
+  const previous = await setThumbnail(artworkId, thumbnailUrl);
+  await deletePublicFile(previous);
+
+  res.json({ thumbnailUrl });
 }
 
 async function assertOwnedArtwork(userId: string, artworkId: string) {
@@ -136,6 +226,7 @@ export async function deleteOwnArtwork(req: Request, res: Response): Promise<voi
   await deleteArtwork(artworkId);
 
   await deletePublicFile(artwork.model_path);
+  await deletePublicFile(artwork.thumbnail_path);
   await Promise.all(renders.map(r => deletePublicFile(r.url)));
 
   res.json({ success: true });

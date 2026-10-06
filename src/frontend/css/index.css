@@ -159,6 +159,54 @@ body,
   transition: width 0.15s ease-out;
 }
 
+/* Server-side processing has no measurable progress: a sliding bar instead */
+.upload-progress-fill.indeterminate {
+  width: 35%;
+  animation: upload-progress-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes upload-progress-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(290%); }
+}
+
+.upload-progress-hint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  max-width: 420px;
+}
+
+.upload-progress-overlay.error {
+  border-color: var(--color-danger);
+}
+
+.upload-progress-dismiss {
+  align-self: flex-end;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.failed-upload-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.failed-upload-row span {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .renders {
   flex-shrink: 0;
   min-height: 100vh;

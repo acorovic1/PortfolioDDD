@@ -6,7 +6,8 @@ import type { ArtworkInfoData } from '@/types/ArtworkInfoData'
 import { useAuth } from '@/frontend/hooks/useAuth';
 
 import {
-  pickPortfolioPiece,
+  pickModelFile,
+  loadModel,
   createPortfolioItemFromRemote,
   type PortfolioPiece,
   type PortfolioImage,
@@ -18,6 +19,8 @@ import { ModelInspector } from '@/frontend/inspector/ModelInspector';
 import { PostProcessing, DEFAULT_POST_SETTINGS, type PostSettings } from '@/frontend/inspector/PostProcessing';
 import { API_BASE_URL } from '@/frontend/config/api';
 import { uploadWithProgress } from '@/frontend/utils/uploadWithProgress';
+import { waitForModelProcessing } from '@/frontend/utils/modelProcessing';
+import { uploadModelThumbnail } from '@/frontend/utils/modelThumbnail';
 
 function countVertices(piece?: PortfolioPiece): number {
   if (!piece) return 0;
@@ -42,6 +45,37 @@ type FocusSession = {
   // Camera viewing direction when focus began - "reset camera" returns to it.
   entryDirection: THREE.Vector3;
 };
+
+// Background model work shown in the scene overlay: an upload in flight,
+// server-side processing, or a failure the owner should know about.
+type ModelJobNotice =
+  | { kind: 'uploading'; title: string; progress: number }
+  | { kind: 'processing'; title: string }
+  | { kind: 'error'; title: string; message: string };
+
+// First uploads that failed to process: the artwork has no model to show, so
+// it's surfaced in a notice (with a way to remove it) instead of the carousel.
+type FailedUpload = { id: string; title: string; error: string };
+
+function disposeObject(object: THREE.Object3D): void {
+  object.traverse((obj) => {
+    const mesh = obj as THREE.Mesh;
+    if (mesh.geometry) mesh.geometry.dispose();
+    const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+    if (Array.isArray(material)) material.forEach(m => m.dispose());
+    else material?.dispose();
+  });
+}
+
+function carouselRadius(pieces: PortfolioPiece[]): number {
+  let bbMax = 0;
+  pieces.forEach(p => {
+    bbMax = Math.max(bbMax, p.bounds.getSize(new THREE.Vector3()).length());
+  });
+  return pieces.length === 1
+    ? bbMax
+    : Math.max(3, bbMax * (pieces.length + 1) / (2 * Math.PI));
+}
 
 function modelSize(piece: PortfolioPiece): number {
   return piece.bounds.getSize(new THREE.Vector3()).length();
@@ -81,6 +115,7 @@ function Scene3D({
   onArtworkIndexChange,
   onArtworkAdd,
   editable = false,
+  canManage = false,
   initialIndex = 0,
   remoteArtworksToLoad = null
 }: {
@@ -89,6 +124,9 @@ function Scene3D({
   onArtworkIndexChange?: (index: number) => void;
   onArtworkAdd?: (artwork: PortfolioPiece) => void;
   editable?: boolean;
+  // The viewer owns these artworks (their own portfolio, in view or edit
+  // mode): enables new model versions and thumbnail generation.
+  canManage?: boolean;
   initialIndex?: number;
   remoteArtworksToLoad?: RemoteArtwork[] | null;
 }) {
@@ -121,8 +159,22 @@ function Scene3D({
 
 
   const [frontIndex, setFrontIndex] = useState(initialIndex);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [jobNotice, setJobNotice] = useState<ModelJobNotice | null>(null);
+  const jobNoticeRef = useRef<ModelJobNotice | null>(null);
+  useEffect(() => {
+    jobNoticeRef.current = jobNotice?.kind === 'error' ? null : jobNotice;
+  }, [jobNotice]);
+  const [failedUploads, setFailedUploads] = useState<FailedUpload[]>([]);
   const { token } = useAuth();
+
+  // Aborts processing polls when the scene unmounts (the server keeps
+  // processing; the next load picks the result up).
+  const lifetimeRef = useRef<AbortController>(new AbortController());
+  useEffect(() => {
+    const lifetime = new AbortController();
+    lifetimeRef.current = lifetime;
+    return () => lifetime.abort();
+  }, []);
 
   // Index change
   useEffect(() => {
@@ -167,45 +219,88 @@ function Scene3D({
   }, [artworks]);
 
   // Load artworks the user already saved previously (e.g. right after login),
-  // reconstructing each one's 3D object from its backend model URL.
+  // reconstructing each one's 3D object from its backend model URL. Artworks
+  // still being processed server-side are loaded once processing finishes.
   useEffect(() => {
     if (!remoteArtworksToLoad || remoteArtworksToLoad.length === 0) return;
     const scene = sceneRef.current;
     if (!scene) return;
 
     let cancelled = false;
+    const signal = lifetimeRef.current.signal;
+
+    const addRemote = async (remote: RemoteArtwork) => {
+      const piece = await createPortfolioItemFromRemote(scene, API_BASE_URL, remote);
+      if (cancelled) {
+        scene.remove(piece.root);
+        disposeObject(piece.root);
+        return;
+      }
+
+      piece.root.visible = !focusRef.current;
+      artworksRef.current.push(piece);
+
+      const pieces = artworksRef.current;
+      radiusRef.current = carouselRadius(pieces);
+      pieces.forEach((p, i) => {
+        const angle = (i / pieces.length) * Math.PI * 2;
+        p.root.position.x = -radiusRef.current * Math.sin(angle);
+        p.root.position.z = radiusRef.current * Math.cos(angle);
+        p.root.lookAt(0, 0, 0);
+      });
+
+      onArtworkAdd?.(piece);
+
+      // Backfill thumbnails for models processed before thumbnails existed.
+      if (canManage && token && !remote.thumbnailUrl) {
+        const thumbnailUrl = await uploadModelThumbnail(piece, token);
+        if (thumbnailUrl && piece.modelInfo) piece.modelInfo.thumbnailUrl = thumbnailUrl;
+      }
+    };
 
     (async () => {
+      const pending: RemoteArtwork[] = [];
+      const failed: FailedUpload[] = [];
+
       for (const remote of remoteArtworksToLoad) {
         if (cancelled) return;
         if (artworks.some(a => a.id === remote.id)) continue; // already loaded
 
+        if (!remote.modelUrl) {
+          if (remote.processingStatus === 'processing') pending.push(remote);
+          else failed.push({ id: remote.id, title: remote.title, error: remote.processingError ?? 'Processing failed' });
+          continue;
+        }
+
         try {
-          const piece = await createPortfolioItemFromRemote(scene, API_BASE_URL, remote);
-          if (cancelled) return;
-
-          piece.root.visible = !focusRef.current;
-          artworksRef.current.push(piece);
-
-          const pieces = artworksRef.current;
-          let bbMax = 0;
-          pieces.forEach(p => {
-            bbMax = Math.max(bbMax, p.bounds.getSize(new THREE.Vector3()).length());
-          });
-          radiusRef.current = pieces.length === 1
-            ? bbMax
-            : Math.max(3, bbMax * (pieces.length + 1) / (2 * Math.PI));
-
-          pieces.forEach((p, i) => {
-            const angle = (i / pieces.length) * Math.PI * 2;
-            p.root.position.x = -radiusRef.current * Math.sin(angle);
-            p.root.position.z = radiusRef.current * Math.cos(angle);
-            p.root.lookAt(0, 0, 0);
-          });
-
-          onArtworkAdd?.(piece);
+          await addRemote(remote);
         } catch (error) {
           console.error('Failed to load a saved artwork into the scene:', error);
+        }
+      }
+
+      if (canManage && failed.length > 0) setFailedUploads(prev => [...prev, ...failed]);
+      if (!token) return;
+
+      for (const remote of pending) {
+        if (cancelled) return;
+        try {
+          setJobNotice({ kind: 'processing', title: remote.title });
+          const processed = await waitForModelProcessing(remote.id, token, signal);
+          if (cancelled) return;
+          if (processed.processingStatus === 'ready') {
+            await addRemote(processed);
+          } else if (canManage) {
+            setFailedUploads(prev => [...prev, {
+              id: processed.id,
+              title: processed.title,
+              error: processed.processingError ?? 'Processing failed',
+            }]);
+          }
+        } catch (error) {
+          if ((error as Error).name !== 'AbortError') console.error('Failed to wait for model processing:', error);
+        } finally {
+          if (!cancelled) setJobNotice(null);
         }
       }
     })();
@@ -603,6 +698,94 @@ function Scene3D({
     }
   };
 
+  // Uploads a new version of the focused model. The current one stays in the
+  // scene until the new one has been processed, then is swapped in place -
+  // the artwork keeps its id, so likes/comments/renders are untouched.
+  const replaceFocusedModel = async () => {
+    const session = focusRef.current;
+    if (!session || !token || jobNoticeRef.current) return;
+    const piece = session.piece;
+    const title = piece.infoData.title || 'Untitled';
+
+    const file = await pickModelFile();
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('model', file);
+
+    let processed: RemoteArtwork;
+    try {
+      setJobNotice({ kind: 'uploading', title, progress: 0 });
+      const uploadRes = await uploadWithProgress(
+        `${API_BASE_URL}/api/portfolio/artworks/${piece.id}/model`,
+        formData,
+        { Authorization: `Bearer ${token}` },
+        (percent) => setJobNotice({ kind: 'uploading', title, progress: percent }),
+        'PUT'
+      );
+      if (!uploadRes.ok) {
+        const message = (uploadRes.body as { error?: string } | null)?.error ?? `Upload failed (${uploadRes.status})`;
+        setJobNotice({ kind: 'error', title, message });
+        return;
+      }
+
+      setJobNotice({ kind: 'processing', title });
+      processed = await waitForModelProcessing(piece.id, token, lifetimeRef.current.signal);
+      if (processed.processingStatus !== 'ready') {
+        setJobNotice({
+          kind: 'error',
+          title,
+          message: `${processed.processingError ?? 'Processing failed'} - the previous version is still live`,
+        });
+        return;
+      }
+
+      const model = await loadModel(`${API_BASE_URL}${processed.modelUrl}`);
+
+      // The inspector holds references to the old meshes - close it first,
+      // and reopen it on the new version afterwards.
+      const wasFocused = focusRef.current?.piece === piece;
+      if (wasFocused) exitFocus();
+
+      piece.root.children.slice().forEach((child) => {
+        piece.root.remove(child);
+        disposeObject(child);
+      });
+      piece.root.add(model.scene);
+      piece.bounds.copy(model.bounds);
+      piece.animations.splice(0, piece.animations.length, ...model.animations);
+      piece.modelInfo = {
+        sourceFormat: processed.sourceFormat,
+        version: processed.modelVersion,
+        sizeBytes: processed.modelSizeBytes,
+        thumbnailUrl: processed.thumbnailUrl,
+      };
+
+      // The new version may be a different size: re-space the carousel.
+      radiusRef.current = carouselRadius(artworksRef.current);
+      const index = artworksRef.current.indexOf(piece);
+      if (index !== -1) goToIndex(index);
+
+      setJobNotice(null);
+      if (wasFocused) enterFocus(piece);
+
+      const thumbnailUrl = await uploadModelThumbnail(piece, token);
+      if (thumbnailUrl && piece.modelInfo) piece.modelInfo.thumbnailUrl = thumbnailUrl;
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') return;
+      setJobNotice({ kind: 'error', title, message: (error as Error).message });
+    }
+  };
+
+  const removeFailedUpload = (id: string) => {
+    setFailedUploads(prev => prev.filter(f => f.id !== id));
+    if (!token) return;
+    fetch(`${API_BASE_URL}/api/portfolio/artworks/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(err => console.error('Failed to remove the failed upload:', err));
+  };
+
   const inspectFrontArtwork = () => {
     const frontId = getCurrentFrontPieceId();
     const piece = artworksRef.current.find(p => p.id === frontId);
@@ -729,13 +912,23 @@ function Scene3D({
   // whenever it points at a different artwork than what's actually front -
   // covers both a deep link resolving once its artwork loads, and jumping
   // straight to an artwork on a remount that already has it loaded.
+  //
+  // Only an index the parent *asked for* is acted on: after a local change
+  // (adding/rotating) the parent briefly still holds the previous index, and
+  // obeying that stale value would rotate back, report it, get the new value
+  // echoed... ping-ponging forever.
+  const handledInitialIndexRef = useRef<number | null>(null);
   useEffect(() => {
+    const parentRequested = handledInitialIndexRef.current !== initialIndex;
+    if (!parentRequested && initialIndex !== frontIndex) return; // parent hasn't caught up yet
+
     const targetId = artworks[initialIndex]?.id;
     if (!targetId) return;
 
     const targetRefIndex = artworksRef.current.findIndex(p => p.id === targetId);
     if (targetRefIndex === -1) return; // not loaded into the scene yet
 
+    handledInitialIndexRef.current = initialIndex;
     if (getCurrentFrontPieceId() === targetId) return;
     goToIndex(targetRefIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -769,54 +962,68 @@ function Scene3D({
 
       if (!raycaster.ray.intersectsBox(buttonBounds)) return;
 
-      const result = await pickPortfolioPiece(sceneRef.current!);
-      if (!result) return;
+      if (!token || jobNoticeRef.current) return;
 
-      const { piece: newPiece, file: newFile } = result;
-      console.log(newPiece.infoData.title, " <--- new object title")
+      const file = await pickModelFile();
+      if (!file) return;
+      const title = prompt('Enter title for this model:') || 'Untitled';
 
       const formData = new FormData();
-      formData.append('model', newFile);
-      formData.append('title', newPiece.infoData.title);
+      formData.append('model', file);
+      formData.append('title', title);
 
+      // Upload, then wait for the server to convert/optimize it - the scene
+      // only ever loads the processed GLB.
+      let processed: RemoteArtwork;
       try {
-        setUploadProgress(0);
+        setJobNotice({ kind: 'uploading', title, progress: 0 });
         const uploadRes = await uploadWithProgress(
           `${API_BASE_URL}/api/portfolio/artworks`,
           formData,
           { Authorization: `Bearer ${token}` },
-          (percent) => setUploadProgress(percent)
+          (percent) => setJobNotice({ kind: 'uploading', title, progress: percent })
         );
-
-        if (uploadRes.ok) {
-          const saved = uploadRes.body as { id: string };
-          // Adopt the backend's id so later updates (renders, info edits, delete)
-          // can be persisted against the same artwork record.
-          newPiece.id = saved.id;
-        } else {
-          console.error('Failed to persist artwork to backend:', uploadRes.status);
+        if (!uploadRes.ok) {
+          const message = (uploadRes.body as { error?: string } | null)?.error ?? `Upload failed (${uploadRes.status})`;
+          setJobNotice({ kind: 'error', title, message });
+          return;
         }
+
+        setJobNotice({ kind: 'processing', title });
+        const created = uploadRes.body as RemoteArtwork;
+        processed = await waitForModelProcessing(created.id, token, lifetimeRef.current.signal);
       } catch (error) {
-        console.error('Failed to persist artwork to backend:', error);
-      } finally {
-        setUploadProgress(null);
+        if ((error as Error).name === 'AbortError') return;
+        setJobNotice({ kind: 'error', title, message: (error as Error).message });
+        return;
       }
 
-      // Notify parent component instead of updating local ref
+      if (processed.processingStatus !== 'ready') {
+        setJobNotice({ kind: 'error', title, message: processed.processingError ?? 'Processing failed' });
+        // A first upload that failed leaves an empty artwork behind - drop it.
+        fetch(`${API_BASE_URL}/api/portfolio/artworks/${processed.id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(err => console.error('Failed to remove the failed upload:', err));
+        return;
+      }
 
+      let newPiece: PortfolioPiece;
+      try {
+        newPiece = await createPortfolioItemFromRemote(sceneRef.current!, API_BASE_URL, processed);
+      } catch (error) {
+        console.error('Failed to load the processed model:', error);
+        setJobNotice({ kind: 'error', title, message: 'The processed model could not be loaded' });
+        return;
+      }
+      setJobNotice(null);
+      newPiece.root.visible = !focusRef.current;
+
+      // Notify parent component instead of updating local ref
       onArtworkAdd?.(newPiece);
 
       const portfolioPieces = [...artworksRef.current, newPiece];
-      let bbMax = 0;
-
-      portfolioPieces.forEach(piece => {
-        bbMax = Math.max(bbMax, piece.bounds.getSize(new THREE.Vector3()).length());
-      });
-
-      radiusRef.current = portfolioPieces.length === 1
-        ? bbMax
-        : Math.max(3, bbMax * (portfolioPieces.length + 1) / (2 * Math.PI));
-      console.log('New radius:', radiusRef.current);
+      radiusRef.current = carouselRadius(portfolioPieces);
 
       // Rotate everything so the new piece lands front-center (angle 0);
       // existing artworks ease smoothly into their shifted slot, the new
@@ -824,6 +1031,7 @@ function Scene3D({
       const pieceCount = portfolioPieces.length;
       newPiece.root.position.x = 0;
       newPiece.root.position.z = radiusRef.current;
+      newPiece.root.lookAt(0, 0, 0);
 
       artworksRef.current.forEach((piece, i) => {
         const angle = ((i + 1) / pieceCount) * Math.PI * 2;
@@ -832,6 +1040,10 @@ function Scene3D({
           piece.root.position.y,
           radiusRef.current * Math.cos(angle)
         );
+      });
+
+      uploadModelThumbnail(newPiece, token).then((thumbnailUrl) => {
+        if (thumbnailUrl && newPiece.modelInfo) newPiece.modelInfo.thumbnailUrl = thumbnailUrl;
       });
 
       setFrontIndex(artworksRef.current.length);
@@ -948,6 +1160,9 @@ function Scene3D({
           onToggleFullscreen={toggleFullscreen}
           onResetCamera={resetInspectorCamera}
           onExit={exitFocus}
+          modelInfo={focus.piece.modelInfo}
+          onReplaceModel={canManage && focus.piece.modelInfo ? replaceFocusedModel : undefined}
+          replaceBusy={jobNotice !== null && jobNotice.kind !== 'error'}
         />
       ) : (
         <>
@@ -978,12 +1193,46 @@ function Scene3D({
         </>
       )}
 
-      {uploadProgress !== null && (
-        <div className="upload-progress-overlay">
-          <div className="upload-progress-label">Uploading model... {uploadProgress}%</div>
-          <div className="upload-progress-track">
-            <div className="upload-progress-fill" style={{ width: `${uploadProgress}%` }} />
+      {jobNotice && (
+        <div className={`upload-progress-overlay ${jobNotice.kind === 'error' ? 'error' : ''}`} role="status">
+          {jobNotice.kind === 'uploading' && (
+            <>
+              <div className="upload-progress-label">Uploading “{jobNotice.title}”… {jobNotice.progress}%</div>
+              <div className="upload-progress-track">
+                <div className="upload-progress-fill" style={{ width: `${jobNotice.progress}%` }} />
+              </div>
+            </>
+          )}
+          {jobNotice.kind === 'processing' && (
+            <>
+              <div className="upload-progress-label">Processing “{jobNotice.title}”…</div>
+              <div className="upload-progress-hint">Converting and optimizing the model on the server</div>
+              <div className="upload-progress-track">
+                <div className="upload-progress-fill indeterminate" />
+              </div>
+            </>
+          )}
+          {jobNotice.kind === 'error' && (
+            <>
+              <div className="upload-progress-label">Couldn't process “{jobNotice.title}”</div>
+              <div className="upload-progress-hint">{jobNotice.message}</div>
+              <button className="upload-progress-dismiss" onClick={() => setJobNotice(null)}>Dismiss</button>
+            </>
+          )}
+        </div>
+      )}
+
+      {failedUploads.length > 0 && !jobNotice && (
+        <div className="upload-progress-overlay error" role="alert">
+          <div className="upload-progress-label">
+            {failedUploads.length === 1 ? 'An upload' : `${failedUploads.length} uploads`} failed to process
           </div>
+          {failedUploads.map(f => (
+            <div key={f.id} className="failed-upload-row">
+              <span title={f.error}><strong>{f.title || 'Untitled'}</strong> — {f.error}</span>
+              <button className="upload-progress-dismiss" onClick={() => removeFailedUpload(f.id)}>Remove</button>
+            </div>
+          ))}
         </div>
       )}
 

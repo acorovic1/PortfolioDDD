@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CloseIcon } from '@/frontend/svg/Icons';
+import { getGLTFLoader } from '@/frontend/three/gltfLoader';
 import '@/frontend/css/ModelViewerModal.css';
 
 export default function ModelViewerModal({
@@ -54,7 +54,7 @@ export default function ModelViewerModal({
     };
     frameId = requestAnimationFrame(animate);
 
-    new GLTFLoader().load(
+    getGLTFLoader().load(
       modelUrl,
       (gltf) => {
         if (cancelled) return;

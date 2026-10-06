@@ -236,6 +236,15 @@
   text-align: right;
 }
 
+.inspector-replace-btn {
+  padding: 8px;
+}
+
+.inspector-replace-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 /* Bottom-left camera toolbar shown in place of the carousel controls */
 .inspector-toolbar {
   position: absolute;

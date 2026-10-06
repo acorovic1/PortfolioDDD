@@ -47,10 +47,10 @@ export async function getPublicPortfolio(req: Request, res: Response): Promise<v
   const wantsAll = req.query.all === 'true';
   let artworks;
   if (wantsAll) {
-    artworks = await findArtworksByUserId(user.id);
+    artworks = await findArtworksByUserId(user.id, undefined, undefined, { viewableOnly: true });
   } else {
     const { limit, offset } = parsePagination(req.query);
-    artworks = await findArtworksByUserId(user.id, limit, offset);
+    artworks = await findArtworksByUserId(user.id, limit, offset, { viewableOnly: true });
   }
   const rendersByArtwork = await findRendersByArtworkIds(artworks.map(a => a.id));
   const likeCounts = await countLikesForArtworkIds(artworks.map(a => a.id));
@@ -159,6 +159,7 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
   const filesToDelete = [
     ...(user.avatar_url ? [user.avatar_url] : []),
     ...artworks.map(a => a.model_path),
+    ...artworks.map(a => a.thumbnail_path),
     ...[...rendersByArtwork.values()].flat().map(r => r.url),
   ];
   await Promise.all(filesToDelete.map(f => deletePublicFile(f)));
