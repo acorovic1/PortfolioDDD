@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import type { AuthRequest } from '../types.ts';
+import type { AuthRequest, ArtworkRecord } from '../types.ts';
 import {
   createArtwork,
   findArtworkById,
@@ -242,14 +242,19 @@ export async function deleteOwnArtwork(req: Request, res: Response): Promise<voi
     return;
   }
 
-  const renders = await findRendersByArtworkId(artworkId);
-  await deleteArtwork(artworkId);
+  await deleteArtworkWithFiles(artwork);
+  res.json({ success: true });
+}
+
+// Deletes the artwork row (cascading likes/comments/renders) and its files.
+// Shared with moderation, which can remove artworks too.
+export async function deleteArtworkWithFiles(artwork: ArtworkRecord): Promise<void> {
+  const renders = await findRendersByArtworkId(artwork.id);
+  await deleteArtwork(artwork.id);
 
   await deletePublicFile(artwork.model_path);
   await deletePublicFile(artwork.thumbnail_path);
   await Promise.all(renders.map(r => deletePublicFile(r.url)));
-
-  res.json({ success: true });
 }
 
 export async function addRender(req: Request, res: Response): Promise<void> {

@@ -19,7 +19,24 @@ async function getAppliedMigrations(): Promise<Set<string>> {
   return new Set(rows.map(r => r.name));
 }
 
+// Arbitrary constant identifying the migration lock.
+const MIGRATION_LOCK_ID = 7_340_219;
+
 export async function runMigrations(): Promise<void> {
+  // Several processes may migrate at once (parallel test workers, multiple
+  // server instances): an advisory lock makes them take turns, so a new
+  // migration is applied exactly once instead of racing.
+  const lockClient = await pool.connect();
+  try {
+    await lockClient.query('SELECT pg_advisory_lock($1)', [MIGRATION_LOCK_ID]);
+    await applyPendingMigrations();
+  } finally {
+    await lockClient.query('SELECT pg_advisory_unlock($1)', [MIGRATION_LOCK_ID]).catch(() => {});
+    lockClient.release();
+  }
+}
+
+async function applyPendingMigrations(): Promise<void> {
   await ensureMigrationsTable();
   const applied = await getAppliedMigrations();
 

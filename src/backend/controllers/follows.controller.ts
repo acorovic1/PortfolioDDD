@@ -5,6 +5,7 @@ import { findUserByUsername } from '../repositories/users.repository.ts';
 import { addFollow, removeFollow, listFollows, countFollows, isFollowing } from '../repositories/follows.repository.ts';
 import { listedCondition } from '../repositories/artworks.repository.ts';
 import { pool } from '../config/db.ts';
+import { isBlockedEitherWay, blockState } from '../repositories/moderation.repository.ts';
 import { createNotification } from '../repositories/notifications.repository.ts';
 import { parsePagination } from '../utils/pagination.util.ts';
 
@@ -17,6 +18,10 @@ export async function followUser(req: Request, res: Response): Promise<void> {
   }
   if (target.id === authReq.user!.id) {
     res.status(400).json({ error: "You can't follow yourself" });
+    return;
+  }
+  if (await isBlockedEitherWay(authReq.user!.id, target.id)) {
+    res.status(403).json({ error: "You can't follow this user" });
     return;
   }
 
@@ -66,7 +71,15 @@ export const listFollowing = followList('following');
 export async function getProfileSummary(req: Request, res: Response): Promise<void> {
   const viewerId = (req as AuthRequest).user?.id ?? null;
   const user = await findUserByUsername(req.params.username as string);
-  if (!user) {
+  if (!user || user.suspended_at) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+
+  const blocks = viewerId && viewerId !== user.id
+    ? await blockState(viewerId, user.id)
+    : { hasBlocked: false, isBlockedBy: false };
+  if (blocks.isBlockedBy) {
     res.status(404).json({ error: 'User not found' });
     return;
   }
@@ -87,6 +100,7 @@ export async function getProfileSummary(req: Request, res: Response): Promise<vo
     viewer: {
       isSelf: viewerId === user.id,
       isFollowing: viewerId && viewerId !== user.id ? await isFollowing(viewerId, user.id) : false,
+      hasBlocked: blocks.hasBlocked,
     },
   });
 }

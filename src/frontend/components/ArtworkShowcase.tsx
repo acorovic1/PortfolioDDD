@@ -9,7 +9,9 @@ import SaveToCollectionPanel from '@/frontend/components/SaveToCollectionPanel';
 import '../css/ArtworkShowcase.css';
 import '../css/ArtworkInfo.css';
 import type { ArtworkInfoData } from '@/types/ArtworkInfoData';
-import { ImageIcon, HeartIcon, BookmarkIcon, CloseIcon, ShareIcon, EyeIcon } from '@/frontend/svg/Icons';
+import { ImageIcon, HeartIcon, BookmarkIcon, CloseIcon, ShareIcon, EyeIcon, FlagIcon } from '@/frontend/svg/Icons';
+import ReportDialog, { type ReportTarget } from '@/frontend/components/moderation/ReportDialog';
+import { useAuth } from '@/frontend/hooks/useAuth';
 
 type ArtworkShowcaseProps = {
     artworks: PortfolioPiece[];
@@ -55,6 +57,8 @@ export default function ArtworkShowcase({
 }: ArtworkShowcaseProps) {
     const [isSavePanelOpen, setIsSavePanelOpen] = useState(false);
     const [shareCopied, setShareCopied] = useState(false);
+    const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+    const { user } = useAuth();
     const savePanelRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -170,6 +174,16 @@ export default function ArtworkShowcase({
                         <ShareIcon />
                         {shareCopied ? 'Link copied' : 'Share'}
                     </button>
+                    {user && user.username !== ownerUsername && (
+                        <button
+                            className="action-btn secondary icon-only"
+                            onClick={() => setReportTarget({ type: 'artwork', id: artwork.id, label: info.title || 'Untitled' })}
+                            title="Report this artwork"
+                            aria-label="Report this artwork"
+                        >
+                            <FlagIcon />
+                        </button>
+                    )}
                     {editable && (
                         <button
                             className="action-btn danger"
@@ -213,11 +227,12 @@ export default function ArtworkShowcase({
                     comments={comments}
                     onAddComment={(text) => onAddComment(artwork.id, text)}
                     onDeleteComment={(commentId) => onDeleteComment(artwork.id, commentId)}
+                    onReportComment={(comment) => setReportTarget({ type: 'comment', id: comment.id, label: comment.text.slice(0, 120) })}
                 />
 
             </div>
 
-
+            {reportTarget && <ReportDialog target={reportTarget} onClose={() => setReportTarget(null)} />}
         </div>
     );
 }

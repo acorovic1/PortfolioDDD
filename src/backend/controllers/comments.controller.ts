@@ -10,6 +10,7 @@ import {
 } from '../repositories/comments.repository.ts';
 import { findArtworkById, canViewArtwork } from '../repositories/artworks.repository.ts';
 import { createNotification } from '../repositories/notifications.repository.ts';
+import { isBlockedEitherWay, findBlockRelations } from '../repositories/moderation.repository.ts';
 
 export async function listComments(req: Request, res: Response): Promise<void> {
   const artworkId = req.params.artworkId as string;
@@ -20,8 +21,12 @@ export async function listComments(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  // Comments to and from people the viewer blocked (or who blocked them)
+  // aren't shown.
+  const viewerId = (req as AuthRequest).user?.id;
+  const hidden = viewerId ? await findBlockRelations(viewerId) : new Set<string>();
   const comments = await findCommentsByArtworkId(artworkId);
-  res.json(comments.map(toCommentDTO));
+  res.json(comments.filter(c => !hidden.has(c.user_id)).map(toCommentDTO));
 }
 
 export async function addComment(req: Request, res: Response): Promise<void> {
@@ -32,6 +37,11 @@ export async function addComment(req: Request, res: Response): Promise<void> {
   const artwork = await findArtworkById(artworkId);
   if (!artwork || !canViewArtwork(artwork, authReq.user!.id)) {
     res.status(404).json({ error: 'Artwork not found' });
+    return;
+  }
+
+  if (await isBlockedEitherWay(authReq.user!.id, artwork.user_id)) {
+    res.status(403).json({ error: "You can't comment on this artwork" });
     return;
   }
 

@@ -16,7 +16,8 @@ export default function ArtworkInfo({
   onUpdate,
   comments,
   onAddComment,
-  onDeleteComment
+  onDeleteComment,
+  onReportComment,
 }: {
   info: ArtworkInfoData,
   editable: boolean
@@ -24,6 +25,7 @@ export default function ArtworkInfo({
   comments: Comment[];
   onAddComment: (text: string) => void;
   onDeleteComment?: (commentId: string) => void;
+  onReportComment?: (comment: Comment) => void;
 }) {
   const navigate = useNavigate();
   const explore = (key: 'tag' | 'tool', value: string) => navigate(`/?${key}=${encodeURIComponent(value)}`);
@@ -123,7 +125,12 @@ export default function ArtworkInfo({
         </div>
       )}
 
-      <CommentSection comments={comments} onAddComment={onAddComment} onDeleteComment={onDeleteComment} />
+      <CommentSection
+        comments={comments}
+        onAddComment={onAddComment}
+        onDeleteComment={onDeleteComment}
+        onReportComment={onReportComment}
+      />
     </div>
   );
 }

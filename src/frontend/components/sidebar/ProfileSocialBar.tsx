@@ -1,14 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { apiFetch, assetUrl } from '@/frontend/utils/api';
-import { CloseIcon } from '@/frontend/svg/Icons';
+import { CloseIcon, FlagIcon, BlockIcon } from '@/frontend/svg/Icons';
+import ReportDialog from '@/frontend/components/moderation/ReportDialog';
 import '@/frontend/css/Community.css';
 
 export type ProfileSummary = {
   username: string;
   noAiTraining: boolean;
   stats: { followers: number; following: number; artworks: number; views: number; likes: number };
-  viewer: { isSelf: boolean; isFollowing: boolean };
+  viewer: { isSelf: boolean; isFollowing: boolean; hasBlocked: boolean };
 };
 
 type FollowUser = { username: string; name: string; avatarUrl: string | null; title: string | null };
@@ -32,6 +33,28 @@ export default function ProfileSocialBar({ username, onOpenUser, onRequireLogin,
   const [summary, setSummary] = useState<ProfileSummary | null>(null);
   const [busy, setBusy] = useState(false);
   const [list, setList] = useState<{ kind: 'followers' | 'following'; users: FollowUser[] } | null>(null);
+  const [reporting, setReporting] = useState(false);
+
+  const toggleBlock = async () => {
+    if (!user || !token || !summary) {
+      onRequireLogin();
+      return;
+    }
+    const blocking = !summary.viewer.hasBlocked;
+    if (blocking && !confirm(`Block @${username}? They won't be able to follow you, message you or interact with your work, and you won't see theirs.`)) {
+      return;
+    }
+    try {
+      await apiFetch(`/api/users/${encodeURIComponent(username)}/block`, { method: blocking ? 'POST' : 'DELETE', token });
+      setSummary(prev => prev && {
+        ...prev,
+        stats: blocking && prev.viewer.isFollowing ? { ...prev.stats, followers: prev.stats.followers - 1 } : prev.stats,
+        viewer: { ...prev.viewer, hasBlocked: blocking, isFollowing: blocking ? false : prev.viewer.isFollowing },
+      });
+    } catch (err) {
+      console.error('Failed to update block:', err);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -97,17 +120,37 @@ export default function ProfileSocialBar({ username, onOpenUser, onRequireLogin,
         </span>
       )}
 
+      {!summary.viewer.isSelf && summary.viewer.hasBlocked && (
+        <div className="blocked-banner">You've blocked @{username}.</div>
+      )}
+
       {!summary.viewer.isSelf && (
         <div className="profile-actions">
-          <button
-            className={`profile-follow-btn ${summary.viewer.isFollowing ? 'following' : ''}`}
-            onClick={toggleFollow}
-            disabled={busy}
-          >
-            {summary.viewer.isFollowing ? 'Following' : 'Follow'}
-          </button>
-          {actions?.(summary)}
+          {!summary.viewer.hasBlocked && (
+            <button
+              className={`profile-follow-btn ${summary.viewer.isFollowing ? 'following' : ''}`}
+              onClick={toggleFollow}
+              disabled={busy}
+            >
+              {summary.viewer.isFollowing ? 'Following' : 'Follow'}
+            </button>
+          )}
+          {!summary.viewer.hasBlocked && actions?.(summary)}
+          {user && (
+            <>
+              <button className="icon-btn" onClick={() => setReporting(true)} title={`Report @${username}`}>
+                <FlagIcon /> Report
+              </button>
+              <button className="icon-btn" onClick={toggleBlock}>
+                <BlockIcon /> {summary.viewer.hasBlocked ? 'Unblock' : 'Block'}
+              </button>
+            </>
+          )}
         </div>
+      )}
+
+      {reporting && (
+        <ReportDialog target={{ type: 'user', id: username, label: username }} onClose={() => setReporting(false)} />
       )}
 
       {list && (

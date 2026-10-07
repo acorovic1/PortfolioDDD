@@ -5,6 +5,7 @@ import Sidebar from '@/frontend/components/sidebar/Sidebar';
 import Toolbar from '@/frontend/components/toolbar/Toolbar';
 import ArtworkShowcase from '@/frontend/components/ArtworkShowcase';
 import ExplorePage from '@/frontend/components/explore/ExplorePage';
+import AdminPage from '@/frontend/components/moderation/AdminPage';
 import ProfileSocialBar from '@/frontend/components/sidebar/ProfileSocialBar';
 import LikedPostsPage from '@/frontend/components/LikedPostsPage';
 import MyCommentsPage from '@/frontend/components/MyCommentsPage';
@@ -24,7 +25,7 @@ import { useAuth } from '@/frontend/hooks/useAuth';
 import { API_BASE_URL } from '@/frontend/config/api';
 import type { User } from '@/frontend/contexts/auth-types';
 
-type Page = 'home' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings';
+type Page = 'home' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings' | 'admin';
 
 const PAGE_PATHS: Record<Page, string> = {
   home: '/',
@@ -34,6 +35,7 @@ const PAGE_PATHS: Record<Page, string> = {
   'my-comments': '/my-comments',
   saved: '/saved',
   settings: '/settings',
+  admin: '/admin',
 };
 
 function pageForPath(pathname: string): Page {
@@ -876,6 +878,29 @@ function App() {
         />
       </div>
     );
+  }
+
+  // Toolbar + one full-width page (the standalone community pages).
+  const singleColumnPage = (content: React.ReactNode) => (
+    <div className="app-layout single-column">
+      <Toolbar
+        onLogoClick={goHome}
+        onLoginClick={goToLogin}
+        onProfileClick={goToProfile}
+        onLikedPostsClick={goToLikedPosts}
+        onMyCommentsClick={goToMyComments}
+        onSavedClick={goToSaved}
+        onSettingsClick={goToSettings}
+        onSelectUser={goToUserProfile}
+        onSelectArtwork={goToArtworkOnProfile}
+        showViewModeToggle={false}
+      />
+      {content}
+    </div>
+  );
+
+  if (page === 'admin' && user?.role === 'admin') {
+    return singleColumnPage(<AdminPage />);
   }
 
   if (page === 'settings' && user) {

@@ -18,6 +18,7 @@ export function toPublicUser(row: UserRecord): PublicUser {
     showMature: row.show_mature,
     hideAi: row.hide_ai,
     noAiTraining: row.no_ai_training,
+    role: row.role,
   };
 }
 

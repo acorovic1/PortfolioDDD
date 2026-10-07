@@ -5,9 +5,11 @@ import { parseJsonArray } from '../utils/json.util.ts';
 
 // SQL condition for artworks anyone may discover in listings (feeds, search,
 // public portfolios): processed, public and published (not a draft, and not
-// scheduled for later). `alias` is the artworks table alias in the query.
+// scheduled for later), by an account that isn't suspended. `alias` is the
+// artworks table alias in the query.
 export function listedCondition(alias = 'artworks'): string {
-  return `${alias}.model_path <> '' AND ${alias}.visibility = 'public' AND ${alias}.published_at <= NOW()`;
+  return `${alias}.model_path <> '' AND ${alias}.visibility = 'public' AND ${alias}.published_at <= NOW()
+    AND NOT EXISTS (SELECT 1 FROM users su WHERE su.id = ${alias}.user_id AND su.suspended_at IS NOT NULL)`;
 }
 
 // Whether `viewerId` (null for anonymous) may open a single artwork: the

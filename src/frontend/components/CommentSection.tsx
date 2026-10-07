@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import '@/frontend/css/CommentSection.css';
-import { SendIcon, CloseIcon } from '@/frontend/svg/Icons';
+import { SendIcon, CloseIcon, FlagIcon } from '@/frontend/svg/Icons';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import type { Comment } from '@/types/Comment';
 
@@ -8,9 +8,10 @@ type CommentSectionProps = {
     comments: Comment[];
     onAddComment: (text: string) => void;
     onDeleteComment?: (commentId: string) => void;
+    onReportComment?: (comment: Comment) => void;
 };
 
-export default function CommentSection({ comments, onAddComment, onDeleteComment }: CommentSectionProps) {
+export default function CommentSection({ comments, onAddComment, onDeleteComment, onReportComment }: CommentSectionProps) {
     const { user } = useAuth();
     const [draft, setDraft] = useState('');
 
@@ -55,6 +56,16 @@ export default function CommentSection({ comments, onAddComment, onDeleteComment
                                 </div>
                                 <p className="comment-text">{comment.text}</p>
                             </div>
+                            {user && onReportComment && comment.author !== user.username && (
+                                <button
+                                    className="comment-delete-btn"
+                                    title="Report comment"
+                                    aria-label="Report comment"
+                                    onClick={() => onReportComment(comment)}
+                                >
+                                    <FlagIcon width={14} height={14} />
+                                </button>
+                            )}
                             {user && onDeleteComment && (
                                 <button
                                     className="comment-delete-btn"

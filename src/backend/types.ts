@@ -19,6 +19,9 @@ export interface UserRecord {
   show_mature: boolean;
   hide_ai: boolean;
   no_ai_training: boolean;
+  role: string;
+  suspended_at: string | null;
+  suspension_reason: string | null;
 }
 
 export type PublicUser = {
@@ -36,6 +39,7 @@ export type PublicUser = {
   showMature: boolean;
   hideAi: boolean;
   noAiTraining: boolean;
+  role: string;
 };
 
 export interface RenderRecord {
@@ -174,5 +178,7 @@ export interface AuthRequest extends Request {
     id: string;
     email: string;
     username: string;
+    // Set by authenticateToken (not part of the token).
+    role?: string;
   };
 }

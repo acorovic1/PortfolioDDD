@@ -60,6 +60,14 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    if (user.suspended_at) {
+      res.status(403).json({
+        error: `This account has been suspended${user.suspension_reason ? `: ${user.suspension_reason}` : ''}`,
+        suspended: true,
+      });
+      return;
+    }
+
     const token = signToken({ id: user.id, email: user.email, username: user.username });
     res.json({
       token,

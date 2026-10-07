@@ -7,6 +7,7 @@
     "dev": "vite",
     "start": "nodemon --exec ts-node src/backend/server.ts",
     "migrate": "ts-node src/backend/db/migrate.ts",
+    "make-admin": "ts-node src/backend/scripts/make-admin.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

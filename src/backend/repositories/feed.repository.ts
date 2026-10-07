@@ -1,5 +1,6 @@
 import { pool } from '../config/db.ts';
 import { listedCondition } from './artworks.repository.ts';
+import { notBlockedCondition } from './moderation.repository.ts';
 
 export type FeedTab = 'trending' | 'latest' | 'following';
 
@@ -58,15 +59,16 @@ function paramList(): { params: unknown[]; param: AddParam } {
   };
 }
 
-function baseConditions(query: Pick<FeedQuery, 'viewerId' | 'hideAi'>): string[] {
+function baseConditions(query: Pick<FeedQuery, 'viewerId' | 'hideAi'>, param: AddParam): string[] {
   const conditions = [listedCondition('a')];
   if (query.hideAi) conditions.push('NOT a.ai_generated');
+  if (query.viewerId) conditions.push(notBlockedCondition('a.user_id', param(query.viewerId)));
   return conditions;
 }
 
 export async function findFeed(query: FeedQuery): Promise<{ artworks: FeedArtwork[]; hasMore: boolean }> {
   const { params, param } = paramList();
-  const conditions = baseConditions(query);
+  const conditions = baseConditions(query, param);
 
   if (query.tab === 'following') {
     if (!query.viewerId) return { artworks: [], hasMore: false };
@@ -119,8 +121,8 @@ export type FeedFacets = {
 // The most used categories/tags/tools across listed artworks, for the
 // explore page's filter chips.
 export async function findFeedFacets(query: Pick<FeedQuery, 'viewerId' | 'hideAi'>): Promise<FeedFacets> {
-  const { params } = paramList();
-  const where = baseConditions(query).join(' AND ');
+  const { params, param } = paramList();
+  const where = baseConditions(query, param).join(' AND ');
 
   const [categories, tags, tools] = await Promise.all([
     pool.query<{ name: string; count: number }>(

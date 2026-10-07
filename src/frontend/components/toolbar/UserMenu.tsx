@@ -9,7 +9,9 @@ import {
   SettingsIcon,
   // HelpIcon,
   LogoutIcon,
+  ShieldIcon,
 } from '@/frontend/svg/Icons';
+import { useNavigate } from 'react-router-dom';
 
 type UserMenuProps = {
   onProfileClick?: () => void;
@@ -23,6 +25,12 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const goTo = (path: string) => {
+    navigate(path);
+    setIsOpen(false);
+  };
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -122,6 +130,12 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
             <SettingsIcon />
             <span>Settings</span>
           </button>
+          {user.role === 'admin' && (
+            <button className="user-dropdown-item" onClick={() => goTo('/admin')}>
+              <ShieldIcon />
+              <span>Moderation</span>
+            </button>
+          )}
           {/* <button className="user-dropdown-item">
             <HelpIcon />
             <span>Help & Support</span>

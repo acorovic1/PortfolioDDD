@@ -4,6 +4,7 @@ import type { AuthRequest } from '../types.ts';
 import { findLikedArtworkIds, addLike, removeLike } from '../repositories/likes.repository.ts';
 import { findArtworkById, canViewArtwork } from '../repositories/artworks.repository.ts';
 import { createNotification } from '../repositories/notifications.repository.ts';
+import { isBlockedEitherWay } from '../repositories/moderation.repository.ts';
 
 export async function listMyLikes(req: Request, res: Response): Promise<void> {
   const authReq = req as AuthRequest;
@@ -18,6 +19,11 @@ export async function likeArtwork(req: Request, res: Response): Promise<void> {
   const artwork = await findArtworkById(artworkId);
   if (!artwork || !canViewArtwork(artwork, authReq.user!.id)) {
     res.status(404).json({ error: 'Artwork not found' });
+    return;
+  }
+
+  if (await isBlockedEitherWay(authReq.user!.id, artwork.user_id)) {
+    res.status(403).json({ error: "You can't interact with this artwork" });
     return;
   }
 

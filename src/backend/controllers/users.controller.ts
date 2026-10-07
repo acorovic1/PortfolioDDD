@@ -27,6 +27,7 @@ import { countLikesForArtworkIds } from '../repositories/likes.repository.ts';
 import { toPublicPath, deletePublicFile } from '../utils/upload.util.ts';
 import { parsePagination } from '../utils/pagination.util.ts';
 import { clearNoAiCache } from '../middleware/noai.middleware.ts';
+import { blockState } from '../repositories/moderation.repository.ts';
 
 export async function search(req: Request, res: Response): Promise<void> {
   const { q } = req.query;
@@ -45,14 +46,17 @@ export async function getPublicPortfolio(req: Request, res: Response): Promise<v
   const username = req.params.username as string;
 
   const user = await findUserByUsername(username);
-  if (!user) {
+  const viewerId = (req as AuthRequest).user?.id ?? null;
+  // Suspended accounts, and people who blocked the viewer, aren't viewable.
+  const hidden = !user || user.suspended_at !== null
+    || (viewerId !== null && viewerId !== user.id && (await blockState(viewerId, user.id)).isBlockedBy);
+  if (hidden) {
     res.status(404).json({ error: 'User not found' });
     return;
   }
 
   // `all=true` skips pagination entirely - used to rebuild another user's
   // full 3D scene, which (like the owner's own) must never be truncated.
-  const viewerId = (req as AuthRequest).user?.id ?? null;
   const wantsAll = req.query.all === 'true';
   let artworks: ArtworkRecord[];
   if (wantsAll) {

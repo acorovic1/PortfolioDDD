@@ -15,4 +15,5 @@ export interface User {
   hideAi?: boolean;
   // Creator opt-out of AI training ("NoAI")
   noAiTraining?: boolean;
+  role?: 'user' | 'admin';
 }

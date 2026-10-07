@@ -81,3 +81,28 @@ export const resetPasswordSchema = z.object({
   token: z.string().min(1).max(255),
   newPassword: z.string().min(6).max(200),
 });
+
+export const reportSchema = z.object({
+  targetType: z.enum(['artwork', 'comment', 'user']),
+  // Artwork/comment id, or a username for users.
+  targetId: z.string().trim().min(1).max(64),
+  reason: z.enum([
+    'spam', 'harassment', 'hate', 'unlabeled_mature', 'violence',
+    'stolen_work', 'unlabeled_ai', 'impersonation', 'other',
+  ]),
+  details: z.string().trim().max(1000).optional(),
+});
+
+export const resolveReportSchema = z.object({
+  action: z.enum(['dismiss', 'remove_content', 'suspend_user', 'remove_and_suspend']),
+  note: z.string().trim().max(500).optional(),
+});
+
+export const suspendUserSchema = z.object({
+  suspended: z.boolean().optional(),
+  reason: z.string().trim().max(500).optional(),
+});
+
+export const setRoleSchema = z.object({
+  role: z.enum(['user', 'admin']),
+});

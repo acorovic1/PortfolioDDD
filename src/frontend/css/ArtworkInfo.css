@@ -282,3 +282,6 @@
         box-sizing: border-box;
     }
 }
+.action-btn.icon-only {
+    padding: 14px;
+}

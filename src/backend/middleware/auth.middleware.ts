@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import type { Request, Response, NextFunction } from 'express';
 import type { AuthRequest } from '../types.ts';
+import { pool } from '../config/db.ts';
 
 const envSecret = process.env.JWT_SECRET;
 if (!envSecret) {
@@ -44,7 +45,33 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
       res.status(403).json({ error: 'Invalid or expired token' });
       return;
     }
-    (req as AuthRequest).user = decoded as { id: string; email: string; username: string };
-    next();
+    const user = decoded as { id: string; email: string; username: string };
+    (req as AuthRequest).user = user;
+
+    // Suspensions and roles are checked live, so they take effect without
+    // waiting for the 7-day token to expire. (A deleted user falls through:
+    // handlers answer those with 404.)
+    pool.query<{ role: string; suspended_at: string | null }>(
+      'SELECT role, suspended_at FROM users WHERE id = $1',
+      [user.id]
+    )
+      .then(({ rows }) => {
+        if (rows[0]?.suspended_at) {
+          res.status(403).json({ error: 'This account has been suspended', suspended: true });
+          return;
+        }
+        (req as AuthRequest).user!.role = rows[0]?.role ?? 'user';
+        next();
+      })
+      .catch(next);
   });
+}
+
+// Must come after authenticateToken.
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  if ((req as AuthRequest).user?.role !== 'admin') {
+    res.status(403).json({ error: 'Admins only' });
+    return;
+  }
+  next();
 }

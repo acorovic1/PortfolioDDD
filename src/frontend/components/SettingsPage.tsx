@@ -1,12 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/frontend/utils/api';
 import '@/frontend/css/SettingsPage.css';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { useTheme } from '@/frontend/hooks/useTheme';
 import { SunIcon, MoonIcon } from '@/frontend/svg/Icons';
 
 export default function SettingsPage() {
-    const { user, updateUsername, updateEmail, changePassword, deleteAccount, updateProfile } = useAuth();
+    const { user, token, updateUsername, updateEmail, changePassword, deleteAccount, updateProfile } = useAuth();
     const [preferenceError, setPreferenceError] = useState('');
+    const [blockedUsers, setBlockedUsers] = useState<{ username: string }[]>([]);
+
+    useEffect(() => {
+        if (!token) return;
+        apiFetch<{ users: { username: string }[] }>('/api/users/me/blocks', { token })
+            .then(data => setBlockedUsers(data.users))
+            .catch(err => console.error('Failed to load blocked users:', err));
+    }, [token]);
+
+    const unblock = (username: string) => {
+        setBlockedUsers(prev => prev.filter(u => u.username !== username));
+        apiFetch(`/api/users/${encodeURIComponent(username)}/block`, { method: 'DELETE', token })
+            .catch(err => console.error('Failed to unblock:', err));
+    };
 
     const setPreference = (key: 'showMature' | 'hideAi' | 'noAiTraining', value: boolean) => {
         setPreferenceError('');
@@ -230,6 +245,22 @@ export default function SettingsPage() {
                         </label>
                         {preferenceError && <span className="settings-error-hint">{preferenceError}</span>}
                     </div>
+                </section>
+
+                <section className="settings-section">
+                    <h3 className="settings-section-title">Blocked users</h3>
+                    {blockedUsers.length === 0 ? (
+                        <p className="settings-section-description">You haven't blocked anyone.</p>
+                    ) : (
+                        <ul className="settings-blocked-list">
+                            {blockedUsers.map(u => (
+                                <li key={u.username}>
+                                    <span>@{u.username}</span>
+                                    <button className="settings-save-btn" onClick={() => unblock(u.username)}>Unblock</button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </section>
 
                 <section className="settings-section settings-section-danger">
