@@ -96,6 +96,8 @@ export async function getProfileSummary(req: Request, res: Response): Promise<vo
   res.json({
     username: user.username,
     noAiTraining: user.no_ai_training,
+    availableForWork: user.available_for_work,
+    workTypes: user.work_types ?? [],
     stats: { ...(await countFollows(user.id)), ...rows[0] },
     viewer: {
       isSelf: viewerId === user.id,

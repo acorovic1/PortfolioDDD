@@ -1,5 +1,6 @@
 import { createContext } from 'react';
 import type { User } from './auth-types';
+import type { SocialNetwork, WorkType, ExperienceEntry } from '@/types/ProfileData';
 
 export interface ProfileUpdateFields {
   name?: string;
@@ -12,6 +13,11 @@ export interface ProfileUpdateFields {
   showMature?: boolean;
   hideAi?: boolean;
   noAiTraining?: boolean;
+  website?: string;
+  socialLinks?: Partial<Record<SocialNetwork, string>>;
+  availableForWork?: boolean;
+  workTypes?: WorkType[];
+  experience?: ExperienceEntry[];
 }
 
 export interface AuthContextType {
@@ -25,6 +31,7 @@ export interface AuthContextType {
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   updateProfile: (fields: ProfileUpdateFields) => Promise<void>;
   uploadAvatar: (file: File) => Promise<void>;
+  uploadCover: (file: File) => Promise<void>;
   deleteAccount: (password: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;

@@ -91,6 +91,12 @@ export async function getPublicPortfolio(req: Request, res: Response): Promise<v
       linkedin: publicUser.linkedin,
       skills: publicUser.skills,
       noAiTraining: publicUser.noAiTraining,
+      coverUrl: publicUser.coverUrl,
+      website: publicUser.website,
+      socialLinks: publicUser.socialLinks,
+      availableForWork: publicUser.availableForWork,
+      workTypes: publicUser.workTypes,
+      experience: publicUser.experience,
     },
     stats: {
       followers: follows.followers,
@@ -109,10 +115,19 @@ export async function getPublicPortfolio(req: Request, res: Response): Promise<v
 
 export async function updateProfile(req: Request, res: Response): Promise<void> {
   const authReq = req as AuthRequest;
-  const { name, avatarUrl, title, bio, location, github, linkedin, skills, showMature, hideAi, noAiTraining } = req.body;
+  const {
+    name, avatarUrl, title, bio, location, github, linkedin, skills, showMature, hideAi, noAiTraining,
+    website, socialLinks, availableForWork, workTypes, experience,
+  } = req.body;
+
+  // Empty social links are dropped rather than stored as "".
+  const links = socialLinks === undefined
+    ? undefined
+    : Object.fromEntries(Object.entries(socialLinks as Record<string, string>).filter(([, url]) => url));
 
   await updateUserProfile(authReq.user!.id, {
     name, avatarUrl, title, bio, location, github, linkedin, skills, showMature, hideAi, noAiTraining,
+    website, socialLinks: links, availableForWork, workTypes, experience,
   });
   // Uploads' X-Robots-Tag headers depend on the NoAI flag.
   if (noAiTraining !== undefined) clearNoAiCache();
@@ -197,6 +212,7 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
 
   const filesToDelete = [
     ...(user.avatar_url ? [user.avatar_url] : []),
+    ...(user.cover_url ? [user.cover_url] : []),
     ...artworks.map(a => a.model_path),
     ...artworks.map(a => a.thumbnail_path),
     ...[...rendersByArtwork.values()].flat().map(r => r.url),
@@ -217,6 +233,22 @@ export async function searchArtworks(req: Request, res: Response): Promise<void>
   const { limit, offset } = parsePagination(req.query);
   const artworks = await searchArtworksRepo(q, limit, offset);
   res.json({ artworks });
+}
+
+export async function uploadCover(req: Request, res: Response): Promise<void> {
+  const authReq = req as AuthRequest;
+  const file = req.file;
+  if (!file) {
+    res.status(400).json({ error: 'Image file is required' });
+    return;
+  }
+
+  const previous = await findUserById(authReq.user!.id);
+  await updateUserProfile(authReq.user!.id, { coverUrl: toPublicPath('covers', file.filename) });
+  await deletePublicFile(previous?.cover_url);
+
+  const user = await findUserById(authReq.user!.id);
+  res.json(toPublicUser(user!));
 }
 
 export async function uploadAvatar(req: Request, res: Response): Promise<void> {

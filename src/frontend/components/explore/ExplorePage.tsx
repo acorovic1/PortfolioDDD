@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { apiFetch, queryString } from '@/frontend/utils/api';
@@ -51,7 +51,7 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
   };
 
   // `offset` 0 replaces the list (new filters), otherwise appends a page.
-  const load = (offset: number, signal?: AbortSignal) => {
+  const load = useCallback((offset: number, signal?: AbortSignal) => {
     setLoading(true);
     setError('');
     apiFetch<{ artworks: FeedArtwork[]; hasMore: boolean }>(
@@ -68,14 +68,15 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
       .finally(() => {
         if (!signal?.aborted) setLoading(false);
       });
-  };
+  }, [tab, category, tag, tool, q, token]);
 
   useEffect(() => {
     const controller = new AbortController();
+    // Fetch on filter change; load() flips the loading state first.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load(0, controller.signal);
     return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, category, tag, tool, q, token]);
+  }, [load]);
 
   useEffect(() => {
     apiFetch<FeedFacets>('/api/feed/facets', { token })

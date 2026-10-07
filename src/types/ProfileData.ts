@@ -1,5 +1,18 @@
 import type { ReactNode } from 'react';
 
+export type SocialNetwork = 'artstation' | 'sketchfab' | 'instagram' | 'x' | 'youtube' | 'behance';
+export type WorkType = 'freelance' | 'full_time' | 'contract' | 'commissions';
+
+export type ExperienceEntry = {
+  role: string;
+  company: string;
+  location?: string;
+  // "YYYY" or "YYYY-MM"; empty end = current role
+  start: string;
+  end?: string;
+  description?: string;
+};
+
 export type ProfileData = {
   username: string;
   avatarUrl: string;
@@ -10,6 +23,12 @@ export type ProfileData = {
   bio?: string;
   skills?: string[];
   location?: string;
+  coverUrl?: string | null;
+  website?: string;
+  socialLinks?: Partial<Record<SocialNetwork, string>>;
+  availableForWork?: boolean;
+  workTypes?: WorkType[];
+  experience?: ExperienceEntry[];
 };
 
 export type SkillsSectionProps = {
@@ -23,6 +42,7 @@ export type SidebarProps = {
   editable?: boolean;
   onChange?: (next: ProfileData) => void;
   onAvatarUpload?: (file: File) => void;
+  onCoverUpload?: (file: File) => void;
   // Rendered under the profile header (follow stats, actions...).
   children?: ReactNode;
 };

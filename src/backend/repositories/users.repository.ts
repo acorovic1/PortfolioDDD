@@ -19,6 +19,12 @@ export function toPublicUser(row: UserRecord): PublicUser {
     hideAi: row.hide_ai,
     noAiTraining: row.no_ai_training,
     role: row.role,
+    coverUrl: row.cover_url,
+    website: row.website,
+    socialLinks: row.social_links ?? {},
+    availableForWork: row.available_for_work,
+    workTypes: row.work_types ?? [],
+    experience: row.experience ?? [],
   };
 }
 
@@ -92,9 +98,16 @@ export async function updateUserProfile(
   id: string,
   fields: Partial<Pick<PublicUser,
     'avatarUrl' | 'title' | 'bio' | 'location' | 'github' | 'linkedin' | 'skills' | 'name'
-    | 'showMature' | 'hideAi' | 'noAiTraining'>>
+    | 'showMature' | 'hideAi' | 'noAiTraining' | 'coverUrl' | 'website' | 'socialLinks'
+    | 'availableForWork' | 'workTypes' | 'experience'>>
 ): Promise<void> {
   const columnMap: Record<string, string> = {
+    coverUrl: 'cover_url',
+    website: 'website',
+    socialLinks: 'social_links',
+    availableForWork: 'available_for_work',
+    workTypes: 'work_types',
+    experience: 'experience',
     showMature: 'show_mature',
     hideAi: 'hide_ai',
     noAiTraining: 'no_ai_training',
@@ -112,7 +125,8 @@ export async function updateUserProfile(
   if (entries.length === 0) return;
 
   const setClause = entries.map(([key], i) => `${columnMap[key]} = $${i + 1}`).join(', ');
-  const values = entries.map(([key, value]) => (key === 'skills' ? JSON.stringify(value) : value));
+  const jsonColumns = new Set(['skills', 'socialLinks', 'experience']);
+  const values = entries.map(([key, value]) => (jsonColumns.has(key) ? JSON.stringify(value) : value));
 
   await pool.query(`UPDATE users SET ${setClause} WHERE id = $${values.length + 1}`, [...values, id]);
 }

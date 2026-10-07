@@ -13,7 +13,7 @@ async function ownerOptedOut(publicPath: string): Promise<boolean> {
 
   const { rows } = await pool.query<{ no_ai_training: boolean }>(
     `SELECT u.no_ai_training FROM users u
-     WHERE u.avatar_url = $1
+     WHERE u.avatar_url = $1 OR u.cover_url = $1
         OR u.id IN (SELECT a.user_id FROM artworks a WHERE a.model_path = $1 OR a.thumbnail_path = $1)
         OR u.id IN (SELECT a.user_id FROM renders r JOIN artworks a ON a.id = r.artwork_id WHERE r.url = $1)
      LIMIT 1`,

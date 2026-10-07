@@ -67,6 +67,19 @@ export const uploadAvatar = multer({
   },
 });
 
+export const uploadCover = multer({
+  storage: makeStorage('covers'),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!IMAGE_EXTENSIONS.has(ext)) {
+      cb(new Error('Only image files (png, jpg, jpeg, webp) are allowed'));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
 export const uploadThumbnail = multer({
   storage: makeStorage('thumbnails'),
   limits: { fileSize: 5 * 1024 * 1024 },

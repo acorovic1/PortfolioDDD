@@ -4,6 +4,7 @@ import ProfileHeader from './ProfileHeader';
 import ContactSection from './ContactSection';
 import BioSection from './BioSection';
 import SkillsSection from './SkillsSection';
+import { CoverBanner, AvailabilitySection, LinksSection, ExperienceSection } from './ProfileExtras';
 import '@/frontend/css/Sidebar.css';
 
 
@@ -13,17 +14,20 @@ export default function Sidebar({
   editable = false,
   onChange,
   onAvatarUpload,
+  onCoverUpload,
   children,
 }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const update = (key: keyof ProfileData, value: string | string[]) => {
+  const update = <K extends keyof ProfileData>(key: K, value: ProfileData[K]) => {
     if (!onChange) return;
     onChange({ ...profile, [key]: value });
   };
 
   return (
     <aside className="sidebar-enhanced">
+      <CoverBanner profile={profile} editable={editable} onCoverUpload={onCoverUpload} />
+
       <ProfileHeader
         profile={profile}
         editable={editable}
@@ -33,18 +37,23 @@ export default function Sidebar({
 
       {children}
 
-      
-      <ContactSection 
+      <AvailabilitySection profile={profile} editable={editable} onUpdate={update} />
+
+      <ContactSection
         profile={profile} 
         editable={editable} 
         onUpdate={update} 
       />
       
+      <LinksSection profile={profile} editable={editable} onUpdate={update} />
+
       <BioSection 
         profile={profile} 
         editable={editable} 
         onUpdate={update} 
       />
+
+      <ExperienceSection profile={profile} editable={editable} onUpdate={update} />
       
       <SkillsSection 
         profile={profile} 

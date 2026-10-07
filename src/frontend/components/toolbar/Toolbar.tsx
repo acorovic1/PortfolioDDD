@@ -3,6 +3,7 @@ import ViewModeToggle from './ViewModeToggle';
 import SearchBar from './SearchBar';
 import UserMenu from './UserMenu';
 import NotificationBell from '@/frontend/components/NotificationBell';
+import MessagesButton from './MessagesButton';
 import '@/frontend/css/Toolbar.css';
 import { Logo, PersonIcon } from '@/frontend/svg/Icons';
 import { useAuth } from '@/frontend/hooks/useAuth';
@@ -58,6 +59,7 @@ export default function Toolbar({ onViewModeChange, onSearch, onLogoClick, onLog
 
                 {user ? (
                     <>
+                        <MessagesButton />
                         <NotificationBell />
                         <button className="profile-icon-btn" onClick={onProfileClick} title="Go to your profile">
                             <PersonIcon />

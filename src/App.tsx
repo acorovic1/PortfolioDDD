@@ -6,6 +6,7 @@ import Toolbar from '@/frontend/components/toolbar/Toolbar';
 import ArtworkShowcase from '@/frontend/components/ArtworkShowcase';
 import ExplorePage from '@/frontend/components/explore/ExplorePage';
 import AdminPage from '@/frontend/components/moderation/AdminPage';
+import MessagesPage from '@/frontend/components/messages/MessagesPage';
 import ProfileSocialBar from '@/frontend/components/sidebar/ProfileSocialBar';
 import LikedPostsPage from '@/frontend/components/LikedPostsPage';
 import MyCommentsPage from '@/frontend/components/MyCommentsPage';
@@ -25,7 +26,7 @@ import { useAuth } from '@/frontend/hooks/useAuth';
 import { API_BASE_URL } from '@/frontend/config/api';
 import type { User } from '@/frontend/contexts/auth-types';
 
-type Page = 'home' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings' | 'admin';
+type Page = 'home' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings' | 'admin' | 'messages';
 
 const PAGE_PATHS: Record<Page, string> = {
   home: '/',
@@ -36,6 +37,7 @@ const PAGE_PATHS: Record<Page, string> = {
   saved: '/saved',
   settings: '/settings',
   admin: '/admin',
+  messages: '/messages',
 };
 
 function pageForPath(pathname: string): Page {
@@ -53,7 +55,7 @@ function pageForPath(pathname: string): Page {
 function App() {
   const sceneContainerRef = useRef<HTMLDivElement>(null);
 
-  const { user, isLoading, token, updateProfile: updateAuthProfile, uploadAvatar } = useAuth();
+  const { user, isLoading, token, updateProfile: updateAuthProfile, uploadAvatar, uploadCover } = useAuth();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -593,17 +595,33 @@ function App() {
     bio: user?.bio || undefined,
     skills: user?.skills || [],
     location: user?.location || undefined,
+    coverUrl: user?.coverUrl ? `${API_BASE_URL}${user.coverUrl}` : null,
+    website: user?.website || undefined,
+    socialLinks: user?.socialLinks ?? {},
+    availableForWork: !!user?.availableForWork,
+    workTypes: user?.workTypes ?? [],
+    experience: user?.experience ?? [],
   };
 
   const onProfileChange = (next: ProfileData) => {
-    updateAuthProfile({
-      title: next.title,
-      bio: next.bio,
-      location: next.location,
-      github: next.github,
-      linkedin: next.linkedin,
-      skills: next.skills,
-    }).catch(err => console.error('Failed to save profile:', err));
+    // Only what changed: re-sending untouched fields would re-validate them
+    // (e.g. a link saved before links were validated would block every edit).
+    const editable = [
+      'title', 'bio', 'location', 'github', 'linkedin', 'skills', 'website',
+      'socialLinks', 'availableForWork', 'workTypes', 'experience',
+    ] as const;
+    const changes = Object.fromEntries(
+      editable
+        .filter(key => JSON.stringify(next[key]) !== JSON.stringify(profile[key]))
+        .map(key => [key, next[key]])
+    );
+    if (Object.keys(changes).length === 0) return;
+
+    updateAuthProfile(changes).catch(err => console.error('Failed to save profile:', err));
+  };
+
+  const onCoverChange = (file: File) => {
+    uploadCover(file).catch(err => console.error('Failed to upload cover image:', err));
   };
 
   const onAvatarChange = (file: File) => {
@@ -645,6 +663,12 @@ function App() {
       bio: publicProfileUser.bio || undefined,
       skills: publicProfileUser.skills || [],
       location: publicProfileUser.location || undefined,
+      coverUrl: publicProfileUser.coverUrl ? `${API_BASE_URL}${publicProfileUser.coverUrl}` : null,
+      website: publicProfileUser.website || undefined,
+      socialLinks: publicProfileUser.socialLinks ?? {},
+      availableForWork: !!publicProfileUser.availableForWork,
+      workTypes: publicProfileUser.workTypes ?? [],
+      experience: publicProfileUser.experience ?? [],
     } : null;
 
     return (
@@ -800,6 +824,7 @@ function App() {
           editable={editable}
           onChange={onProfileChange}
           onAvatarUpload={onAvatarChange}
+          onCoverUpload={onCoverChange}
         >
           <ProfileSocialBar username={user.username} onOpenUser={goToUserProfile} onRequireLogin={goToLogin} />
         </Sidebar>
@@ -898,6 +923,10 @@ function App() {
       {content}
     </div>
   );
+
+  if (page === 'messages' && user) {
+    return singleColumnPage(<MessagesPage onOpenUser={goToUserProfile} />);
+  }
 
   if (page === 'admin' && user?.role === 'admin') {
     return singleColumnPage(<AdminPage />);

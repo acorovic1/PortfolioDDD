@@ -15,6 +15,7 @@ import { artworksRoutes } from './routes/artworks.routes.ts';
 import { notificationsRoutes } from './routes/notifications.routes.ts';
 import { feedRoutes } from './routes/feed.routes.ts';
 import { reportsRoutes, adminRoutes } from './routes/moderation.routes.ts';
+import { messagesRoutes } from './routes/messages.routes.ts';
 import { noAiHeaders } from './middleware/noai.middleware.ts';
 import { generalApiRateLimiter } from './middleware/rate-limit.middleware.ts';
 import { resumeInterruptedModelJobs } from './pipeline/processor.ts';
@@ -57,6 +58,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/messages', messagesRoutes);
 
 let dbReady = false;
 let reconnecting = false;

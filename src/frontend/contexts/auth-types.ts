@@ -1,3 +1,5 @@
+import type { SocialNetwork, WorkType, ExperienceEntry } from '@/types/ProfileData';
+
 export interface User {
   id: string;
   email: string;
@@ -16,4 +18,10 @@ export interface User {
   // Creator opt-out of AI training ("NoAI")
   noAiTraining?: boolean;
   role?: 'user' | 'admin';
+  coverUrl?: string | null;
+  website?: string | null;
+  socialLinks?: Partial<Record<SocialNetwork, string>>;
+  availableForWork?: boolean;
+  workTypes?: WorkType[];
+  experience?: ExperienceEntry[];
 }

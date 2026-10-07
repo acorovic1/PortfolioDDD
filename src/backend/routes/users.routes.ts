@@ -8,6 +8,7 @@ import {
   changePassword,
   deleteAccount,
   uploadAvatar,
+  uploadCover,
 } from '../controllers/users.controller.ts';
 import { authenticateToken, optionalAuth } from '../middleware/auth.middleware.ts';
 import { followUser, unfollowUser, listFollowers, listFollowing, getProfileSummary } from '../controllers/follows.controller.ts';
@@ -20,7 +21,7 @@ import {
   changePasswordSchema,
   deleteAccountSchema,
 } from '../validation/schemas.ts';
-import { uploadAvatar as uploadAvatarMiddleware } from '../utils/upload.util.ts';
+import { uploadAvatar as uploadAvatarMiddleware, uploadCover as uploadCoverMiddleware } from '../utils/upload.util.ts';
 
 export const usersRoutes = Router();
 
@@ -31,6 +32,7 @@ usersRoutes.put('/me/email', authenticateToken, validateBody(updateEmailSchema),
 usersRoutes.post('/me/password', authenticateToken, validateBody(changePasswordSchema), changePassword);
 usersRoutes.delete('/me', authenticateToken, validateBody(deleteAccountSchema), deleteAccount);
 usersRoutes.get('/me/blocks', authenticateToken, listMyBlocks);
+usersRoutes.post('/me/cover', authenticateToken, uploadCoverMiddleware.single('cover'), uploadCover);
 usersRoutes.post('/me/avatar', authenticateToken, uploadAvatarMiddleware.single('avatar'), uploadAvatar);
 usersRoutes.get('/:username/portfolio', optionalAuth, getPublicPortfolio);
 usersRoutes.post('/:username/follow', authenticateToken, followUser);

@@ -171,6 +171,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProfile = async (fields: ProfileUpdateFields) => {
+    // Optimistic: profile inputs are driven by `user`, so apply the change
+    // right away (no lag while typing/toggling), then take the server's
+    // normalized version - or roll back if it's rejected.
+    const previous = user;
+    setUser(prev => (prev ? { ...prev, ...fields } : prev));
+
     const response = await fetch(`${API_BASE_URL}/api/users/me`, {
       method: 'PUT',
       headers: {
@@ -181,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!response.ok) {
+      setUser(previous);
       const error = await response.json();
       throw new Error(error.error || 'Failed to update profile');
     }
@@ -206,6 +213,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const updated = await response.json();
     setUser(updated);
+  };
+
+  const uploadCover = async (file: File) => {
+    const formData = new FormData();
+    formData.append('cover', file);
+
+    const response = await fetch(`${API_BASE_URL}/api/users/me/cover`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload cover image');
+    }
+
+    setUser(await response.json());
   };
 
   const deleteAccount = async (password: string) => {
@@ -264,6 +289,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       changePassword,
       updateProfile,
       uploadAvatar,
+      uploadCover,
       deleteAccount,
       forgotPassword,
       resetPassword,

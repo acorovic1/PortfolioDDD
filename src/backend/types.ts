@@ -22,7 +22,23 @@ export interface UserRecord {
   role: string;
   suspended_at: string | null;
   suspension_reason: string | null;
+  cover_url: string | null;
+  website: string | null;
+  social_links: Record<string, string> | null;
+  available_for_work: boolean;
+  work_types: string[];
+  experience: ExperienceEntry[] | null;
 }
+
+export type ExperienceEntry = {
+  role: string;
+  company: string;
+  location?: string;
+  // "YYYY-MM"; end empty/absent = current
+  start: string;
+  end?: string;
+  description?: string;
+};
 
 export type PublicUser = {
   id: string;
@@ -40,6 +56,12 @@ export type PublicUser = {
   hideAi: boolean;
   noAiTraining: boolean;
   role: string;
+  coverUrl: string | null;
+  website: string | null;
+  socialLinks: Record<string, string>;
+  availableForWork: boolean;
+  workTypes: string[];
+  experience: ExperienceEntry[];
 };
 
 export interface RenderRecord {

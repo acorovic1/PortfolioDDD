@@ -3,11 +3,16 @@ import { useAuth } from '@/frontend/hooks/useAuth';
 import { apiFetch, assetUrl } from '@/frontend/utils/api';
 import { CloseIcon, FlagIcon, BlockIcon } from '@/frontend/svg/Icons';
 import ReportDialog from '@/frontend/components/moderation/ReportDialog';
+import HireDialog from '@/frontend/components/messages/HireDialog';
+import { useNavigate } from 'react-router-dom';
+import type { WorkType } from '@/types/ProfileData';
 import '@/frontend/css/Community.css';
 
 export type ProfileSummary = {
   username: string;
   noAiTraining: boolean;
+  availableForWork: boolean;
+  workTypes: WorkType[];
   stats: { followers: number; following: number; artworks: number; views: number; likes: number };
   viewer: { isSelf: boolean; isFollowing: boolean; hasBlocked: boolean };
 };
@@ -34,6 +39,10 @@ export default function ProfileSocialBar({ username, onOpenUser, onRequireLogin,
   const [busy, setBusy] = useState(false);
   const [list, setList] = useState<{ kind: 'followers' | 'following'; users: FollowUser[] } | null>(null);
   const [reporting, setReporting] = useState(false);
+  const [hiring, setHiring] = useState(false);
+  const navigate = useNavigate();
+
+  const requireLogin = (action: () => void) => () => (user ? action() : onRequireLogin());
 
   const toggleBlock = async () => {
     if (!user || !token || !summary) {
@@ -135,6 +144,18 @@ export default function ProfileSocialBar({ username, onOpenUser, onRequireLogin,
               {summary.viewer.isFollowing ? 'Following' : 'Follow'}
             </button>
           )}
+          {!summary.viewer.hasBlocked && (
+            <>
+              <button className="icon-btn" onClick={requireLogin(() => navigate(`/messages?with=${encodeURIComponent(username)}`))}>
+                Message
+              </button>
+              {summary.availableForWork && (
+                <button className="icon-btn hire" onClick={requireLogin(() => setHiring(true))}>
+                  Hire
+                </button>
+              )}
+            </>
+          )}
           {!summary.viewer.hasBlocked && actions?.(summary)}
           {user && (
             <>
@@ -147,6 +168,18 @@ export default function ProfileSocialBar({ username, onOpenUser, onRequireLogin,
             </>
           )}
         </div>
+      )}
+
+      {hiring && (
+        <HireDialog
+          username={username}
+          workTypes={summary.workTypes}
+          onClose={() => setHiring(false)}
+          onSent={() => {
+            setHiring(false);
+            navigate(`/messages?with=${encodeURIComponent(username)}`);
+          }}
+        />
       )}
 
       {reporting && (

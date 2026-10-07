@@ -336,3 +336,236 @@
 .sidebar-enhanced::-webkit-scrollbar-thumb:hover {
   background: var(--color-border-strong);
 }
+/* --- Cover banner --- */
+.profile-cover {
+  position: relative;
+  margin: -24px -24px 0;
+  aspect-ratio: 3 / 1;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--color-surface-alt);
+}
+
+.profile-cover.empty {
+  background: repeating-linear-gradient(135deg, var(--color-surface-alt) 0 12px, var(--color-surface) 12px 24px);
+}
+
+.profile-cover + .profile-header {
+  margin-top: -64px;
+}
+
+.profile-cover-edit {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.profile-cover-edit svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* --- Availability --- */
+.availability-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #15803d;
+  border-radius: 8px;
+  background: rgba(21, 128, 61, 0.12);
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.availability-badge svg {
+  color: #22c55e;
+  flex-shrink: 0;
+}
+
+.availability-badge small {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.availability-section,
+.availability-types {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.availability-types {
+  padding-left: 24px;
+}
+
+/* --- Links --- */
+.links-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.links-list a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.links-list a span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.links-list a strong {
+  color: var(--color-text);
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.links-list a:hover span {
+  color: var(--color-text);
+}
+
+.links-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.links-edit input,
+.experience-edit input,
+.experience-edit textarea {
+  padding: 7px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-inset);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+/* --- Experience --- */
+.experience-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.experience-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 14px;
+  border-left: 2px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.experience-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.experience-item::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+.experience-company {
+  color: var(--color-text);
+}
+
+.experience-period {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.experience-item p {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+}
+
+.experience-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.experience-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.experience-edit textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.experience-edit .remove-btn {
+  align-self: flex-start;
+  width: auto;
+  padding: 2px 8px;
+}
+
+.experience-edit .remove-btn {
+  height: auto;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+input.invalid {
+  border-color: var(--color-danger) !important;
+}
+
+.input-error {
+  color: var(--color-danger);
+  font-size: 11px;
+}
+
+.experience-form-actions,
+.experience-item-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}

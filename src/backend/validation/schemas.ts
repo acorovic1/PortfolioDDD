@@ -12,15 +12,47 @@ export const loginSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
+// Profile links must be http(s) URLs (they're rendered as links). A bare
+// "example.com" is accepted and stored with https://.
+const profileUrl = z.string().trim().max(255).transform((value, ctx) => {
+  if (value === '') return '';
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
+  try {
+    const url = new URL(withScheme);
+    const isWeb = url.protocol === 'http:' || url.protocol === 'https:';
+    if (isWeb && !/\s/.test(value) && url.hostname.includes('.')) return url.toString();
+  } catch {
+    // fall through
+  }
+  ctx.addIssue({ code: 'custom', message: 'Must be a web link (http or https)' });
+  return z.NEVER;
+});
+
+export const SOCIAL_NETWORKS = ['artstation', 'sketchfab', 'instagram', 'x', 'youtube', 'behance'] as const;
+
+const experienceEntry = z.object({
+  role: z.string().trim().min(1).max(120),
+  company: z.string().trim().max(120).default(''),
+  location: z.string().trim().max(120).optional(),
+  start: z.string().trim().regex(/^\d{4}(-\d{2})?$/, 'Use YYYY or YYYY-MM'),
+  end: z.union([z.string().trim().regex(/^\d{4}(-\d{2})?$/, 'Use YYYY or YYYY-MM'), z.literal('')]).optional(),
+  description: z.string().trim().max(1000).optional(),
+});
+
 export const updateProfileSchema = z.object({
   name: z.string().trim().min(1).max(255).optional(),
   avatarUrl: z.string().trim().max(512).optional(),
   title: z.string().trim().max(255).optional(),
   bio: z.string().trim().max(2000).optional(),
   location: z.string().trim().max(255).optional(),
-  github: z.string().trim().max(255).optional(),
-  linkedin: z.string().trim().max(255).optional(),
+  github: profileUrl.optional(),
+  linkedin: profileUrl.optional(),
   skills: z.array(z.string().trim().max(64)).max(50).optional(),
+  website: profileUrl.optional(),
+  socialLinks: z.partialRecord(z.enum(SOCIAL_NETWORKS), profileUrl).optional(),
+  availableForWork: z.boolean().optional(),
+  workTypes: z.array(z.enum(['freelance', 'full_time', 'contract', 'commissions'])).max(4).optional(),
+  experience: z.array(experienceEntry).max(20).optional(),
   showMature: z.boolean().optional(),
   hideAi: z.boolean().optional(),
   noAiTraining: z.boolean().optional(),
@@ -105,4 +137,16 @@ export const suspendUserSchema = z.object({
 
 export const setRoleSchema = z.object({
   role: z.enum(['user', 'admin']),
+});
+
+export const sendMessageSchema = z.object({
+  body: z.string().trim().min(1).max(5000),
+});
+
+export const hireRequestSchema = z.object({
+  projectTitle: z.string().trim().min(1).max(160),
+  workType: z.enum(['freelance', 'full_time', 'contract', 'commissions']).optional(),
+  budget: z.string().trim().max(80).optional(),
+  timeline: z.string().trim().max(80).optional(),
+  details: z.string().trim().min(1).max(5000),
 });
