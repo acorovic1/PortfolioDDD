@@ -17,6 +17,7 @@ import { feedRoutes } from './routes/feed.routes.ts';
 import { reportsRoutes, adminRoutes } from './routes/moderation.routes.ts';
 import { messagesRoutes } from './routes/messages.routes.ts';
 import { jobsRoutes, marketplaceRoutes, challengesRoutes } from './routes/community.routes.ts';
+import { analyticsRoutes } from './routes/analytics.routes.ts';
 import { noAiHeaders } from './middleware/noai.middleware.ts';
 import { generalApiRateLimiter } from './middleware/rate-limit.middleware.ts';
 import { resumeInterruptedModelJobs } from './pipeline/processor.ts';
@@ -63,6 +64,7 @@ app.use('/api/messages', messagesRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
 app.use('/api/challenges', challengesRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 let dbReady = false;
 let reconnecting = false;

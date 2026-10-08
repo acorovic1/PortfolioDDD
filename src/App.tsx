@@ -10,6 +10,7 @@ import MessagesPage from '@/frontend/components/messages/MessagesPage';
 import JobsPage from '@/frontend/components/jobs/JobsPage';
 import MarketplacePage from '@/frontend/components/marketplace/MarketplacePage';
 import ChallengesPage from '@/frontend/components/challenges/ChallengesPage';
+import AnalyticsPage from '@/frontend/components/analytics/AnalyticsPage';
 import ProfileSocialBar from '@/frontend/components/sidebar/ProfileSocialBar';
 import LikedPostsPage from '@/frontend/components/LikedPostsPage';
 import MyCommentsPage from '@/frontend/components/MyCommentsPage';
@@ -30,7 +31,7 @@ import { API_BASE_URL } from '@/frontend/config/api';
 import type { User } from '@/frontend/contexts/auth-types';
 
 type Page = 'home' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings' | 'admin' | 'messages'
-  | 'jobs' | 'marketplace' | 'challenges';
+  | 'jobs' | 'marketplace' | 'challenges' | 'analytics';
 
 const PAGE_PATHS: Record<Page, string> = {
   home: '/',
@@ -45,6 +46,7 @@ const PAGE_PATHS: Record<Page, string> = {
   jobs: '/jobs',
   marketplace: '/marketplace',
   challenges: '/challenges',
+  analytics: '/analytics',
 };
 
 function pageForPath(pathname: string): Page {
@@ -949,6 +951,10 @@ function App() {
     return singleColumnPage(
       <ChallengesPage onOpenArtwork={openArtworkFrom('challenge')} onOpenUser={goToUserProfile} onRequireLogin={goToLogin} />
     );
+  }
+
+  if (page === 'analytics' && user) {
+    return singleColumnPage(<AnalyticsPage onOpenArtwork={goToArtwork} />);
   }
 
   if (page === 'messages' && user) {

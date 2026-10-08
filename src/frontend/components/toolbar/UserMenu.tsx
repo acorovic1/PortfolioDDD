@@ -15,6 +15,7 @@ import {
   BriefcaseIcon,
   StoreIcon,
   TrophyIcon,
+  ChartIcon,
 } from '@/frontend/svg/Icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -126,6 +127,10 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
           <button className="user-dropdown-item" onClick={handleMyCommentsClick}>
             <CommentIcon />
             <span>My Comments</span>
+          </button>
+          <button className="user-dropdown-item" onClick={() => goTo('/analytics')}>
+            <ChartIcon />
+            <span>Analytics</span>
           </button>
           <button className="user-dropdown-item" onClick={() => goTo('/messages')}>
             <MessageIcon />
