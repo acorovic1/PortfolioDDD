@@ -10,6 +10,11 @@ import {
   // HelpIcon,
   LogoutIcon,
   ShieldIcon,
+  MessageIcon,
+  CompassIcon,
+  BriefcaseIcon,
+  StoreIcon,
+  TrophyIcon,
 } from '@/frontend/svg/Icons';
 import { useNavigate } from 'react-router-dom';
 
@@ -122,6 +127,10 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
             <CommentIcon />
             <span>My Comments</span>
           </button>
+          <button className="user-dropdown-item" onClick={() => goTo('/messages')}>
+            <MessageIcon />
+            <span>Messages</span>
+          </button>
           <button className="user-dropdown-item" onClick={handleSavedClick}>
             <BookmarkIcon />
             <span>Saved</span>
@@ -130,6 +139,14 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
             <SettingsIcon />
             <span>Settings</span>
           </button>
+          {/* The toolbar nav is hidden on phones - keep it reachable here. */}
+          <div className="user-dropdown-mobile-nav">
+            <div className="user-dropdown-divider"></div>
+            <button className="user-dropdown-item" onClick={() => goTo('/')}><CompassIcon /><span>Explore</span></button>
+            <button className="user-dropdown-item" onClick={() => goTo('/jobs')}><BriefcaseIcon /><span>Jobs</span></button>
+            <button className="user-dropdown-item" onClick={() => goTo('/marketplace')}><StoreIcon /><span>Marketplace</span></button>
+            <button className="user-dropdown-item" onClick={() => goTo('/challenges')}><TrophyIcon /><span>Challenges</span></button>
+          </div>
           {user.role === 'admin' && (
             <button className="user-dropdown-item" onClick={() => goTo('/admin')}>
               <ShieldIcon />

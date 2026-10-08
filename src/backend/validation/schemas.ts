@@ -150,3 +150,48 @@ export const hireRequestSchema = z.object({
   timeline: z.string().trim().max(80).optional(),
   details: z.string().trim().min(1).max(5000),
 });
+
+// --- Jobs ---
+
+const jobFields = {
+  title: z.string().trim().min(1).max(160),
+  company: z.string().trim().min(1).max(120),
+  location: z.string().trim().max(120).optional(),
+  workplace: z.enum(['onsite', 'hybrid', 'remote']),
+  employmentType: z.enum(['full_time', 'part_time', 'contract', 'freelance', 'internship']),
+  salary: z.string().trim().max(80).optional(),
+  description: z.string().trim().min(1).max(10000),
+  skills: z.array(z.string().trim().min(1).max(40)).max(15).optional(),
+  applyUrl: z.union([profileUrl, z.literal('')]).optional(),
+  expiresAt: z.union([z.string().datetime({ offset: true }), z.null()]).optional(),
+};
+
+export const createJobSchema = z.object(jobFields);
+export const updateJobSchema = z.object(jobFields).partial().extend({ isOpen: z.boolean().optional() });
+export const applyJobSchema = z.object({ message: z.string().trim().min(1).max(5000) });
+
+// --- Marketplace ---
+
+export const listingSchema = z.object({
+  // 0 = free; capped at $100,000
+  priceCents: z.number().int().min(0).max(10_000_000),
+  currency: z.enum(['USD', 'EUR', 'GBP']).optional(),
+  license: z.enum(['personal', 'commercial', 'editorial', 'cc_by', 'cc0']),
+  description: z.string().trim().max(2000).optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const purchaseRequestSchema = z.object({ message: z.string().trim().max(2000).optional() });
+
+// --- Challenges ---
+
+export const createChallengeSchema = z.object({
+  title: z.string().trim().min(1).max(160),
+  brief: z.string().trim().min(1).max(5000),
+  rules: z.string().trim().max(5000).optional(),
+  prize: z.string().trim().max(200).optional(),
+  startsAt: z.string().datetime({ offset: true }),
+  endsAt: z.string().datetime({ offset: true }),
+}).refine(c => new Date(c.endsAt) > new Date(c.startsAt), { message: 'The challenge must end after it starts', path: ['endsAt'] });
+
+export const challengeEntrySchema = z.object({ artworkId: z.string().trim().min(1).max(64) });

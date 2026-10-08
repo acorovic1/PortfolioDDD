@@ -1,0 +1,252 @@
+.modal-card.wide {
+  width: min(720px, 100%);
+}
+
+.jobs-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.jobs-filters select {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.jobs-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.jobs-layout.has-detail {
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+}
+
+.jobs-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.job-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.job-card:hover,
+.job-card.active {
+  border-color: var(--color-accent);
+}
+
+.job-card strong {
+  font-size: 15px;
+}
+
+.job-card time {
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+.job-company {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.job-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.job-tags span {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border-subtle);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.job-tags .closed {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.jobs-detail-pane {
+  position: sticky;
+  top: 0;
+  padding: 20px 22px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.jobs-detail-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.job-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.job-detail h3 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  padding-right: 28px;
+}
+
+.job-detail header p {
+  margin: 0 0 8px;
+}
+
+.job-description {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 14px;
+}
+
+.job-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.job-poster {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.job-detail > .btn {
+  align-self: flex-start;
+}
+
+.job-applied,
+.job-status {
+  margin: 0;
+  font-size: 13px;
+  color: #22c55e;
+}
+
+.job-apply {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.job-owner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.job-owner h4 {
+  margin: 4px 0 0;
+}
+
+.job-owner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.empty-note.small {
+  padding: 8px 0;
+  text-align: left;
+}
+
+.job-applications {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.job-applications li {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+}
+
+.job-applications button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.job-applications img,
+.job-applications .artwork-card-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.job-applications small {
+  color: var(--color-text-secondary);
+}
+
+.job-applications p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  white-space: pre-wrap;
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 860px) {
+  .jobs-layout.has-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .jobs-layout.has-detail .jobs-list {
+    display: none;
+  }
+
+  .jobs-detail-pane {
+    position: relative;
+  }
+}

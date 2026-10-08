@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { publishStatus, type PortfolioPiece, type PublishingState } from '@/types/PortfolioPiece';
 import PublishingPanel from '@/frontend/components/PublishingPanel';
+import ListingBox from '@/frontend/components/marketplace/ListingBox';
 import type { Comment } from '@/types/Comment';
 import type { Collection } from '@/types/Collection';
 import RenderGallery from './RenderGallery';
@@ -204,11 +205,13 @@ export default function ArtworkShowcase({
 
             {editable && publishing && onPublishingUpdate && (
                 <PublishingPanel
-                    key={artwork.id}
+                    key={`publishing-${artwork.id}`}
                     publishing={publishing}
                     onChange={(fields) => onPublishingUpdate(artwork.id, fields)}
                 />
             )}
+
+            {publishing && <ListingBox key={`listing-${artwork.id}`} artworkId={artwork.id} editable={editable} />}
 
             <div className="showcase-content">
 

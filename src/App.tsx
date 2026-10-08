@@ -7,6 +7,9 @@ import ArtworkShowcase from '@/frontend/components/ArtworkShowcase';
 import ExplorePage from '@/frontend/components/explore/ExplorePage';
 import AdminPage from '@/frontend/components/moderation/AdminPage';
 import MessagesPage from '@/frontend/components/messages/MessagesPage';
+import JobsPage from '@/frontend/components/jobs/JobsPage';
+import MarketplacePage from '@/frontend/components/marketplace/MarketplacePage';
+import ChallengesPage from '@/frontend/components/challenges/ChallengesPage';
 import ProfileSocialBar from '@/frontend/components/sidebar/ProfileSocialBar';
 import LikedPostsPage from '@/frontend/components/LikedPostsPage';
 import MyCommentsPage from '@/frontend/components/MyCommentsPage';
@@ -26,7 +29,8 @@ import { useAuth } from '@/frontend/hooks/useAuth';
 import { API_BASE_URL } from '@/frontend/config/api';
 import type { User } from '@/frontend/contexts/auth-types';
 
-type Page = 'home' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings' | 'admin' | 'messages';
+type Page = 'home' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings' | 'admin' | 'messages'
+  | 'jobs' | 'marketplace' | 'challenges';
 
 const PAGE_PATHS: Record<Page, string> = {
   home: '/',
@@ -38,6 +42,9 @@ const PAGE_PATHS: Record<Page, string> = {
   settings: '/settings',
   admin: '/admin',
   messages: '/messages',
+  jobs: '/jobs',
+  marketplace: '/marketplace',
+  challenges: '/challenges',
 };
 
 function pageForPath(pathname: string): Page {
@@ -923,6 +930,26 @@ function App() {
       {content}
     </div>
   );
+
+  // Opens an artwork from a community page, recording where it came from.
+  const openArtworkFrom = (source: ViewSource) => (username: string, artworkId: string) => {
+    if (user && username === user.username) goToArtwork(artworkId);
+    else goToArtworkOnProfile(username, artworkId, source);
+  };
+
+  if (page === 'jobs') {
+    return singleColumnPage(<JobsPage onOpenUser={goToUserProfile} onRequireLogin={goToLogin} />);
+  }
+
+  if (page === 'marketplace') {
+    return singleColumnPage(<MarketplacePage onOpenArtwork={openArtworkFrom('marketplace')} onOpenUser={goToUserProfile} />);
+  }
+
+  if (page === 'challenges') {
+    return singleColumnPage(
+      <ChallengesPage onOpenArtwork={openArtworkFrom('challenge')} onOpenUser={goToUserProfile} onRequireLogin={goToLogin} />
+    );
+  }
 
   if (page === 'messages' && user) {
     return singleColumnPage(<MessagesPage onOpenUser={goToUserProfile} />);
