@@ -16,7 +16,8 @@ import {
 import { FocusIcon, CubeIcon } from '@/frontend/svg/Icons';
 import InspectorPanel from '@/frontend/components/InspectorPanel';
 import { ModelInspector } from '@/frontend/inspector/ModelInspector';
-import { PostProcessing, DEFAULT_POST_SETTINGS, type PostSettings } from '@/frontend/inspector/PostProcessing';
+import { PostProcessing, DEFAULT_POST_SETTINGS, type PostSettings, type ViewerSettings } from '@/frontend/inspector/PostProcessing';
+import { apiFetch } from '@/frontend/utils/api';
 import { API_BASE_URL } from '@/frontend/config/api';
 import { uploadWithProgress } from '@/frontend/utils/uploadWithProgress';
 import { waitForModelProcessing } from '@/frontend/utils/modelProcessing';
@@ -42,8 +43,10 @@ function easeInOutQuad(t: number): number {
 type FocusSession = {
   piece: PortfolioPiece;
   inspector: ModelInspector;
-  // Camera viewing direction when focus began - "reset camera" returns to it.
+  // Camera view when focus began (or the saved view) - "reset camera"
+  // returns to it.
   entryDirection: THREE.Vector3;
+  entryDistance: number;
 };
 
 // Background model work shown in the scene overlay: an upload in flight,
@@ -75,6 +78,10 @@ function carouselRadius(pieces: PortfolioPiece[]): number {
   return pieces.length === 1
     ? bbMax
     : Math.max(3, bbMax * (pieces.length + 1) / (2 * Math.PI));
+}
+
+function offset(camera: THREE.Camera, controls: OrbitControls): THREE.Vector3 {
+  return camera.position.clone().sub(controls.target);
 }
 
 function modelSize(piece: PortfolioPiece): number {
@@ -646,23 +653,74 @@ function Scene3D({
     });
     if (addButtonRef.current) addButtonRef.current.root.visible = false;
 
+    // Start from the artist's saved view, if there is one.
+    const saved = piece.viewerSettings ?? null;
+    const post = { ...DEFAULT_POST_SETTINGS, ...saved?.post };
+    postSettingsRef.current = post;
+    setPostSettings(post);
     if (!postRef.current) postRef.current = new PostProcessing(renderer, scene, camera);
-    postRef.current.apply(postSettingsRef.current, modelSize(piece));
+    postRef.current.apply(post, modelSize(piece));
 
-    const direction = camera.position.clone().sub(controls.target);
+    const direction = saved?.camera
+      ? new THREE.Vector3(...saved.camera.direction).applyQuaternion(piece.root.getWorldQuaternion(new THREE.Quaternion()))
+      : camera.position.clone().sub(controls.target);
     if (direction.lengthSq() === 0) direction.set(0, 0, 1);
+    const distance = inspectionDistance(piece, camera) * (saved?.camera?.distanceFactor ?? 1);
 
-    fitCameraClipping(camera, inspectionDistance(piece, camera));
+    controls.autoRotate = saved?.autoRotate ?? false;
+    controls.autoRotateSpeed = 1.5;
+    setAutoRotate(controls.autoRotate);
+
+    fitCameraClipping(camera, distance);
 
     const session: FocusSession = {
       piece,
       inspector: new ModelInspector(piece.root, piece.animations, piece.bounds),
       entryDirection: direction.normalize(),
+      entryDistance: distance,
     };
     focusRef.current = session;
     setFocus(session);
 
-    startFocusAnimation(piece, { distance: inspectionDistance(piece, camera), direction: session.entryDirection });
+    startFocusAnimation(piece, { distance, direction: session.entryDirection });
+  };
+
+  // Owner only: stores the current look + camera as this artwork's default
+  // inspector view (or clears it with `null`).
+  const saveViewerSettings = async (clear: boolean): Promise<void> => {
+    const session = focusRef.current;
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!session || !camera || !controls || !token) return;
+
+    let settings: ViewerSettings | null = null;
+    if (!clear) {
+      const offset = camera.position.clone().sub(controls.target);
+      // Into the model's own frame, so the angle doesn't depend on where the
+      // carousel happens to have rotated it.
+      const local = offset.clone().normalize()
+        .applyQuaternion(session.piece.root.getWorldQuaternion(new THREE.Quaternion()).invert());
+      const round = (n: number) => Math.round(n * 10_000) / 10_000;
+      settings = {
+        post: postSettingsRef.current,
+        camera: {
+          direction: [round(local.x), round(local.y), round(local.z)],
+          distanceFactor: Math.min(20, Math.max(0.05, round(offset.length() / inspectionDistance(session.piece, camera)))),
+        },
+        autoRotate: controls.autoRotate,
+      };
+    }
+
+    await apiFetch(`/api/portfolio/artworks/${session.piece.id}`, {
+      method: 'PUT',
+      token,
+      body: { viewerSettings: settings },
+    });
+    session.piece.viewerSettings = settings;
+    if (settings) {
+      session.entryDirection = offset(camera, controls).normalize();
+      session.entryDistance = offset(camera, controls).length();
+    }
   };
 
   const exitFocus = () => {
@@ -813,7 +871,7 @@ function Scene3D({
     const camera = cameraRef.current;
     if (!session || !camera) return;
     startFocusAnimation(session.piece, {
-      distance: inspectionDistance(session.piece, camera),
+      distance: session.entryDistance,
       direction: session.entryDirection,
     });
   };
@@ -1168,6 +1226,8 @@ function Scene3D({
           onExit={exitFocus}
           modelInfo={focus.piece.modelInfo}
           onReplaceModel={canManage && focus.piece.modelInfo ? replaceFocusedModel : undefined}
+          onSaveView={canManage ? saveViewerSettings : undefined}
+          hasSavedView={!!focus.piece.viewerSettings}
           replaceBusy={jobNotice !== null && jobNotice.kind !== 'error'}
         />
       ) : (

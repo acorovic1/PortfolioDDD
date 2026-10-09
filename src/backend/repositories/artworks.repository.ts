@@ -50,6 +50,7 @@ export function toArtworkDTO(
     isMature: row.is_mature,
     aiGenerated: row.ai_generated,
     viewCount: row.view_count,
+    viewerSettings: row.viewer_settings,
     renders: renders.map(toRenderDTO),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -224,6 +225,7 @@ export type ArtworkUpdate = Partial<{
   publishedAt: string | null;
   isMature: boolean;
   aiGenerated: boolean;
+  viewerSettings: Record<string, unknown> | null;
 }>;
 
 export async function updateArtwork(id: string, fields: ArtworkUpdate): Promise<void> {
@@ -238,13 +240,15 @@ export async function updateArtwork(id: string, fields: ArtworkUpdate): Promise<
     publishedAt: 'published_at',
     isMature: 'is_mature',
     aiGenerated: 'ai_generated',
+    viewerSettings: 'viewer_settings',
   };
 
   const entries = Object.entries(fields).filter(([, v]) => v !== undefined);
   if (entries.length === 0) return;
 
   const setClause = entries.map(([key], i) => `${columnMap[key]} = $${i + 1}`).join(', ');
-  const values = entries.map(([key, value]) => (key === 'tools' ? JSON.stringify(value) : value));
+  const jsonColumns = new Set(['tools', 'viewerSettings']);
+  const values = entries.map(([key, value]) => (jsonColumns.has(key) && value !== null ? JSON.stringify(value) : value));
 
   await pool.query(
     `UPDATE artworks SET ${setClause}, updated_at = NOW() WHERE id = $${values.length + 1}`,

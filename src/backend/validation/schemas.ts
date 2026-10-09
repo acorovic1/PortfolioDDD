@@ -84,6 +84,28 @@ export const uploadArtworkSchema = createArtworkSchema.extend({
   draft: z.enum(['true', 'false']).optional(),
 });
 
+const unit = z.number().finite().min(-1).max(1);
+
+// Mirrors the frontend's inspector settings (src/frontend/inspector).
+export const viewerSettingsSchema = z.object({
+  post: z.object({
+    environment: z.boolean(),
+    toneMapping: z.enum(['none', 'aces', 'agx', 'neutral']),
+    exposure: z.number().min(0.1).max(3),
+    ambientOcclusion: z.boolean(),
+    bloom: z.boolean(),
+    bloomStrength: z.number().min(0).max(3),
+    vignette: z.boolean(),
+    background: z.string().regex(/^#[0-9a-f]{6}$/i).nullable(),
+  }),
+  // Viewing direction in the model's own frame + zoom relative to "fit".
+  camera: z.object({
+    direction: z.tuple([unit, unit, unit]),
+    distanceFactor: z.number().min(0.05).max(20),
+  }).nullable(),
+  autoRotate: z.boolean(),
+});
+
 export const updateArtworkSchema = createArtworkSchema.extend({
   tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   visibility: z.enum(['public', 'unlisted', 'private']).optional(),
@@ -91,6 +113,7 @@ export const updateArtworkSchema = createArtworkSchema.extend({
   publishedAt: z.union([z.string().datetime({ offset: true }), z.null()]).optional(),
   isMature: z.boolean().optional(),
   aiGenerated: z.boolean().optional(),
+  viewerSettings: viewerSettingsSchema.nullable().optional(),
 });
 
 export const createCollectionSchema = z.object({

@@ -104,6 +104,7 @@ export interface ArtworkRecord {
   ai_generated: boolean;
   view_count: number;
   followers_notified: boolean;
+  viewer_settings: Record<string, unknown> | null;
 }
 
 export type Visibility = 'public' | 'unlisted' | 'private';
@@ -134,6 +135,8 @@ export type ArtworkDTO = {
   isMature: boolean;
   aiGenerated: boolean;
   viewCount: number;
+  // The artist's saved inspector view; null = defaults.
+  viewerSettings: Record<string, unknown> | null;
   renders: RenderDTO[];
   createdAt: string;
   updatedAt: string;

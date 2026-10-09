@@ -209,7 +209,7 @@ export async function updateOwnArtwork(req: Request, res: Response): Promise<voi
     return;
   }
 
-  const { title, description, year, category, tools, tags, visibility, publishedAt, isMature, aiGenerated } = req.body;
+  const { title, description, year, category, tools, tags, visibility, publishedAt, isMature, aiGenerated, viewerSettings } = req.body;
   await updateArtwork(artworkId, {
     title,
     description,
@@ -221,6 +221,7 @@ export async function updateOwnArtwork(req: Request, res: Response): Promise<voi
     publishedAt,
     isMature,
     aiGenerated,
+    viewerSettings,
   });
 
   // Publishing (now, or by making it public) may have put it live.

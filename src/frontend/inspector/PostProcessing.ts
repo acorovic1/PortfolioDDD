@@ -18,6 +18,17 @@ export type PostSettings = {
   bloom: boolean;
   bloomStrength: number;
   vignette: boolean;
+  // Scene background while inspecting ("#rrggbb"); null = the default black.
+  background: string | null;
+};
+
+// The artist's saved default view for an artwork (stored with the artwork).
+export type ViewerSettings = {
+  post: PostSettings;
+  // Viewing direction in the model's own frame (so it survives the carousel
+  // rotating the model) and zoom relative to the "fit to view" distance.
+  camera: { direction: [number, number, number]; distanceFactor: number } | null;
+  autoRotate: boolean;
 };
 
 export const DEFAULT_POST_SETTINGS: PostSettings = {
@@ -28,6 +39,7 @@ export const DEFAULT_POST_SETTINGS: PostSettings = {
   bloom: false,
   bloomStrength: 0.35,
   vignette: false,
+  background: null,
 };
 
 const TONE_MAPPINGS: Record<ToneMappingOption, THREE.ToneMapping> = {
@@ -107,6 +119,7 @@ export class PostProcessing {
     this.bloomPass.strength = settings.bloomStrength;
 
     this.vignettePass.enabled = settings.vignette;
+    this.scene.background = settings.background ? new THREE.Color(settings.background) : null;
   }
 
   // Tone mapping and environment work without the composer; it's only needed
@@ -130,6 +143,7 @@ export class PostProcessing {
     this.renderer.toneMapping = THREE.NoToneMapping;
     this.renderer.toneMappingExposure = 1;
     this.scene.environment = null;
+    this.scene.background = null;
   }
 
   dispose(): void {

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ArtworkInfoData } from './ArtworkInfoData'
 import { getGLTFLoader } from '@/frontend/three/gltfLoader';
+import type { ViewerSettings } from '@/frontend/inspector/PostProcessing';
 
 
 
@@ -22,6 +23,8 @@ export type PortfolioPiece = {
   // The processed model file this piece was loaded from (backend artworks).
   modelInfo?: ModelFileInfo;
   publishing?: PublishingState;
+  // The artist's saved inspector view (null/absent = defaults).
+  viewerSettings?: ViewerSettings | null;
 };
 
 export type Visibility = 'public' | 'unlisted' | 'private';
@@ -134,6 +137,7 @@ export type RemoteArtwork = {
   isMature: boolean;
   aiGenerated: boolean;
   viewCount: number;
+  viewerSettings: ViewerSettings | null;
   renders: { id: string; url: string; caption: string }[];
   likeCount: number;
   // Populated by endpoints that can return artworks belonging to anyone
@@ -165,6 +169,7 @@ export async function createPortfolioItemFromRemote(
     caption: r.caption,
   }));
   piece.likeCount = remote.likeCount;
+  piece.viewerSettings = remote.viewerSettings;
   piece.publishing = {
     visibility: remote.visibility,
     publishedAt: remote.publishedAt,

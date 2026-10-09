@@ -70,6 +70,9 @@ type InspectorPanelProps = {
   // Only passed to the artwork's owner.
   onReplaceModel?: () => void;
   replaceBusy?: boolean;
+  // Owner only: save (false) or clear (true) the default inspector view.
+  onSaveView?: (clear: boolean) => Promise<void>;
+  hasSavedView?: boolean;
 };
 
 // Focus-mode UI: shading/texture-channel modes, post-processing, animation
@@ -90,7 +93,23 @@ export default function InspectorPanel({
   modelInfo,
   onReplaceModel,
   replaceBusy = false,
+  onSaveView,
+  hasSavedView = false,
 }: InspectorPanelProps) {
+  const [viewSaved, setViewSaved] = useState(hasSavedView);
+  const [viewStatus, setViewStatus] = useState('');
+
+  const saveView = async (clear: boolean) => {
+    if (!onSaveView) return;
+    setViewStatus('Saving…');
+    try {
+      await onSaveView(clear);
+      setViewSaved(!clear);
+      setViewStatus(clear ? 'Back to the default view' : 'Saved - everyone now opens this view');
+    } catch (err) {
+      setViewStatus((err as Error).message);
+    }
+  };
   const [collapsed, setCollapsed] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('lit');
   const [wireOverlay, setWireOverlay] = useState(false);
@@ -320,6 +339,20 @@ export default function InspectorPanel({
                 />
                 <span>Vignette</span>
               </label>
+              <label className="inspector-field inline">
+                <span>Background</span>
+                <span className="inspector-background">
+                  <input
+                    type="color"
+                    value={postSettings.background ?? '#000000'}
+                    onChange={(e) => updatePost('background', e.target.value)}
+                    aria-label="Background color"
+                  />
+                  {postSettings.background && (
+                    <button className="inspector-link" onClick={() => updatePost('background', null)}>Reset</button>
+                  )}
+                </span>
+              </label>
             </section>
 
             {inspector.clips.length > 0 && (
@@ -394,6 +427,24 @@ export default function InspectorPanel({
                 </div>
               </dl>
             </section>
+
+            {onSaveView && (
+              <section className="inspector-section">
+                <h5>Default view</h5>
+                <p className="inspector-hint">
+                  Saves the current camera angle, lighting, effects, background and auto-rotate as what visitors see first.
+                </p>
+                <div className="inspector-chip-grid two">
+                  <button className="inspector-chip active" onClick={() => saveView(false)}>
+                    {viewSaved ? 'Update saved view' : 'Save as default view'}
+                  </button>
+                  {viewSaved && (
+                    <button className="inspector-chip" onClick={() => saveView(true)}>Clear saved view</button>
+                  )}
+                </div>
+                {viewStatus && <span className="inspector-hint" role="status">{viewStatus}</span>}
+              </section>
+            )}
 
             {modelInfo && (
               <section className="inspector-section">
