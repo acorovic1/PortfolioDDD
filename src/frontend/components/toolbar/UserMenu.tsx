@@ -14,7 +14,6 @@ import {
   CompassIcon,
   BriefcaseIcon,
   StoreIcon,
-  TrophyIcon,
   ChartIcon,
 } from '@/frontend/svg/Icons';
 import { useNavigate } from 'react-router-dom';
@@ -150,7 +149,6 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
             <button className="user-dropdown-item" onClick={() => goTo('/')}><CompassIcon /><span>Explore</span></button>
             <button className="user-dropdown-item" onClick={() => goTo('/jobs')}><BriefcaseIcon /><span>Jobs</span></button>
             <button className="user-dropdown-item" onClick={() => goTo('/marketplace')}><StoreIcon /><span>Marketplace</span></button>
-            <button className="user-dropdown-item" onClick={() => goTo('/challenges')}><TrophyIcon /><span>Challenges</span></button>
           </div>
           {user.role === 'admin' && (
             <button className="user-dropdown-item" onClick={() => goTo('/admin')}>

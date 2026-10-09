@@ -1,6 +1,6 @@
 import { pool } from '../config/db.ts';
 
-export const VIEW_SOURCES = ['explore', 'following', 'search', 'profile', 'notification', 'challenge', 'marketplace', 'external', 'direct'] as const;
+export const VIEW_SOURCES = ['explore', 'following', 'search', 'profile', 'notification', 'marketplace', 'external', 'direct'] as const;
 export type ViewSource = (typeof VIEW_SOURCES)[number];
 
 // Counts at most one view per viewer per artwork per day. Returns whether

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken, optionalAuth, requireAdmin } from '../middleware/auth.middleware.ts';
+import { authenticateToken, optionalAuth } from '../middleware/auth.middleware.ts';
 import { validateBody } from '../middleware/validate.middleware.ts';
 import {
   createJobSchema,
@@ -7,8 +7,6 @@ import {
   applyJobSchema,
   listingSchema,
   purchaseRequestSchema,
-  createChallengeSchema,
-  challengeEntrySchema,
 } from '../validation/schemas.ts';
 import { getJobs, getJob, postJob, editJob, removeJob, applyToJob, getApplications } from '../controllers/jobs.controller.ts';
 import {
@@ -19,16 +17,6 @@ import {
   downloadListing,
   requestPurchase,
 } from '../controllers/marketplace.controller.ts';
-import {
-  getChallenges,
-  getChallenge,
-  postChallenge,
-  removeChallenge,
-  submitEntry,
-  withdrawEntry,
-  voteForEntry,
-  unvoteEntry,
-} from '../controllers/challenges.controller.ts';
 
 export const jobsRoutes = Router();
 jobsRoutes.get('/', optionalAuth, getJobs);
@@ -47,12 +35,3 @@ marketplaceRoutes.delete('/artworks/:artworkId', authenticateToken, removeArtwor
 marketplaceRoutes.post('/listings/:listingId/download', authenticateToken, downloadListing);
 marketplaceRoutes.post('/listings/:listingId/purchase-request', authenticateToken, validateBody(purchaseRequestSchema), requestPurchase);
 
-export const challengesRoutes = Router();
-challengesRoutes.get('/', getChallenges);
-challengesRoutes.post('/', authenticateToken, requireAdmin, validateBody(createChallengeSchema), postChallenge);
-challengesRoutes.get('/:challengeId', optionalAuth, getChallenge);
-challengesRoutes.delete('/:challengeId', authenticateToken, requireAdmin, removeChallenge);
-challengesRoutes.post('/:challengeId/entries', authenticateToken, validateBody(challengeEntrySchema), submitEntry);
-challengesRoutes.delete('/:challengeId/entries/mine', authenticateToken, withdrawEntry);
-challengesRoutes.post('/:challengeId/entries/:artworkId/vote', authenticateToken, voteForEntry);
-challengesRoutes.delete('/:challengeId/entries/:artworkId/vote', authenticateToken, unvoteEntry);

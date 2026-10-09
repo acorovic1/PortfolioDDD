@@ -5,14 +5,13 @@ import UserMenu from './UserMenu';
 import NotificationBell from '@/frontend/components/NotificationBell';
 import MessagesButton from './MessagesButton';
 import '@/frontend/css/Toolbar.css';
-import { Logo, PersonIcon, CompassIcon, BriefcaseIcon, StoreIcon, TrophyIcon } from '@/frontend/svg/Icons';
+import { Logo, PersonIcon, CompassIcon, BriefcaseIcon, StoreIcon } from '@/frontend/svg/Icons';
 import { NavLink } from 'react-router-dom';
 
 const NAV_LINKS = [
     { to: '/', label: 'Explore', icon: CompassIcon },
     { to: '/jobs', label: 'Jobs', icon: BriefcaseIcon },
     { to: '/marketplace', label: 'Marketplace', icon: StoreIcon },
-    { to: '/challenges', label: 'Challenges', icon: TrophyIcon },
 ];
 import { useAuth } from '@/frontend/hooks/useAuth';
 

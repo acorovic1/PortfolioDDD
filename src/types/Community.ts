@@ -73,34 +73,3 @@ export function formatPrice(cents: number, currency = 'USD'): string {
   if (cents === 0) return 'Free';
   return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(cents / 100);
 }
-
-export type ChallengeStatus = 'upcoming' | 'active' | 'ended';
-
-export type Challenge = {
-  id: string;
-  title: string;
-  brief: string;
-  rules: string | null;
-  prize: string | null;
-  startsAt: string;
-  endsAt: string;
-  status: ChallengeStatus;
-  entryCount: number;
-};
-
-export type ChallengeEntry = {
-  artworkId: string;
-  title: string;
-  thumbnailUrl: string | null;
-  coverUrl: string | null;
-  username: string;
-  avatarUrl: string | null;
-  likeCount: number;
-  viewCount: number;
-  isMature: boolean;
-  aiGenerated: boolean;
-  votes: number;
-  rank: number;
-  votedByViewer: boolean;
-  submittedAt: string;
-};

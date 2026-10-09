@@ -27,7 +27,6 @@ const SOURCE_LABELS: Record<string, string> = {
   search: 'Search',
   profile: 'Your profile',
   notification: 'Notifications',
-  challenge: 'Challenges',
   marketplace: 'Marketplace',
   external: 'Other websites',
   direct: 'Direct / shared links',

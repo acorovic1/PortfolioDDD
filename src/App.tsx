@@ -9,7 +9,6 @@ import AdminPage from '@/frontend/components/moderation/AdminPage';
 import MessagesPage from '@/frontend/components/messages/MessagesPage';
 import JobsPage from '@/frontend/components/jobs/JobsPage';
 import MarketplacePage from '@/frontend/components/marketplace/MarketplacePage';
-import ChallengesPage from '@/frontend/components/challenges/ChallengesPage';
 import AnalyticsPage from '@/frontend/components/analytics/AnalyticsPage';
 import ProfileSocialBar from '@/frontend/components/sidebar/ProfileSocialBar';
 import LikedPostsPage from '@/frontend/components/LikedPostsPage';
@@ -31,7 +30,7 @@ import { API_BASE_URL } from '@/frontend/config/api';
 import type { User } from '@/frontend/contexts/auth-types';
 
 type Page = 'home' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings' | 'admin' | 'messages'
-  | 'jobs' | 'marketplace' | 'challenges' | 'analytics';
+  | 'jobs' | 'marketplace' | 'analytics';
 
 const PAGE_PATHS: Record<Page, string> = {
   home: '/',
@@ -45,7 +44,6 @@ const PAGE_PATHS: Record<Page, string> = {
   messages: '/messages',
   jobs: '/jobs',
   marketplace: '/marketplace',
-  challenges: '/challenges',
   analytics: '/analytics',
 };
 
@@ -945,12 +943,6 @@ function App() {
 
   if (page === 'marketplace') {
     return singleColumnPage(<MarketplacePage onOpenArtwork={openArtworkFrom('marketplace')} onOpenUser={goToUserProfile} />);
-  }
-
-  if (page === 'challenges') {
-    return singleColumnPage(
-      <ChallengesPage onOpenArtwork={openArtworkFrom('challenge')} onOpenUser={goToUserProfile} onRequireLogin={goToLogin} />
-    );
   }
 
   if (page === 'analytics' && user) {

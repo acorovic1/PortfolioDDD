@@ -30,4 +30,4 @@ export type FeedFacets = {
 // creator analytics).
 export type ViewSource =
   | 'explore' | 'following' | 'search' | 'profile' | 'notification'
-  | 'challenge' | 'marketplace' | 'external' | 'direct';
+  | 'marketplace' | 'external' | 'direct';

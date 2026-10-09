@@ -183,7 +183,7 @@
   cursor: pointer;
 }
 
-/* --- Artwork card (shared by explore, challenges, marketplace) --- */
+/* --- Artwork card (shared by explore and marketplace) --- */
 
 .artwork-card {
   display: flex;

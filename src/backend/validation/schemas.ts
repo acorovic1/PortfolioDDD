@@ -183,15 +183,3 @@ export const listingSchema = z.object({
 
 export const purchaseRequestSchema = z.object({ message: z.string().trim().max(2000).optional() });
 
-// --- Challenges ---
-
-export const createChallengeSchema = z.object({
-  title: z.string().trim().min(1).max(160),
-  brief: z.string().trim().min(1).max(5000),
-  rules: z.string().trim().max(5000).optional(),
-  prize: z.string().trim().max(200).optional(),
-  startsAt: z.string().datetime({ offset: true }),
-  endsAt: z.string().datetime({ offset: true }),
-}).refine(c => new Date(c.endsAt) > new Date(c.startsAt), { message: 'The challenge must end after it starts', path: ['endsAt'] });
-
-export const challengeEntrySchema = z.object({ artworkId: z.string().trim().min(1).max(64) });

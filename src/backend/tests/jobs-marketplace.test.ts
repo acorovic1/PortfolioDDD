@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.ts';
-import { pool } from '../config/db.ts';
 import { registerTestUser, deleteTestUsers, createProcessedArtwork } from './helpers.ts';
 
 const createdUserIds: string[] = [];
@@ -16,7 +15,6 @@ async function newUser(): Promise<TestUser> {
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 afterAll(async () => {
-  await pool.query("DELETE FROM challenges WHERE title LIKE 'Test challenge%'");
   await deleteTestUsers(createdUserIds);
 });
 
@@ -153,72 +151,5 @@ describe('marketplace', () => {
     const hidden = await request(app).get(`/api/marketplace/artworks/${paidArtwork}`).set(auth(buyer.token));
     expect(hidden.status).toBe(200);
     expect(hidden.body).toBeNull();
-  });
-});
-
-describe('challenges', () => {
-  let admin: TestUser;
-  let alice: TestUser;
-  let bob: TestUser;
-  let carol: TestUser;
-  let challengeId: string;
-  let aliceArt: string;
-  let bobArt: string;
-
-  beforeAll(async () => {
-    admin = await newUser();
-    alice = await newUser();
-    bob = await newUser();
-    carol = await newUser();
-    await pool.query("UPDATE users SET role = 'admin' WHERE id = $1", [admin.id]);
-    aliceArt = await createProcessedArtwork(alice.token, { title: 'Alice robot' });
-    bobArt = await createProcessedArtwork(bob.token, { title: 'Bob robot' });
-  });
-
-  it('only admins create challenges', async () => {
-    const body = {
-      title: 'Test challenge: Robots',
-      brief: 'Model a robot',
-      prize: 'Featured on the homepage',
-      startsAt: new Date(Date.now() - 60_000).toISOString(),
-      endsAt: new Date(Date.now() + 86_400_000).toISOString(),
-    };
-    expect((await request(app).post('/api/challenges').set(auth(alice.token)).send(body)).status).toBe(403);
-    expect((await request(app).post('/api/challenges').set(auth(admin.token)).send({ ...body, endsAt: body.startsAt })).status).toBe(400);
-    const res = await request(app).post('/api/challenges').set(auth(admin.token)).send(body);
-    expect(res.status).toBe(201);
-    expect(res.body.status).toBe('active');
-    challengeId = res.body.id;
-  });
-
-  it('takes one entry per person, from their own public artworks', async () => {
-    expect((await request(app).post(`/api/challenges/${challengeId}/entries`).set(auth(alice.token)).send({ artworkId: bobArt })).status).toBe(404);
-    expect((await request(app).post(`/api/challenges/${challengeId}/entries`).set(auth(alice.token)).send({ artworkId: aliceArt })).status).toBe(201);
-    expect((await request(app).post(`/api/challenges/${challengeId}/entries`).set(auth(alice.token)).send({ artworkId: aliceArt })).status).toBe(409);
-    expect((await request(app).post(`/api/challenges/${challengeId}/entries`).set(auth(bob.token)).send({ artworkId: bobArt })).status).toBe(201);
-  });
-
-  it('ranks entries by votes; no self-votes', async () => {
-    expect((await request(app).post(`/api/challenges/${challengeId}/entries/${aliceArt}/vote`).set(auth(alice.token))).status).toBe(400);
-    await request(app).post(`/api/challenges/${challengeId}/entries/${bobArt}/vote`).set(auth(alice.token));
-    await request(app).post(`/api/challenges/${challengeId}/entries/${bobArt}/vote`).set(auth(carol.token));
-    await request(app).post(`/api/challenges/${challengeId}/entries/${aliceArt}/vote`).set(auth(carol.token));
-
-    const detail = await request(app).get(`/api/challenges/${challengeId}`).set(auth(carol.token));
-    expect(detail.body.entries.map((e: { title: string; votes: number; rank: number }) => [e.title, e.votes, e.rank]))
-      .toEqual([['Bob robot', 2, 1], ['Alice robot', 1, 2]]);
-    expect(detail.body.entries.every((e: { votedByViewer: boolean }) => e.votedByViewer)).toBe(true);
-
-    await request(app).delete(`/api/challenges/${challengeId}/entries/${bobArt}/vote`).set(auth(carol.token));
-    const after = await request(app).get(`/api/challenges/${challengeId}`);
-    expect(after.body.entries.find((e: { title: string }) => e.title === 'Bob robot').votes).toBe(1);
-  });
-
-  it('closes entries and voting once the challenge ends', async () => {
-    await pool.query("UPDATE challenges SET ends_at = NOW() - INTERVAL '1 second', starts_at = NOW() - INTERVAL '1 day' WHERE id = $1", [challengeId]);
-    const detail = await request(app).get(`/api/challenges/${challengeId}`);
-    expect(detail.body.challenge.status).toBe('ended');
-    expect((await request(app).post(`/api/challenges/${challengeId}/entries/${aliceArt}/vote`).set(auth(bob.token))).status).toBe(409);
-    expect((await request(app).delete(`/api/challenges/${challengeId}/entries/mine`).set(auth(alice.token))).status).toBe(409);
   });
 });

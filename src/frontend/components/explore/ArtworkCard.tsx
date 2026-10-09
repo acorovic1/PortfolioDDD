@@ -11,7 +11,7 @@ type ArtworkCardProps = {
   showMature: boolean;
   onOpen: () => void;
   onOpenAuthor?: () => void;
-  // Extra corner badge (e.g. a price or a challenge rank).
+  // Extra corner badge (e.g. a marketplace price).
   badge?: ReactNode;
 };
 

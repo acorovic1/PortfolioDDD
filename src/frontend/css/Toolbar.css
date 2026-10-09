@@ -587,7 +587,7 @@
     max-width: none;
   }
 }
-/* Main navigation (Explore / Jobs / Marketplace / Challenges) */
+/* Main navigation (Explore / Jobs / Marketplace) */
 .toolbar-nav {
   display: flex;
   align-items: center;
