@@ -5,6 +5,7 @@ import { authenticateToken } from '../middleware/auth.middleware.ts';
 import { validateBody } from '../middleware/validate.middleware.ts';
 import { sendMessageSchema, hireRequestSchema } from '../validation/schemas.ts';
 import type { AuthRequest } from '../types.ts';
+import { rateLimitsDisabled } from '../middleware/rate-limit.middleware.ts';
 
 // Per-account cap on outgoing messages, against spam.
 const sendLimiter = rateLimit({
@@ -14,7 +15,7 @@ const sendLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: (req) => (req as AuthRequest).user!.id,
   message: { error: "You're sending messages too quickly - try again in a few minutes" },
-  skip: () => process.env.NODE_ENV === 'test',
+  skip: rateLimitsDisabled,
 });
 
 export const messagesRoutes = Router();

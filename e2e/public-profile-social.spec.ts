@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Dialog, type FileChooser } from '@playwright/test';
 import path from 'node:path';
 
 const dirname = import.meta.dirname;
@@ -38,8 +38,9 @@ async function register(page: Page) {
   return user;
 }
 
-// Uploads a model via the 3D scene's click-to-add flow (native file chooser +
-// window.prompt for the title), and returns the backend-assigned artwork id.
+// Uploads a model via the 3D scene's click-to-add flow (native file chooser,
+// window.prompt for the title, window.confirm to publish rather than save a
+// draft), waits for server-side processing, and returns the artwork id.
 async function uploadArtwork(page: Page, fixture: string, title: string): Promise<string> {
   const isEdit = await page.getByRole('switch').getAttribute('aria-checked');
   if (isEdit !== 'true') {
@@ -50,24 +51,33 @@ async function uploadArtwork(page: Page, fixture: string, title: string): Promis
     await page.waitForTimeout(500);
   }
 
-  const dialogPromise = page.waitForEvent('dialog');
-  const fileChooserPromise = page.waitForEvent('filechooser');
+  const onDialog = (dialog: Dialog) => {
+    // The title prompt, then "publish now?" (OK = publish).
+    void (dialog.type() === 'prompt' ? dialog.accept(title) : dialog.accept());
+  };
+  page.on('dialog', onDialog);
+
   const uploadResponsePromise = page.waitForResponse(
     (res) => res.url().endsWith('/api/portfolio/artworks') && res.request().method() === 'POST'
   );
 
-  await page.locator('.scene canvas').click();
-
-  const fileChooser = await fileChooserPromise;
-  await fileChooser.setFiles(path.join(dirname, 'fixtures', fixture));
-
-  const dialog = await dialogPromise;
-  await dialog.accept(title);
+  // Headless Chromium occasionally drops the chooser for a programmatic
+  // input.click() - retry the canvas click a few times.
+  let fileChooser: FileChooser | null = null;
+  for (let attempt = 0; attempt < 4 && !fileChooser; attempt++) {
+    const waiting = page.waitForEvent('filechooser', { timeout: 4000 }).catch(() => null);
+    await page.locator('.scene canvas').click();
+    fileChooser = await waiting;
+  }
+  expect(fileChooser).not.toBeNull();
+  await fileChooser!.setFiles(path.join(dirname, 'fixtures', fixture));
 
   const uploadResponse = await uploadResponsePromise;
   const body = await uploadResponse.json();
 
-  await expect(page.getByRole('heading', { level: 2, name: title })).toBeVisible();
+  // The model appears once the server has processed it.
+  await expect(page.getByRole('heading', { level: 2, name: title })).toBeVisible({ timeout: 30_000 });
+  page.off('dialog', onDialog);
   return body.id as string;
 }
 

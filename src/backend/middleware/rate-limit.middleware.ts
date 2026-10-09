@@ -1,12 +1,18 @@
 import rateLimit from 'express-rate-limit';
 
+// Off for automated tests: vitest (NODE_ENV=test) and the Playwright e2e
+// servers (DISABLE_RATE_LIMIT=true), which send every request from one IP.
+export function rateLimitsDisabled(): boolean {
+  return process.env.NODE_ENV === 'test' || process.env.DISABLE_RATE_LIMIT === 'true';
+}
+
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts, please try again later' },
-  skip: () => process.env.NODE_ENV === 'test',
+  skip: rateLimitsDisabled,
 });
 
 // Model-processing status polls (GET /api/portfolio/artworks/:id/status).
@@ -23,7 +29,7 @@ export const generalApiRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' },
-  skip: (req) => process.env.NODE_ENV === 'test' || (req.method === 'GET' && STATUS_POLL_PATH.test(req.path)),
+  skip: (req) => rateLimitsDisabled() || (req.method === 'GET' && STATUS_POLL_PATH.test(req.path)),
 });
 
 // The client backs off to one poll every few seconds, so this comfortably
@@ -34,5 +40,5 @@ export const statusPollRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later' },
-  skip: () => process.env.NODE_ENV === 'test',
+  skip: rateLimitsDisabled,
 });

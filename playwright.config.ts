@@ -22,6 +22,8 @@ export default defineConfig({
     {
       command: 'npx ts-node src/backend/server.ts',
       port: 3001,
+      // Every test runs from one IP; production rate limits would trip.
+      env: { DISABLE_RATE_LIMIT: 'true' },
       reuseExistingServer: false,
       timeout: 30_000,
     },
