@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { apiFetch } from '@/frontend/utils/api';
 import { MessageIcon } from '@/frontend/svg/Icons';
+import { useRealtimeEvent } from '@/frontend/realtime/realtime';
 
-const POLL_MS = 30_000;
+// Safety net only - changes are pushed over the realtime stream.
+const FALLBACK_POLL_MS = 5 * 60_000;
 
 // Toolbar shortcut to the inbox, with an unread-message badge.
 export default function MessagesButton() {
@@ -12,6 +14,9 @@ export default function MessagesButton() {
   const navigate = useNavigate();
   const location = useLocation();
   const [unread, setUnread] = useState(0);
+  const loadRef = useRef<(() => void) | null>(null);
+
+  useRealtimeEvent('message', () => loadRef.current?.());
 
   useEffect(() => {
     if (!token) return;
@@ -19,11 +24,13 @@ export default function MessagesButton() {
       .then(data => setUnread(data.count))
       .catch(() => {});
     load();
-    const timer = setInterval(load, POLL_MS);
+    loadRef.current = load;
+    const timer = setInterval(load, FALLBACK_POLL_MS);
     // The inbox announces when it has marked a thread read.
     window.addEventListener('messages-read', load);
     return () => {
       clearInterval(timer);
+      loadRef.current = null;
       window.removeEventListener('messages-read', load);
     };
     // Re-check when navigating (e.g. after reading a thread).

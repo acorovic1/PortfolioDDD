@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { pool } from '../config/db.ts';
+import { publish } from '../services/realtime.ts';
 
 export type MessageKind = 'message' | 'hire';
 
@@ -85,6 +86,10 @@ export async function sendMessage(message: {
      WHERE c.id = $1`,
     [conversationId, message.senderId]
   );
+
+  // The recipient's inbox, and the sender's other tabs/devices.
+  publish(message.recipientId, 'message', { conversationId });
+  publish(message.senderId, 'message', { conversationId });
 
   const row = rows[0];
   return {

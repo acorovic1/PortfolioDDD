@@ -3,6 +3,7 @@ import { BellIcon } from '@/frontend/svg/Icons';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { API_BASE_URL } from '@/frontend/config/api';
 import { useNavigate } from 'react-router-dom';
+import { useRealtimeEvent } from '@/frontend/realtime/realtime';
 
 type Notification = {
   id: string;
@@ -65,12 +66,13 @@ export default function NotificationBell() {
   };
 
   // Fetch once on mount so the unread badge is accurate without opening the
-  // dropdown, then keep polling so a new like/comment shows up without the
-  // user having to close and reopen the bell. No websocket infra exists here,
-  // so this is the lightest way to approximate "real-time".
+  // dropdown. New notifications are then pushed over the realtime stream;
+  // the slow poll is only a safety net for when the stream is down.
+  useRealtimeEvent('notification', () => fetchNotifications());
+
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60_000);
+    const interval = setInterval(fetchNotifications, 5 * 60_000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);

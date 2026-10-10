@@ -1,5 +1,6 @@
 import { pool } from '../config/db.ts';
 import type { NotificationRecord, NotificationDTO } from '../types.ts';
+import { publish } from '../services/realtime.ts';
 
 export function toNotificationDTO(row: NotificationRecord): NotificationDTO {
   return {
@@ -33,6 +34,7 @@ export async function createNotification(notification: {
       notification.artworkId ?? null,
     ]
   );
+  publish(notification.userId, 'notification', { type: notification.type });
 }
 
 export async function findNotificationsByUserId(

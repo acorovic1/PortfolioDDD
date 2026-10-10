@@ -1,5 +1,6 @@
 import { pool } from '../config/db.ts';
 import { listedCondition } from '../repositories/artworks.repository.ts';
+import { publish } from './realtime.ts';
 
 // Tells followers about artworks that just went live - right after upload
 // processing, on "publish now", or when a scheduled publish time passes.
@@ -15,19 +16,23 @@ export async function announceNewlyPublished(): Promise<number> {
        RETURNING id, user_id, title`
     );
 
+    const notified = new Set<string>();
     for (const artwork of rows) {
-      await client.query(
+      const inserted = await client.query<{ user_id: string }>(
         `INSERT INTO notifications (id, user_id, actor_username, type, message, artwork_id)
          SELECT gen_random_uuid()::text, f.follower_id, u.username, 'new_artwork',
                 '@' || u.username || ' published "' || $3 || '"', $1
          FROM follows f
          JOIN users u ON u.id = $2
-         WHERE f.followee_id = $2`,
+         WHERE f.followee_id = $2
+         RETURNING user_id`,
         [artwork.id, artwork.user_id, artwork.title || 'a new artwork']
       );
+      inserted.rows.forEach(row => notified.add(row.user_id));
     }
 
     await client.query('COMMIT');
+    notified.forEach(userId => publish(userId, 'notification', { type: 'new_artwork' }));
     return rows.length;
   } catch (error) {
     await client.query('ROLLBACK');

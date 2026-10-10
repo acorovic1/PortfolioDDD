@@ -20,6 +20,7 @@ import type { ProfileData } from './types/ProfileData';
 import type { PortfolioPiece, PublishingState, RemoteArtwork } from './types/PortfolioPiece';
 import type { ViewSource } from './types/Feed';
 import { apiFetch } from '@/frontend/utils/api';
+import { useRealtimeConnection } from '@/frontend/realtime/realtime';
 import type { ArtworkInfoData } from './types/ArtworkInfoData';
 import type { Comment } from './types/Comment';
 import type { Collection } from './types/Collection';
@@ -63,6 +64,8 @@ function App() {
   const sceneContainerRef = useRef<HTMLDivElement>(null);
 
   const { user, isLoading, token, updateProfile: updateAuthProfile, uploadAvatar, uploadCover } = useAuth();
+  // One live event stream (new messages / notifications) while signed in.
+  useRealtimeConnection(user ? token : null);
 
   const navigate = useNavigate();
   const location = useLocation();

@@ -5,6 +5,7 @@ import { apiFetch, assetUrl } from '@/frontend/utils/api';
 import { SendIcon, BriefcaseIcon } from '@/frontend/svg/Icons';
 import '@/frontend/css/Community.css';
 import '@/frontend/css/Messages.css';
+import { useRealtimeEvent } from '@/frontend/realtime/realtime';
 
 type Conversation = {
   id: string;
@@ -30,7 +31,9 @@ type Thread = {
   messages: Message[];
 };
 
-const POLL_MS = 5000;
+// New messages arrive over the realtime stream; this slow poll is only a
+// safety net if the stream is down.
+const FALLBACK_POLL_MS = 60_000;
 const MESSAGES_READ_EVENT = 'messages-read';
 
 function Avatar({ username, url }: { username: string; url: string | null }) {
@@ -52,7 +55,7 @@ type MessagesPageProps = {
 };
 
 // Inbox + conversation view. `?with=username` opens (or starts) a thread.
-// New messages arrive by polling while the page is open.
+// New messages are pushed over the realtime event stream.
 export default function MessagesPage({ onOpenUser }: MessagesPageProps) {
   const { token } = useAuth();
   const [params, setParams] = useSearchParams();
@@ -64,6 +67,7 @@ export default function MessagesPage({ onOpenUser }: MessagesPageProps) {
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const reloadThreadRef = useRef<(() => void) | null>(null);
 
   const loadConversations = useCallback(() => {
     apiFetch<{ conversations: Conversation[] }>('/api/messages', { token })
@@ -73,7 +77,7 @@ export default function MessagesPage({ onOpenUser }: MessagesPageProps) {
 
   useEffect(() => {
     loadConversations();
-    const timer = setInterval(loadConversations, POLL_MS * 3);
+    const timer = setInterval(loadConversations, FALLBACK_POLL_MS);
     return () => clearInterval(timer);
   }, [loadConversations]);
 
@@ -103,12 +107,19 @@ export default function MessagesPage({ onOpenUser }: MessagesPageProps) {
       .catch(err => { if (!cancelled) setThreadError((err as Error).message); });
 
     load();
-    const timer = setInterval(load, POLL_MS);
+    reloadThreadRef.current = load;
+    const timer = setInterval(load, FALLBACK_POLL_MS);
     return () => {
       cancelled = true;
+      reloadThreadRef.current = null;
       clearInterval(timer);
     };
   }, [active, token]);
+
+  useRealtimeEvent('message', () => {
+    loadConversations();
+    reloadThreadRef.current?.();
+  });
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: 'end' });
