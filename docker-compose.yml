@@ -41,6 +41,17 @@ services:
       # max texture size uploads are downscaled to.
       MODEL_COMPRESSION: ${MODEL_COMPRESSION:-meshopt}
       MODEL_MAX_TEXTURE_SIZE: ${MODEL_MAX_TEXTURE_SIZE:-4096}
+      # File storage: local (./uploads volume) or s3 (AWS S3, Cloudflare R2,
+      # MinIO...). For s3, set the bucket/credentials and optionally the CDN
+      # in front of it. The bucket must allow public GET + CORS for the site.
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      CDN_BASE_URL: ${CDN_BASE_URL:-}
     ports:
       - "3001:3001"
     volumes:

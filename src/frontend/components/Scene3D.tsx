@@ -17,7 +17,7 @@ import { FocusIcon, CubeIcon } from '@/frontend/svg/Icons';
 import InspectorPanel from '@/frontend/components/InspectorPanel';
 import { ModelInspector } from '@/frontend/inspector/ModelInspector';
 import { PostProcessing, DEFAULT_POST_SETTINGS, type PostSettings, type ViewerSettings } from '@/frontend/inspector/PostProcessing';
-import { apiFetch } from '@/frontend/utils/api';
+import { apiFetch, assetUrl } from '@/frontend/utils/api';
 import { API_BASE_URL } from '@/frontend/config/api';
 import { uploadWithProgress } from '@/frontend/utils/uploadWithProgress';
 import { waitForModelProcessing } from '@/frontend/utils/modelProcessing';
@@ -237,7 +237,7 @@ function Scene3D({
     const signal = lifetimeRef.current.signal;
 
     const addRemote = async (remote: RemoteArtwork) => {
-      const piece = await createPortfolioItemFromRemote(scene, API_BASE_URL, remote);
+      const piece = await createPortfolioItemFromRemote(scene, remote);
       if (cancelled) {
         scene.remove(piece.root);
         disposeObject(piece.root);
@@ -799,7 +799,7 @@ function Scene3D({
         return;
       }
 
-      const model = await loadModel(`${API_BASE_URL}${processed.modelUrl}`);
+      const model = await loadModel(assetUrl(processed.modelUrl)!);
 
       // The inspector holds references to the old meshes - close it first,
       // and reopen it on the new version afterwards.
@@ -1074,7 +1074,7 @@ function Scene3D({
 
       let newPiece: PortfolioPiece;
       try {
-        newPiece = await createPortfolioItemFromRemote(sceneRef.current!, API_BASE_URL, processed);
+        newPiece = await createPortfolioItemFromRemote(sceneRef.current!, processed);
       } catch (error) {
         console.error('Failed to load the processed model:', error);
         setJobNotice({ kind: 'error', title, message: 'The processed model could not be loaded' });

@@ -1,7 +1,7 @@
 import multer from 'multer';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { unlink, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { UPLOAD_EXTENSIONS } from '../pipeline/formats.ts';
 
 function makeStorage(subdir: string) {
@@ -92,18 +92,3 @@ export const uploadThumbnail = multer({
     cb(null, true);
   },
 });
-
-export function toPublicPath(subdir: string, filename: string): string {
-  return `/uploads/${subdir}/${filename}`;
-}
-
-export async function deletePublicFile(publicPath: string | null | undefined): Promise<void> {
-  // Artworks have no model file until their first upload finishes processing.
-  if (!publicPath) return;
-  const diskPath = path.join('uploads', publicPath.replace(/^\/uploads\//, ''));
-  try {
-    await unlink(diskPath);
-  } catch (error) {
-    if ((error as { code?: string }).code !== 'ENOENT') throw error;
-  }
-}

@@ -20,7 +20,7 @@ import {
   toRenderDTO,
 } from '../repositories/renders.repository.ts';
 import { countLikes, countLikesForArtworkIds } from '../repositories/likes.repository.ts';
-import { toPublicPath, deletePublicFile } from '../utils/upload.util.ts';
+import { persistUpload, deleteStoredFile } from '../storage/storage.ts';
 import path from 'node:path';
 import { rm } from 'node:fs/promises';
 import { enqueueModelJob } from '../pipeline/processor.ts';
@@ -186,9 +186,9 @@ export async function uploadArtworkThumbnail(req: Request, res: Response): Promi
     return;
   }
 
-  const thumbnailUrl = toPublicPath('thumbnails', file.filename);
+  const thumbnailUrl = await persistUpload('thumbnails', file.filename);
   const previous = await setThumbnail(artworkId, thumbnailUrl);
-  await deletePublicFile(previous);
+  await deleteStoredFile(previous);
 
   res.json({ thumbnailUrl });
 }
@@ -253,9 +253,9 @@ export async function deleteArtworkWithFiles(artwork: ArtworkRecord): Promise<vo
   const renders = await findRendersByArtworkId(artwork.id);
   await deleteArtwork(artwork.id);
 
-  await deletePublicFile(artwork.model_path);
-  await deletePublicFile(artwork.thumbnail_path);
-  await Promise.all(renders.map(r => deletePublicFile(r.url)));
+  await deleteStoredFile(artwork.model_path);
+  await deleteStoredFile(artwork.thumbnail_path);
+  await Promise.all(renders.map(r => deleteStoredFile(r.url)));
 }
 
 export async function addRender(req: Request, res: Response): Promise<void> {
@@ -275,7 +275,7 @@ export async function addRender(req: Request, res: Response): Promise<void> {
   }
 
   const id = uuidv4();
-  const url = toPublicPath('renders', file.filename);
+  const url = await persistUpload('renders', file.filename);
   const caption = req.body.caption || 'Untitled';
 
   await createRender({ id, artworkId, url, caption });
@@ -302,7 +302,7 @@ export async function removeRender(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  if (render) await deletePublicFile(render.url);
+  if (render) await deleteStoredFile(render.url);
 
   res.json({ success: true });
 }

@@ -4,6 +4,7 @@ import type { RemoteArtwork } from '@/types/PortfolioPiece';
 import type { Collection } from '@/types/Collection';
 import { BookmarkIcon, HeartIcon, ImageIcon, PlusIcon, ChevronDownIcon, CloseIcon, PencilIcon } from '@/frontend/svg/Icons';
 import { API_BASE_URL } from '@/frontend/config/api';
+import { assetUrl } from '@/frontend/utils/api';
 
 type SavedPageProps = {
     collections: Collection[];
@@ -139,7 +140,7 @@ export default function SavedPage({ collections, onCreateCollection, onRenameCol
                             >
                                 <div className="liked-card-thumb">
                                     {artwork.renders[0] || artwork.thumbnailUrl ? (
-                                        <img src={`${API_BASE_URL}${artwork.renders[0]?.url ?? artwork.thumbnailUrl}`} alt={artwork.title} />
+                                        <img src={assetUrl(artwork.renders[0]?.url ?? artwork.thumbnailUrl)!} alt={artwork.title} />
                                     ) : (
                                         <ImageIcon />
                                     )}

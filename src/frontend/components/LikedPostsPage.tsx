@@ -3,6 +3,7 @@ import '@/frontend/css/LikedPostsPage.css';
 import type { RemoteArtwork } from '@/types/PortfolioPiece';
 import { HeartIcon, ImageIcon } from '@/frontend/svg/Icons';
 import { API_BASE_URL } from '@/frontend/config/api';
+import { assetUrl } from '@/frontend/utils/api';
 
 type LikedPostsPageProps = {
     likedArtworkIds: Record<string, boolean>;
@@ -65,7 +66,7 @@ export default function LikedPostsPage({ likedArtworkIds, onSelectArtwork }: Lik
                         >
                             <div className="liked-card-thumb">
                                 {artwork.renders[0] || artwork.thumbnailUrl ? (
-                                    <img src={`${API_BASE_URL}${artwork.renders[0]?.url ?? artwork.thumbnailUrl}`} alt={artwork.title} />
+                                    <img src={assetUrl(artwork.renders[0]?.url ?? artwork.thumbnailUrl)!} alt={artwork.title} />
                                 ) : (
                                     <ImageIcon />
                                 )}

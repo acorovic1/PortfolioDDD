@@ -19,7 +19,7 @@ import ResetPasswordPage from '@/frontend/components/ResetPasswordPage';
 import type { ProfileData } from './types/ProfileData';
 import type { PortfolioPiece, PublishingState, RemoteArtwork } from './types/PortfolioPiece';
 import type { ViewSource } from './types/Feed';
-import { apiFetch } from '@/frontend/utils/api';
+import { apiFetch, assetUrl } from '@/frontend/utils/api';
 import { useRealtimeConnection } from '@/frontend/realtime/realtime';
 import type { ArtworkInfoData } from './types/ArtworkInfoData';
 import type { Comment } from './types/Comment';
@@ -346,7 +346,7 @@ function App() {
       // Use the backend's persisted render (real URL + id) rather than the
       // local blob URL, so it's still valid after this session ends.
       setArtworks(prev => prev.map(a => (
-        a.id === artwork.id ? { ...a, renders: [...a.renders, { id: saved.id, url: `${API_BASE_URL}${saved.url}`, caption: saved.caption }] } : a
+        a.id === artwork.id ? { ...a, renders: [...a.renders, { id: saved.id, url: assetUrl(saved.url)!, caption: saved.caption }] } : a
       )));
     } catch (error) {
       console.error('Failed to upload render:', error);
@@ -597,7 +597,7 @@ function App() {
   // calls the backend (via AuthContext) rather than keeping separate local state.
   const profile: ProfileData = {
     username: user?.username || '',
-    avatarUrl: user?.avatarUrl ? `${API_BASE_URL}${user.avatarUrl}` : '/vite.svg',
+    avatarUrl: assetUrl(user?.avatarUrl) ?? '/vite.svg',
     title: user?.title || '',
     email: user?.email || '',
     github: user?.github || undefined,
@@ -605,7 +605,7 @@ function App() {
     bio: user?.bio || undefined,
     skills: user?.skills || [],
     location: user?.location || undefined,
-    coverUrl: user?.coverUrl ? `${API_BASE_URL}${user.coverUrl}` : null,
+    coverUrl: assetUrl(user?.coverUrl),
     website: user?.website || undefined,
     socialLinks: user?.socialLinks ?? {},
     availableForWork: !!user?.availableForWork,
@@ -665,7 +665,7 @@ function App() {
   if (publicProfileUsername) {
     const viewedProfile: ProfileData | null = publicProfileUser ? {
       username: publicProfileUser.username,
-      avatarUrl: publicProfileUser.avatarUrl ? `${API_BASE_URL}${publicProfileUser.avatarUrl}` : '/vite.svg',
+      avatarUrl: assetUrl(publicProfileUser.avatarUrl) ?? '/vite.svg',
       title: publicProfileUser.title || '',
       email: '',
       github: publicProfileUser.github || undefined,
@@ -673,7 +673,7 @@ function App() {
       bio: publicProfileUser.bio || undefined,
       skills: publicProfileUser.skills || [],
       location: publicProfileUser.location || undefined,
-      coverUrl: publicProfileUser.coverUrl ? `${API_BASE_URL}${publicProfileUser.coverUrl}` : null,
+      coverUrl: assetUrl(publicProfileUser.coverUrl),
       website: publicProfileUser.website || undefined,
       socialLinks: publicProfileUser.socialLinks ?? {},
       availableForWork: !!publicProfileUser.availableForWork,

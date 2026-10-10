@@ -24,7 +24,7 @@ import type { ArtworkRecord } from '../types.ts';
 import { findRendersByArtworkIds } from '../repositories/renders.repository.ts';
 import { toArtworkDTO } from '../repositories/artworks.repository.ts';
 import { countLikesForArtworkIds } from '../repositories/likes.repository.ts';
-import { toPublicPath, deletePublicFile } from '../utils/upload.util.ts';
+import { persistUpload, deleteStoredFile } from '../storage/storage.ts';
 import { parsePagination } from '../utils/pagination.util.ts';
 import { clearNoAiCache } from '../middleware/noai.middleware.ts';
 import { blockState } from '../repositories/moderation.repository.ts';
@@ -217,7 +217,7 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
     ...artworks.map(a => a.thumbnail_path),
     ...[...rendersByArtwork.values()].flat().map(r => r.url),
   ];
-  await Promise.all(filesToDelete.map(f => deletePublicFile(f)));
+  await Promise.all(filesToDelete.map(f => deleteStoredFile(f)));
 
   res.json({ success: true });
 }
@@ -244,8 +244,8 @@ export async function uploadCover(req: Request, res: Response): Promise<void> {
   }
 
   const previous = await findUserById(authReq.user!.id);
-  await updateUserProfile(authReq.user!.id, { coverUrl: toPublicPath('covers', file.filename) });
-  await deletePublicFile(previous?.cover_url);
+  await updateUserProfile(authReq.user!.id, { coverUrl: await persistUpload('covers', file.filename) });
+  await deleteStoredFile(previous?.cover_url);
 
   const user = await findUserById(authReq.user!.id);
   res.json(toPublicUser(user!));
@@ -260,7 +260,7 @@ export async function uploadAvatar(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const avatarUrl = toPublicPath('avatars', file.filename);
+  const avatarUrl = await persistUpload('avatars', file.filename);
   await updateUserProfile(authReq.user!.id, { avatarUrl });
 
   const user = await findUserById(authReq.user!.id);

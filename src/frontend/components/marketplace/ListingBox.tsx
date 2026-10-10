@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/frontend/hooks/useAuth';
-import { apiFetch } from '@/frontend/utils/api';
-import { API_BASE_URL } from '@/frontend/config/api';
+import { apiFetch, assetUrl } from '@/frontend/utils/api';
 import { DownloadIcon, StoreIcon } from '@/frontend/svg/Icons';
 import { LICENSE_LABELS, formatPrice, type Listing, type License } from '@/types/Community';
 import '@/frontend/css/Community.css';
@@ -111,7 +110,7 @@ export default function ListingBox({ artworkId, editable }: ListingBoxProps) {
     if (!user) return onRequireLogin();
     const { url, fileName } = await apiFetch<{ url: string; fileName: string }>(`/api/marketplace/listings/${listing.id}/download`, { method: 'POST', token });
     // Fetch as a blob so the file downloads under a readable name.
-    const blob = await (await fetch(`${API_BASE_URL}${url}`)).blob();
+    const blob = await (await fetch(assetUrl(url)!)).blob();
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = fileName;

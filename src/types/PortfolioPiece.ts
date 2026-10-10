@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ArtworkInfoData } from './ArtworkInfoData'
 import { getGLTFLoader } from '@/frontend/three/gltfLoader';
+import { assetUrl } from '@/frontend/utils/api';
 import type { ViewerSettings } from '@/frontend/inspector/PostProcessing';
 
 
@@ -149,10 +150,9 @@ export type RemoteArtwork = {
 // user's previously-saved portfolio into the 3D scene, e.g. after login).
 export async function createPortfolioItemFromRemote(
   scene: THREE.Scene,
-  apiBaseUrl: string,
   remote: RemoteArtwork
 ): Promise<PortfolioPiece> {
-  const piece = await createPortfolioItem(scene, `${apiBaseUrl}${remote.modelUrl}`);
+  const piece = await createPortfolioItem(scene, assetUrl(remote.modelUrl)!);
 
   piece.id = remote.id;
   piece.infoData = {
@@ -165,7 +165,7 @@ export async function createPortfolioItemFromRemote(
   };
   piece.renders = remote.renders.map(r => ({
     id: r.id,
-    url: `${apiBaseUrl}${r.url}`,
+    url: assetUrl(r.url)!,
     caption: r.caption,
   }));
   piece.likeCount = remote.likeCount;

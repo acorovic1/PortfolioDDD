@@ -37,9 +37,11 @@ export async function apiFetch<T>(path: string, { method = 'GET', token, body, s
   return data as T;
 }
 
-// Turns a stored upload path (/uploads/...) into a full URL.
+// Full URL for a stored file: local uploads are paths on the API server
+// ("/uploads/..."); files in S3/a CDN are already absolute URLs.
 export function assetUrl(path: string | null | undefined): string | null {
-  return path ? `${API_BASE_URL}${path}` : null;
+  if (!path) return null;
+  return /^https?:\/\//.test(path) ? path : `${API_BASE_URL}${path}`;
 }
 
 export function queryString(params: Record<string, string | number | boolean | null | undefined>): string {

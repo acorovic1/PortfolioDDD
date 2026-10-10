@@ -49,7 +49,9 @@ app.use(express.json());
 app.use(['/uploads/sources', '/uploads/tmp'], (_req: Request, res: Response) => {
   res.status(404).end();
 });
-app.use('/uploads', noAiHeaders, express.static('uploads'));
+// Upload names are random UUIDs - a URL's content never changes, so
+// browsers and CDNs may cache them forever.
+app.use('/uploads', noAiHeaders, express.static('uploads', { immutable: true, maxAge: '365d' }));
 app.use('/api', generalApiRateLimiter);
 
 app.use('/api/auth', authRoutes);

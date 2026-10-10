@@ -9,7 +9,7 @@ import {
   markModelFailed,
   findInterruptedProcessing,
 } from '../repositories/artworks.repository.ts';
-import { toPublicPath, deletePublicFile } from '../utils/upload.util.ts';
+import { persistUpload, deleteStoredFile } from '../storage/storage.ts';
 import { announceNewlyPublishedInBackground } from '../services/publisher.ts';
 
 export type ModelJob = {
@@ -67,21 +67,21 @@ async function processJob(job: ModelJob): Promise<void> {
     const fileName = `${crypto.randomUUID()}.glb`;
     await mkdir(path.join('uploads', 'models'), { recursive: true });
     await writeFile(path.join('uploads', 'models', fileName), glb);
-    outputPublicPath = toPublicPath('models', fileName);
+    outputPublicPath = await persistUpload('models', fileName);
 
     const previousPath = await markModelReady(job.artworkId, outputPublicPath, glb.byteLength, format);
     if (previousPath === null) {
       // The artwork was deleted while it was processing.
-      await deletePublicFile(outputPublicPath);
+      await deleteStoredFile(outputPublicPath);
     } else if (previousPath === '') {
       // A first upload just became viewable - followers may be waiting on it.
       announceNewlyPublishedInBackground();
     } else {
       // The new version is live at this point; a leftover old file is harmless.
-      await deletePublicFile(previousPath).catch(err => console.error('Failed to delete replaced model:', err));
+      await deleteStoredFile(previousPath).catch(err => console.error('Failed to delete replaced model:', err));
     }
   } catch (error) {
-    if (outputPublicPath) await deletePublicFile(outputPublicPath).catch(() => {});
+    if (outputPublicPath) await deleteStoredFile(outputPublicPath).catch(() => {});
 
     const message = error instanceof ConversionError
       ? cleanErrorMessage(error.message)
