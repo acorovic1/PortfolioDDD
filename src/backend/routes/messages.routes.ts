@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { getConversations, getUnreadCount, getThread, postMessage, postHireRequest } from '../controllers/messages.controller.ts';
-import { authenticateToken } from '../middleware/auth.middleware.ts';
+import { authenticateToken, requireVerifiedEmail } from '../middleware/auth.middleware.ts';
 import { validateBody } from '../middleware/validate.middleware.ts';
 import { sendMessageSchema, hireRequestSchema } from '../validation/schemas.ts';
 import type { AuthRequest } from '../types.ts';
@@ -24,5 +24,5 @@ messagesRoutes.use(authenticateToken);
 messagesRoutes.get('/', getConversations);
 messagesRoutes.get('/unread', getUnreadCount);
 messagesRoutes.get('/:username', getThread);
-messagesRoutes.post('/:username', sendLimiter, validateBody(sendMessageSchema), postMessage);
-messagesRoutes.post('/:username/hire', sendLimiter, validateBody(hireRequestSchema), postHireRequest);
+messagesRoutes.post('/:username', requireVerifiedEmail, sendLimiter, validateBody(sendMessageSchema), postMessage);
+messagesRoutes.post('/:username/hire', requireVerifiedEmail, sendLimiter, validateBody(hireRequestSchema), postHireRequest);

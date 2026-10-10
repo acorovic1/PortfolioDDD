@@ -28,6 +28,9 @@ import { persistUpload, deleteStoredFile } from '../storage/storage.ts';
 import { parsePagination } from '../utils/pagination.util.ts';
 import { clearNoAiCache } from '../middleware/noai.middleware.ts';
 import { blockState } from '../repositories/moderation.repository.ts';
+import { sendMailInBackground } from '../services/mail.ts';
+import { emailChangedMail, passwordChangedMail } from '../services/mail-templates.ts';
+import { sendVerificationEmail } from './auth.controller.ts';
 
 export async function search(req: Request, res: Response): Promise<void> {
   const { q } = req.query;
@@ -117,7 +120,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
   const authReq = req as AuthRequest;
   const {
     name, avatarUrl, title, bio, location, github, linkedin, skills, showMature, hideAi, noAiTraining,
-    website, socialLinks, availableForWork, workTypes, experience,
+    website, socialLinks, availableForWork, workTypes, experience, emailNotifications,
   } = req.body;
 
   // Empty social links are dropped rather than stored as "".
@@ -127,7 +130,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
 
   await updateUserProfile(authReq.user!.id, {
     name, avatarUrl, title, bio, location, github, linkedin, skills, showMature, hideAi, noAiTraining,
-    website, socialLinks: links, availableForWork, workTypes, experience,
+    website, socialLinks: links, availableForWork, workTypes, experience, emailNotifications,
   });
   // Uploads' X-Robots-Tag headers depend on the NoAI flag.
   if (noAiTraining !== undefined) clearNoAiCache();
@@ -161,9 +164,23 @@ export async function changeEmail(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  await updateEmailRepo(authReq.user!.id, email);
-  const user = await findUserById(authReq.user!.id);
-  res.json(toPublicUser(user!));
+  const before = await findUserById(authReq.user!.id);
+  if (!before) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  if (before.email === email) {
+    res.json(toPublicUser(before));
+    return;
+  }
+
+  await updateEmailRepo(before.id, email);
+  const user = (await findUserById(before.id))!;
+  // The old address hears about it (in case this wasn't them); the new one
+  // has to be confirmed.
+  sendMailInBackground(emailChangedMail(before.email, before.username, email));
+  await sendVerificationEmail(user);
+  res.json(toPublicUser(user));
 }
 
 export async function changePassword(req: Request, res: Response): Promise<void> {
@@ -184,6 +201,7 @@ export async function changePassword(req: Request, res: Response): Promise<void>
 
   const newHash = await bcrypt.hash(newPassword, 10);
   await updatePasswordHash(user.id, newHash);
+  sendMailInBackground(passwordChangedMail(user.email, user.username));
   res.json({ success: true });
 }
 

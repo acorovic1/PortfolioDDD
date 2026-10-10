@@ -24,4 +24,6 @@ export interface User {
   availableForWork?: boolean;
   workTypes?: WorkType[];
   experience?: ExperienceEntry[];
+  emailVerified?: boolean;
+  emailNotifications?: boolean;
 }

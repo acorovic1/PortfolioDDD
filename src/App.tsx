@@ -16,6 +16,7 @@ import MyCommentsPage from '@/frontend/components/MyCommentsPage';
 import SavedPage from '@/frontend/components/SavedPage';
 import SettingsPage from '@/frontend/components/SettingsPage';
 import ResetPasswordPage from '@/frontend/components/ResetPasswordPage';
+import VerifyEmailPage from '@/frontend/components/VerifyEmailPage';
 import type { ProfileData } from './types/ProfileData';
 import type { PortfolioPiece, PublishingState, RemoteArtwork } from './types/PortfolioPiece';
 import type { ViewSource } from './types/Feed';
@@ -686,6 +687,16 @@ function App() {
   if (location.pathname === '/reset-password') {
     const resetToken = new URLSearchParams(location.search).get('token') ?? '';
     return <ResetPasswordPage token={resetToken} onDone={() => navigate(PAGE_PATHS.login, { replace: true })} />;
+  }
+
+  if (location.pathname === '/verify-email') {
+    const verifyToken = new URLSearchParams(location.search).get('token') ?? '';
+    return (
+      <VerifyEmailPage
+        token={verifyToken}
+        onDone={() => navigate(user ? PAGE_PATHS.portfolio : PAGE_PATHS.login, { replace: true })}
+      />
+    );
   }
 
   if (publicProfileUsername) {

@@ -13,7 +13,7 @@ import {
 } from '../controllers/portfolio.controller.ts';
 import { listComments, addComment, removeComment } from '../controllers/comments.controller.ts';
 import { listMyLikes, likeArtwork, unlikeArtwork } from '../controllers/likes.controller.ts';
-import { authenticateToken, optionalAuth } from '../middleware/auth.middleware.ts';
+import { authenticateToken, optionalAuth, requireVerifiedEmail } from '../middleware/auth.middleware.ts';
 import { validateBody } from '../middleware/validate.middleware.ts';
 import { uploadArtworkSchema, updateArtworkSchema, addCommentSchema } from '../validation/schemas.ts';
 import { uploadModel, uploadImage, uploadThumbnail } from '../utils/upload.util.ts';
@@ -40,6 +40,7 @@ portfolioRoutes.delete('/artworks/:artworkId/renders/:renderId', authenticateTok
 portfolioRoutes.get('/artworks/:artworkId/comments', optionalAuth, listComments);
 portfolioRoutes.post('/artworks/:artworkId/comments',
   authenticateToken,
+  requireVerifiedEmail,
   validateBody(addCommentSchema),
   addComment
 );

@@ -249,3 +249,22 @@
   gap: 12px;
   font-size: 14px;
 }
+
+.settings-email-status {
+  margin-top: 8px;
+  color: #22c55e;
+}
+
+.settings-email-status.unconfirmed {
+  color: var(--color-text-secondary);
+}
+
+.settings-link-btn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}

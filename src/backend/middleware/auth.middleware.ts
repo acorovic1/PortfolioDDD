@@ -51,8 +51,8 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
     // Suspensions and roles are checked live, so they take effect without
     // waiting for the 7-day token to expire. (A deleted user falls through:
     // handlers answer those with 404.)
-    pool.query<{ role: string; suspended_at: string | null }>(
-      'SELECT role, suspended_at FROM users WHERE id = $1',
+    pool.query<{ role: string; suspended_at: string | null; email_verified_at: string | null }>(
+      'SELECT role, suspended_at, email_verified_at FROM users WHERE id = $1',
       [user.id]
     )
       .then(({ rows }) => {
@@ -61,10 +61,22 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
           return;
         }
         (req as AuthRequest).user!.role = rows[0]?.role ?? 'user';
+        (req as AuthRequest).user!.emailVerified = !!rows[0]?.email_verified_at;
         next();
       })
       .catch(next);
   });
+}
+
+// For actions spammers go for (messages, comments, job posts...). Only
+// enforced with REQUIRE_EMAIL_VERIFICATION=true. Must come after
+// authenticateToken.
+export function requireVerifiedEmail(req: Request, res: Response, next: NextFunction): void {
+  if (process.env.REQUIRE_EMAIL_VERIFICATION === 'true' && !(req as AuthRequest).user?.emailVerified) {
+    res.status(403).json({ error: 'Please confirm your email address first', emailUnverified: true });
+    return;
+  }
+  next();
 }
 
 // Must come after authenticateToken.

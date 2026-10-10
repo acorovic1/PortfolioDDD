@@ -25,6 +25,7 @@ import { serveAppHtml, artworkOgImage, userOgImage, robotsTxt, sitemapXml } from
 import { generalApiRateLimiter } from './middleware/rate-limit.middleware.ts';
 import { resumeInterruptedModelJobs } from './pipeline/processor.ts';
 import { startPublisher } from './services/publisher.ts';
+import { startNotificationMailer } from './services/notification-mailer.ts';
 
 dotenv.config();
 
@@ -124,6 +125,7 @@ export function scheduleReconnect(delayMs = 2000): void {
         resumedModelJobs = true;
         resumeInterruptedModelJobs().catch(err => console.error('Failed to resume model processing:', err));
         startPublisher();
+        startNotificationMailer();
       }
     } catch (err) {
       console.error(`Database unreachable, retrying in ${delay}ms:`, (err as Error).message);

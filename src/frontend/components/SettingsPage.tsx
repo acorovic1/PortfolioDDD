@@ -6,7 +6,10 @@ import { useTheme } from '@/frontend/hooks/useTheme';
 import { SunIcon, MoonIcon } from '@/frontend/svg/Icons';
 
 export default function SettingsPage() {
-    const { user, token, updateUsername, updateEmail, changePassword, deleteAccount, updateProfile } = useAuth();
+    const {
+        user, token, updateUsername, updateEmail, changePassword, deleteAccount, updateProfile, resendVerification,
+    } = useAuth();
+    const [verificationSent, setVerificationSent] = useState(false);
     const [preferenceError, setPreferenceError] = useState('');
     const [blockedUsers, setBlockedUsers] = useState<{ username: string }[]>([]);
 
@@ -23,7 +26,7 @@ export default function SettingsPage() {
             .catch(err => console.error('Failed to unblock:', err));
     };
 
-    const setPreference = (key: 'showMature' | 'hideAi' | 'noAiTraining', value: boolean) => {
+    const setPreference = (key: 'showMature' | 'hideAi' | 'noAiTraining' | 'emailNotifications', value: boolean) => {
         setPreferenceError('');
         updateProfile({ [key]: value }).catch(err => {
             setPreferenceError(err instanceof Error ? err.message : 'Failed to save preference');
@@ -161,8 +164,26 @@ export default function SettingsPage() {
                             Save
                         </button>
                         {emailError && <span className="settings-error-hint">{emailError}</span>}
-                        {emailSaved && <span className="settings-saved-hint">Saved</span>}
+                        {emailSaved && <span className="settings-saved-hint">Saved - check your inbox to confirm it</span>}
                     </form>
+                    {user?.emailVerified ? (
+                        <p className="settings-section-description settings-email-status">Confirmed</p>
+                    ) : (
+                        <p className="settings-section-description settings-email-status unconfirmed">
+                            Not confirmed yet.{' '}
+                            {verificationSent ? 'Check your inbox for the link.' : (
+                                <button
+                                    type="button"
+                                    className="settings-link-btn"
+                                    onClick={() => resendVerification()
+                                        .then(() => setVerificationSent(true))
+                                        .catch(err => setEmailError(err instanceof Error ? err.message : 'Failed to send'))}
+                                >
+                                    Resend confirmation email
+                                </button>
+                            )}
+                        </p>
+                    )}
                 </section>
 
                 <section className="settings-section">
@@ -244,6 +265,26 @@ export default function SettingsPage() {
                             </span>
                         </label>
                         {preferenceError && <span className="settings-error-hint">{preferenceError}</span>}
+                    </div>
+                </section>
+
+                <section className="settings-section">
+                    <h3 className="settings-section-title">Notifications</h3>
+                    <div className="settings-preferences">
+                        <label className="settings-preference">
+                            <input
+                                type="checkbox"
+                                checked={user?.emailNotifications !== false}
+                                onChange={(e) => setPreference('emailNotifications', e.target.checked)}
+                            />
+                            <span>
+                                Email me about notifications I haven't seen
+                                <small>
+                                    New messages, comments, likes and followers you haven't seen on the site
+                                    within a few minutes, bundled into one email. Needs a confirmed address.
+                                </small>
+                            </span>
+                        </label>
                     </div>
                 </section>
 

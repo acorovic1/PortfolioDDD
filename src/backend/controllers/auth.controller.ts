@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import crypto from 'node:crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { signToken } from '../middleware/auth.middleware.ts';
 import type { AuthRequest } from '../types.ts';
@@ -14,7 +13,22 @@ import {
   clearResetToken,
   updatePasswordHash,
   toPublicUser,
+  setEmailVerifyToken,
+  verifyEmailByTokenHash,
+  markEmailVerified,
 } from '../repositories/users.repository.ts';
+import { sendMailInBackground } from '../services/mail.ts';
+import { verifyEmailMail, passwordResetMail, passwordChangedMail } from '../services/mail-templates.ts';
+import { createEmailToken, hashEmailToken } from '../utils/token.util.ts';
+
+const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+
+// Emails a fresh verification link (replacing any earlier one).
+export async function sendVerificationEmail(user: { id: string; email: string; username: string }): Promise<void> {
+  const { token, hash } = createEmailToken();
+  await setEmailVerifyToken(user.id, hash, new Date(Date.now() + VERIFY_TOKEN_TTL_MS));
+  sendMailInBackground(verifyEmailMail(user.email, user.username, token));
+}
 
 
 export async function register(req: Request, res: Response): Promise<void> {
@@ -32,6 +46,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     const id = uuidv4();
 
     await createUser({ id, email, username, name, passwordHash });
+    await sendVerificationEmail({ id, email, username });
 
     const token = signToken({ id, email, username });
     res.status(201).json({ token, user: { id, email, username, name } });
@@ -90,16 +105,11 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
   // Always respond the same way regardless of whether the email exists,
   // so this endpoint can't be used to enumerate registered accounts.
   if (user) {
-    const token = crypto.randomBytes(32).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const { token, hash } = createEmailToken();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    await setResetToken(user.id, tokenHash, expiresAt);
-
-    // No email service is configured in this project - the reset link is
-    // logged here as a stand-in for actually emailing it to the user.
-    const frontendUrl = process.env.CORS_ORIGIN?.split(',')[0]?.trim() || 'http://localhost:5173';
-    console.log(`[password reset] ${user.email} -> ${frontendUrl}/reset-password?token=${token}`);
+    await setResetToken(user.id, hash, expiresAt);
+    sendMailInBackground(passwordResetMail(user.email, user.username, token));
   }
 
   res.json({ success: true });
@@ -111,9 +121,7 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
 
 export async function resetPassword(req: Request, res: Response): Promise<void> {
   const { token, newPassword } = req.body;
-  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-
-  const user = await findUserByResetTokenHash(tokenHash);
+  const user = await findUserByResetTokenHash(hashEmailToken(token));
   if (!user) {
     res.status(400).json({ error: 'This reset link is invalid or has expired' });
     return;
@@ -122,7 +130,33 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
   const newHash = await bcrypt.hash(newPassword, 10);
   await updatePasswordHash(user.id, newHash);
   await clearResetToken(user.id);
+  // The link arrived by email, so the address is evidently theirs.
+  await markEmailVerified(user.id);
+  sendMailInBackground(passwordChangedMail(user.email, user.username));
 
+  res.json({ success: true });
+}
+
+export async function verifyEmail(req: Request, res: Response): Promise<void> {
+  const user = await verifyEmailByTokenHash(hashEmailToken(req.body.token));
+  if (!user) {
+    res.status(400).json({ error: 'This confirmation link is invalid or has expired' });
+    return;
+  }
+  res.json({ success: true, email: user.email });
+}
+
+export async function resendVerification(req: Request, res: Response): Promise<void> {
+  const user = await findUserById((req as AuthRequest).user!.id);
+  if (!user) {
+    res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  if (user.email_verified_at) {
+    res.status(400).json({ error: 'Your email is already confirmed' });
+    return;
+  }
+  await sendVerificationEmail(user);
   res.json({ success: true });
 }
 

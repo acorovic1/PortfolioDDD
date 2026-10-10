@@ -56,6 +56,7 @@ export const updateProfileSchema = z.object({
   showMature: z.boolean().optional(),
   hideAi: z.boolean().optional(),
   noAiTraining: z.boolean().optional(),
+  emailNotifications: z.boolean().optional(),
 });
 
 export const updateUsernameSchema = z.object({
@@ -130,6 +131,10 @@ export const deleteAccountSchema = z.object({
 
 export const forgotPasswordSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255),
+});
+
+export const verifyEmailSchema = z.object({
+  token: z.string().regex(/^[a-f0-9]{64}$/, 'Invalid confirmation link'),
 });
 
 export const resetPasswordSchema = z.object({

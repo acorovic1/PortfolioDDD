@@ -1,7 +1,8 @@
-import { describe, it, expect, afterAll, vi } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.ts';
 import { registerTestUser, deleteTestUsers } from './helpers.ts';
+import { outbox } from '../services/mail.ts';
 
 const createdUserIds: string[] = [];
 
@@ -26,13 +27,10 @@ describe('password reset', () => {
     const user = await registerTestUser();
     createdUserIds.push(user.id);
 
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     await request(app).post('/api/auth/forgot-password').send({ email: user.email });
 
-    const logged = logSpy.mock.calls.map(args => args.join(' ')).join('\n');
-    logSpy.mockRestore();
-
-    const match = logged.match(/token=([a-f0-9]+)/);
+    const emailed = outbox.filter(m => m.to === user.email).map(m => m.text).join('\n');
+    const match = emailed.match(/reset-password\?token=([a-f0-9]+)/);
     expect(match).not.toBeNull();
     const token = match![1];
 

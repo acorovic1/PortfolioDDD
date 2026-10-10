@@ -25,6 +25,8 @@ export function toPublicUser(row: UserRecord): PublicUser {
     availableForWork: row.available_for_work,
     workTypes: row.work_types ?? [],
     experience: row.experience ?? [],
+    emailVerified: row.email_verified_at !== null,
+    emailNotifications: row.email_notifications,
   };
 }
 
@@ -99,7 +101,7 @@ export async function updateUserProfile(
   fields: Partial<Pick<PublicUser,
     'avatarUrl' | 'title' | 'bio' | 'location' | 'github' | 'linkedin' | 'skills' | 'name'
     | 'showMature' | 'hideAi' | 'noAiTraining' | 'coverUrl' | 'website' | 'socialLinks'
-    | 'availableForWork' | 'workTypes' | 'experience'>>
+    | 'availableForWork' | 'workTypes' | 'experience' | 'emailNotifications'>>
 ): Promise<void> {
   const columnMap: Record<string, string> = {
     coverUrl: 'cover_url',
@@ -108,6 +110,7 @@ export async function updateUserProfile(
     availableForWork: 'available_for_work',
     workTypes: 'work_types',
     experience: 'experience',
+    emailNotifications: 'email_notifications',
     showMature: 'show_mature',
     hideAi: 'hide_ai',
     noAiTraining: 'no_ai_training',
@@ -135,8 +138,39 @@ export async function updateUsername(id: string, username: string): Promise<void
   await pool.query('UPDATE users SET username = $1 WHERE id = $2', [username, id]);
 }
 
+// A new address has to be verified again.
 export async function updateEmail(id: string, email: string): Promise<void> {
-  await pool.query('UPDATE users SET email = $1 WHERE id = $2', [email, id]);
+  await pool.query(
+    `UPDATE users SET email = $1, email_verified_at = NULL, email_verify_token_hash = NULL, email_verify_expires = NULL
+     WHERE id = $2`,
+    [email, id]
+  );
+}
+
+export async function setEmailVerifyToken(id: string, tokenHash: string, expiresAt: Date): Promise<void> {
+  await pool.query(
+    'UPDATE users SET email_verify_token_hash = $1, email_verify_expires = $2 WHERE id = $3',
+    [tokenHash, expiresAt, id]
+  );
+}
+
+// Verifies whichever account the token belongs to; null when it's unknown or expired.
+export async function verifyEmailByTokenHash(tokenHash: string): Promise<UserRecord | null> {
+  const { rows } = await pool.query<UserRecord>(
+    `UPDATE users
+     SET email_verified_at = NOW(), email_verify_token_hash = NULL, email_verify_expires = NULL
+     WHERE email_verify_token_hash = $1 AND email_verify_expires > NOW()
+     RETURNING *`,
+    [tokenHash]
+  );
+  return rows[0] ?? null;
+}
+
+export async function markEmailVerified(id: string): Promise<void> {
+  await pool.query(
+    'UPDATE users SET email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = $1',
+    [id]
+  );
 }
 
 export async function updatePasswordHash(id: string, passwordHash: string): Promise<void> {

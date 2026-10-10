@@ -151,7 +151,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(error.error || 'Failed to update email');
     }
 
-    setUser(prev => (prev ? { ...prev, email } : prev));
+    // A changed address has to be confirmed again.
+    setUser(await response.json());
   };
 
   const changePassword = async (currentPassword: string, newPassword: string) => {
@@ -277,6 +278,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const verifyEmail = async (verifyToken: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/verify-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: verifyToken }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to confirm email');
+    }
+    // The link may be opened in a tab where this account is signed in.
+    if (token) await fetchCurrentUser(token);
+  };
+
+  const resendVerification = async () => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to send the confirmation email');
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -293,6 +321,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       deleteAccount,
       forgotPassword,
       resetPassword,
+      verifyEmail,
+      resendVerification,
       isLoading
     }}>
       {children}

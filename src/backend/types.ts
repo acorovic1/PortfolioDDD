@@ -28,6 +28,10 @@ export interface UserRecord {
   available_for_work: boolean;
   work_types: string[];
   experience: ExperienceEntry[] | null;
+  email_verified_at: string | null;
+  email_verify_token_hash: string | null;
+  email_verify_expires: string | null;
+  email_notifications: boolean;
 }
 
 export type ExperienceEntry = {
@@ -62,6 +66,8 @@ export type PublicUser = {
   availableForWork: boolean;
   workTypes: string[];
   experience: ExperienceEntry[];
+  emailVerified: boolean;
+  emailNotifications: boolean;
 };
 
 export interface RenderRecord {
@@ -205,5 +211,6 @@ export interface AuthRequest extends Request {
     username: string;
     // Set by authenticateToken (not part of the token).
     role?: string;
+    emailVerified?: boolean;
   };
 }

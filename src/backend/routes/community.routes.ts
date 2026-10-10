@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken, optionalAuth } from '../middleware/auth.middleware.ts';
+import { authenticateToken, optionalAuth, requireVerifiedEmail } from '../middleware/auth.middleware.ts';
 import { validateBody } from '../middleware/validate.middleware.ts';
 import {
   createJobSchema,
@@ -20,11 +20,11 @@ import {
 
 export const jobsRoutes = Router();
 jobsRoutes.get('/', optionalAuth, getJobs);
-jobsRoutes.post('/', authenticateToken, validateBody(createJobSchema), postJob);
+jobsRoutes.post('/', authenticateToken, requireVerifiedEmail, validateBody(createJobSchema), postJob);
 jobsRoutes.get('/:jobId', optionalAuth, getJob);
 jobsRoutes.put('/:jobId', authenticateToken, validateBody(updateJobSchema), editJob);
 jobsRoutes.delete('/:jobId', authenticateToken, removeJob);
-jobsRoutes.post('/:jobId/apply', authenticateToken, validateBody(applyJobSchema), applyToJob);
+jobsRoutes.post('/:jobId/apply', authenticateToken, requireVerifiedEmail, validateBody(applyJobSchema), applyToJob);
 jobsRoutes.get('/:jobId/applications', authenticateToken, getApplications);
 
 export const marketplaceRoutes = Router();
@@ -33,5 +33,5 @@ marketplaceRoutes.get('/artworks/:artworkId', optionalAuth, getArtworkListing);
 marketplaceRoutes.put('/artworks/:artworkId', authenticateToken, validateBody(listingSchema), saveArtworkListing);
 marketplaceRoutes.delete('/artworks/:artworkId', authenticateToken, removeArtworkListing);
 marketplaceRoutes.post('/listings/:listingId/download', authenticateToken, downloadListing);
-marketplaceRoutes.post('/listings/:listingId/purchase-request', authenticateToken, validateBody(purchaseRequestSchema), requestPurchase);
+marketplaceRoutes.post('/listings/:listingId/purchase-request', authenticateToken, requireVerifiedEmail, validateBody(purchaseRequestSchema), requestPurchase);
 

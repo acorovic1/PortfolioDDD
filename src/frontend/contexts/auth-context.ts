@@ -18,6 +18,7 @@ export interface ProfileUpdateFields {
   availableForWork?: boolean;
   workTypes?: WorkType[];
   experience?: ExperienceEntry[];
+  emailNotifications?: boolean;
 }
 
 export interface AuthContextType {
@@ -35,6 +36,8 @@ export interface AuthContextType {
   deleteAccount: (password: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
+  resendVerification: () => Promise<void>;
   isLoading: boolean;
 }
 
