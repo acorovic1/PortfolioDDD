@@ -5,6 +5,7 @@ import { useAuth } from '@/frontend/hooks/useAuth';
 import { useTheme } from '@/frontend/hooks/useTheme';
 import { SunIcon, MoonIcon } from '@/frontend/svg/Icons';
 import SecuritySection from '@/frontend/components/settings/SecuritySection';
+import CustomDomainSection from '@/frontend/components/settings/CustomDomainSection';
 
 export default function SettingsPage() {
     const {
@@ -164,6 +165,8 @@ export default function SettingsPage() {
                         If you change your username, links to the old one keep working.
                     </p>
                 </section>
+
+                <CustomDomainSection />
 
                 <section className="settings-section">
                     <h3 className="settings-section-title">Email</h3>

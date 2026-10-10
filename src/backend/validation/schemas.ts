@@ -157,6 +157,10 @@ export const passwordConfirmSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
+export const customDomainSchema = z.object({
+  domain: z.string().trim().min(3).max(300),
+});
+
 export const verifyEmailSchema = z.object({
   token: z.string().regex(/^[a-f0-9]{64}$/, 'Invalid confirmation link'),
 });

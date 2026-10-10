@@ -359,3 +359,65 @@
   margin-right: 8px;
   word-break: break-all;
 }
+
+.security-badge.pending {
+  margin-left: 8px;
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+}
+
+.domain-name {
+  color: var(--color-text);
+  margin-right: 8px;
+}
+
+.domain-name + .security-badge.on {
+  margin-left: 0;
+}
+
+.domain-records {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 16px;
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--color-surface-inset);
+  border: 1px solid var(--color-border);
+  font-size: 13px;
+}
+
+.domain-records dt {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.domain-records dd {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.domain-record-label {
+  color: var(--color-text-secondary);
+}
+
+.domain-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.domain-value code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.domain-value .settings-link-btn {
+  font-size: 12px;
+}

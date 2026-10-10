@@ -8,6 +8,7 @@ import { pool } from '../config/db.ts';
 import { findUserByUsername, findRenamedUser } from '../repositories/users.repository.ts';
 import { findArtworkById, canViewArtwork, listedCondition } from '../repositories/artworks.repository.ts';
 import { readStoredFile } from '../storage/storage.ts';
+import { domainOwner } from '../services/custom-domains.ts';
 
 // Server-side page metadata for crawlers and link previews (Slack, X,
 // Discord, iMessage...), which don't run the React app: the built
@@ -190,12 +191,18 @@ export function serveAppHtml(distPath: string) {
     template ??= readFileSync(path.join(distPath, 'index.html'), 'utf-8');
     let head: string;
     try {
-      const meta = await pageMeta(req.path, req.query);
+      // On an artist's custom domain, its root is their profile, and the
+      // app is told whose it is.
+      const owner = await domainOwner(req.hostname);
+      const atDomainRoot = owner !== null && req.path === '/';
+      const meta = await pageMeta(atDomainRoot ? profilePath(owner) : req.path, req.query);
       if (meta.redirectTo) {
         res.redirect(301, meta.redirectTo);
         return;
       }
-      head = renderHead(meta, publicOrigin(req));
+      if (atDomainRoot) meta.canonicalPath = meta.canonicalPath.replace(/^\/@[^?]*/, '/');
+      head = renderHead(meta, owner ? `${req.protocol}://${req.get('host')}` : publicOrigin(req));
+      if (owner) head += `\n    <meta name="portfolio-domain-owner" content="${escapeHtml(owner)}" />`;
     } catch (error) {
       // Never fail the page over metadata (e.g. the database is down).
       console.error('Failed to build page metadata:', error);

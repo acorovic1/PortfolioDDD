@@ -44,8 +44,16 @@ export function assetUrl(path: string | null | undefined): string | null {
   return /^https?:\/\//.test(path) ? path : `${API_BASE_URL}${path}`;
 }
 
-// A profile's address: /@username.
+// Set by the server when the app is served from an artist's own domain
+// (portfolio.example.com), whose root is their profile.
+export const customDomainOwner: string | null =
+  typeof document === 'undefined'
+    ? null
+    : document.querySelector('meta[name="portfolio-domain-owner"]')?.getAttribute('content') ?? null;
+
+// A profile's address: /@username (or / for the owner of this custom domain).
 export function profilePath(username: string): string {
+  if (username === customDomainOwner) return '/';
   return `/@${encodeURIComponent(username)}`;
 }
 

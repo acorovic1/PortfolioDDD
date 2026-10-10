@@ -38,6 +38,9 @@ export interface UserRecord {
   totp_last_step: string | null;
   totp_recovery_hashes: string[];
   token_version: number;
+  custom_domain: string | null;
+  custom_domain_token: string | null;
+  custom_domain_verified_at: string | null;
 }
 
 export type ExperienceEntry = {

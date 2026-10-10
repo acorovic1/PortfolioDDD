@@ -64,6 +64,13 @@ describe('page metadata', () => {
     expect(head).toContain('\u003c/script>');
   });
 
+  it.skipIf(!existsSync('dist/index.html'))('serves the app at the root', async () => {
+    const res = await request(app).get('/');
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('<div id="root">');
+    expect(res.text).toContain('<title>PortfolioDDD - 3D art portfolios</title>');
+  });
+
   it.skipIf(!existsSync('dist/index.html'))('injects the metadata into the served app', async () => {
     const res = await request(app).get(`/u/${artist.username}`).query({ artwork: artworkId });
     expect(res.status).toBe(200);

@@ -26,6 +26,8 @@ import { generalApiRateLimiter } from './middleware/rate-limit.middleware.ts';
 import { resumeInterruptedModelJobs } from './pipeline/processor.ts';
 import { startPublisher } from './services/publisher.ts';
 import { startNotificationMailer } from './services/notification-mailer.ts';
+import { domainOwner } from './services/custom-domains.ts';
+import { checkDomain } from './controllers/domains.controller.ts';
 
 dotenv.config();
 
@@ -45,7 +47,24 @@ app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
-app.use(cors({ origin: allowedOrigins }));
+// The configured origins, plus artists' verified custom domains (their
+// profile pages call the API from there).
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    let host: string;
+    try {
+      host = new URL(origin).hostname;
+    } catch {
+      callback(null, false);
+      return;
+    }
+    domainOwner(host).then(owner => callback(null, owner !== null), () => callback(null, false));
+  },
+}));
 app.use(express.json());
 // Raw model uploads and the pipeline's scratch space live under uploads/ too,
 // but only the processed output is meant to be served.
@@ -65,6 +84,9 @@ app.get('/sitemap.xml', sitemapXml);
 app.get('/og/artwork/:artworkId', artworkOgImage);
 app.get('/og/user/:username', userOgImage);
 app.use('/api', generalApiRateLimiter);
+
+// Asked by the TLS proxy before it gets a certificate for a custom domain.
+app.get('/api/domains/check', checkDomain);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
@@ -99,7 +121,7 @@ if (existsSync(distPath)) {
   app.use('/assets', express.static(path.join(distPath, 'assets'), { immutable: true, maxAge: '365d' }));
   app.use(express.static(distPath, { index: false }));
   const appHtml = serveAppHtml(distPath);
-  app.get('/*splat', (req: Request, res: Response, next: NextFunction) => {
+  app.get('/{*splat}', (req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith('/api/')) {
       res.status(404).json({ error: 'Not found' });
       return;

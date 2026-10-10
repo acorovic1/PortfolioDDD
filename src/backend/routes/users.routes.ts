@@ -14,12 +14,14 @@ import { authenticateToken, optionalAuth } from '../middleware/auth.middleware.t
 import { followUser, unfollowUser, listFollowers, listFollowing, getProfileSummary } from '../controllers/follows.controller.ts';
 import { blockUser, unblockUser, listMyBlocks } from '../controllers/moderation.controller.ts';
 import { validateBody } from '../middleware/validate.middleware.ts';
+import { getMyDomain, setMyDomain, verifyMyDomain, removeMyDomain } from '../controllers/domains.controller.ts';
 import {
   updateProfileSchema,
   updateUsernameSchema,
   updateEmailSchema,
   changePasswordSchema,
   deleteAccountSchema,
+  customDomainSchema,
 } from '../validation/schemas.ts';
 import { uploadAvatar as uploadAvatarMiddleware, uploadCover as uploadCoverMiddleware } from '../utils/upload.util.ts';
 
@@ -32,6 +34,10 @@ usersRoutes.put('/me/email', authenticateToken, validateBody(updateEmailSchema),
 usersRoutes.post('/me/password', authenticateToken, validateBody(changePasswordSchema), changePassword);
 usersRoutes.delete('/me', authenticateToken, validateBody(deleteAccountSchema), deleteAccount);
 usersRoutes.get('/me/blocks', authenticateToken, listMyBlocks);
+usersRoutes.get('/me/domain', authenticateToken, getMyDomain);
+usersRoutes.put('/me/domain', authenticateToken, validateBody(customDomainSchema), setMyDomain);
+usersRoutes.post('/me/domain/verify', authenticateToken, verifyMyDomain);
+usersRoutes.delete('/me/domain', authenticateToken, removeMyDomain);
 usersRoutes.post('/me/cover', authenticateToken, uploadCoverMiddleware.single('cover'), uploadCover);
 usersRoutes.post('/me/avatar', authenticateToken, uploadAvatarMiddleware.single('avatar'), uploadAvatar);
 usersRoutes.get('/:username/portfolio', optionalAuth, getPublicPortfolio);

@@ -4,6 +4,18 @@ import { getGLTFLoader } from '@/frontend/three/gltfLoader';
 import { assetUrl } from '@/frontend/utils/api';
 import type { ViewerSettings } from '@/frontend/inspector/PostProcessing';
 
+// crypto.randomUUID only exists on secure (HTTPS/localhost) pages; a site
+// opened over plain HTTP (a LAN address, a custom domain before its
+// certificate) still needs ids.
+export function randomId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 
 
 export type PortfolioImage = {
@@ -105,7 +117,7 @@ export async function createPortfolioItem(
   scene.add(root);
 
   return {
-    id: crypto.randomUUID(),
+    id: randomId(),
     root: root,
     bounds: model.bounds,
     infoData: emptyArtworkInfo,
@@ -224,7 +236,7 @@ export async function pickPortfolioImage(): Promise<PickedPortfolioImageResult |
 
   return {
     image: {
-      id: crypto.randomUUID(),
+      id: randomId(),
       url,
       caption
     },

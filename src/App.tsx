@@ -20,12 +20,12 @@ import VerifyEmailPage from '@/frontend/components/VerifyEmailPage';
 import type { ProfileData } from './types/ProfileData';
 import type { PortfolioPiece, PublishingState, RemoteArtwork } from './types/PortfolioPiece';
 import type { ViewSource } from './types/Feed';
-import { apiFetch, assetUrl, profilePath } from '@/frontend/utils/api';
+import { apiFetch, assetUrl, profilePath, customDomainOwner } from '@/frontend/utils/api';
 import { useRealtimeConnection } from '@/frontend/realtime/realtime';
 import type { ArtworkInfoData } from './types/ArtworkInfoData';
 import type { Comment } from './types/Comment';
 import type { Collection } from './types/Collection';
-import { pickPortfolioImage } from './types/PortfolioPiece';
+import { pickPortfolioImage, randomId } from './types/PortfolioPiece';
 import LoginForm from '@/frontend/components/LoginForm';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { API_BASE_URL } from '@/frontend/config/api';
@@ -74,7 +74,10 @@ function App() {
   const setPage = (next: Page) => navigate(PAGE_PATHS[next]);
   // Profiles: /@username (what the app links to) or the older /u/username.
   const publicProfileMatch = location.pathname.match(/^\/(?:@|u\/)([^/]+)$/);
-  const publicProfileUsername = publicProfileMatch ? decodeURIComponent(publicProfileMatch[1]) : null;
+  const publicProfileUsername = publicProfileMatch
+    ? decodeURIComponent(publicProfileMatch[1])
+    // On an artist's custom domain, the home page is their profile.
+    : customDomainOwner && location.pathname === '/' ? customDomainOwner : null;
 
   const [editable, setEditable] = useState(false);
   const [selectedArtworkIndex, setSelectedArtworkIndex] = useState(0);
@@ -452,7 +455,7 @@ function App() {
   const onAddComment = (artworkId: string, text: string) => {
     if (!user) return;
 
-    const tempId = crypto.randomUUID();
+    const tempId = randomId();
     const comment: Comment = {
       id: tempId,
       author: user.username,
