@@ -21,6 +21,7 @@ import { analyticsRoutes } from './routes/analytics.routes.ts';
 import { eventsRoutes } from './routes/events.routes.ts';
 import { noAiHeaders } from './middleware/noai.middleware.ts';
 import { resizeImage } from './services/images.ts';
+import { serveAppHtml, artworkOgImage, userOgImage, robotsTxt, sitemapXml } from './seo/seo.ts';
 import { generalApiRateLimiter } from './middleware/rate-limit.middleware.ts';
 import { resumeInterruptedModelJobs } from './pipeline/processor.ts';
 import { startPublisher } from './services/publisher.ts';
@@ -56,6 +57,12 @@ app.use('/uploads', noAiHeaders, express.static('uploads', { immutable: true, ma
 // Responsive image variants (outside /api: a gallery page requests many,
 // and they're cached hard, so they shouldn't count against API limits).
 app.get('/img', resizeImage);
+
+// Crawlers and link previews.
+app.get('/robots.txt', robotsTxt);
+app.get('/sitemap.xml', sitemapXml);
+app.get('/og/artwork/:artworkId', artworkOgImage);
+app.get('/og/user/:username', userOgImage);
 app.use('/api', generalApiRateLimiter);
 
 app.use('/api/auth', authRoutes);
@@ -86,13 +93,17 @@ app.get('/api/health', (_req: Request, res: Response) => {
 // Registered last (as a fallback) so it never shadows an actual API route.
 const distPath = path.join(process.cwd(), 'dist');
 if (existsSync(distPath)) {
-  app.use(express.static(distPath));
-  app.get('/*splat', (req: Request, res: Response) => {
+  // Vite's hashed bundles never change; index.html is served (with page
+  // metadata injected) by the fallback below, never as a static file.
+  app.use('/assets', express.static(path.join(distPath, 'assets'), { immutable: true, maxAge: '365d' }));
+  app.use(express.static(distPath, { index: false }));
+  const appHtml = serveAppHtml(distPath);
+  app.get('/*splat', (req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith('/api/')) {
       res.status(404).json({ error: 'Not found' });
       return;
     }
-    res.sendFile(path.join(distPath, 'index.html'));
+    appHtml(req, res).catch(next);
   });
 }
 

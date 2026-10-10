@@ -252,6 +252,32 @@ function App() {
       .catch(err => console.error('Failed to record view:', err));
   }, [publicArtworks, publicSelectedArtworkIndex, publicProfileUsername, token]);
 
+  // Keep the browser tab title in step with client-side navigation (the
+  // server sets it for the first load - see src/backend/seo/seo.ts).
+  const currentPublicArtwork = publicArtworks[publicSelectedArtworkIndex];
+  useEffect(() => {
+    const titles: Partial<Record<Page, string>> = {
+      portfolio: 'Your portfolio',
+      jobs: '3D art jobs',
+      marketplace: '3D model marketplace',
+      messages: 'Messages',
+      analytics: 'Analytics',
+      settings: 'Settings',
+      saved: 'Saved',
+      'liked-posts': 'Liked posts',
+      'my-comments': 'My comments',
+      admin: 'Moderation',
+      login: 'Sign in',
+    };
+    let title = titles[page];
+    if (publicProfileUsername) {
+      title = currentPublicArtwork
+        ? `${currentPublicArtwork.infoData.title || 'Untitled'} by @${publicProfileUsername}`
+        : `@${publicProfileUsername}`;
+    }
+    document.title = title ? `${title} · PortfolioDDD` : 'PortfolioDDD - 3D art portfolios';
+  }, [page, publicProfileUsername, currentPublicArtwork]);
+
   // Profiles with 18+ work ask before showing it to viewers who haven't
   // opted in to mature content.
   const [matureAcknowledged, setMatureAcknowledged] = useState<string | null>(null);
