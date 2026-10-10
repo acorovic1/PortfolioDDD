@@ -264,3 +264,7 @@
         font-size: 24px;
     }
 }
+/* A lone link under the form (no "or" divider/text above it). */
+.auth-toggle-solo {
+    margin: 16px 0 24px;
+}

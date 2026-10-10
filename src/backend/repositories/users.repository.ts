@@ -27,6 +27,7 @@ export function toPublicUser(row: UserRecord): PublicUser {
     experience: row.experience ?? [],
     emailVerified: row.email_verified_at !== null,
     emailNotifications: row.email_notifications,
+    twoFactorEnabled: row.totp_enabled_at !== null,
   };
 }
 
@@ -198,4 +199,61 @@ export async function findUserByResetTokenHash(tokenHash: string): Promise<UserR
 
 export async function clearResetToken(id: string): Promise<void> {
   await pool.query('UPDATE users SET reset_token_hash = NULL, reset_token_expires = NULL WHERE id = $1', [id]);
+}
+
+// Signs out every session (their tokens carry the old version). Returns the new version.
+export async function bumpTokenVersion(id: string): Promise<number> {
+  const { rows } = await pool.query<{ token_version: number }>(
+    'UPDATE users SET token_version = token_version + 1 WHERE id = $1 RETURNING token_version',
+    [id]
+  );
+  return rows[0]?.token_version ?? 0;
+}
+
+export async function setPendingTotpSecret(id: string, encryptedSecret: string): Promise<void> {
+  await pool.query('UPDATE users SET totp_pending_secret = $1 WHERE id = $2', [encryptedSecret, id]);
+}
+
+export async function enableTotp(id: string, encryptedSecret: string, step: number, recoveryHashes: string[]): Promise<void> {
+  await pool.query(
+    `UPDATE users
+     SET totp_secret = $1, totp_pending_secret = NULL, totp_enabled_at = NOW(), totp_last_step = $2,
+         totp_recovery_hashes = $3
+     WHERE id = $4`,
+    [encryptedSecret, step, JSON.stringify(recoveryHashes), id]
+  );
+}
+
+export async function disableTotp(id: string): Promise<void> {
+  await pool.query(
+    `UPDATE users
+     SET totp_secret = NULL, totp_pending_secret = NULL, totp_enabled_at = NULL, totp_last_step = NULL,
+         totp_recovery_hashes = '[]'::jsonb
+     WHERE id = $1`,
+    [id]
+  );
+}
+
+// Records a used code's step - only if it's newer than the last one, so two
+// requests racing with the same code can't both succeed.
+export async function claimTotpStep(id: string, step: number): Promise<boolean> {
+  const { rowCount } = await pool.query(
+    'UPDATE users SET totp_last_step = $1 WHERE id = $2 AND (totp_last_step IS NULL OR totp_last_step < $1)',
+    [step, id]
+  );
+  return rowCount === 1;
+}
+
+// Removes a recovery code; false when it isn't (or is no longer) valid.
+export async function consumeRecoveryCode(id: string, codeHash: string): Promise<boolean> {
+  const { rowCount } = await pool.query(
+    `UPDATE users SET totp_recovery_hashes = totp_recovery_hashes - $1
+     WHERE id = $2 AND totp_recovery_hashes ? $1`,
+    [codeHash, id]
+  );
+  return rowCount === 1;
+}
+
+export async function setRecoveryCodes(id: string, recoveryHashes: string[]): Promise<void> {
+  await pool.query('UPDATE users SET totp_recovery_hashes = $1 WHERE id = $2', [JSON.stringify(recoveryHashes), id]);
 }

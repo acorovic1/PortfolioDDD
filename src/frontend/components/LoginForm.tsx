@@ -3,7 +3,7 @@ import { useAuth } from '@/frontend/hooks/useAuth';
 import '@/frontend/css/Auth.css';
 import { Logo, AlertCircleIcon } from '@/frontend/svg/Icons';
 
-type Mode = 'login' | 'register' | 'forgot';
+type Mode = 'login' | 'register' | 'forgot' | 'two-factor';
 
 export default function LoginForm() {
     const [mode, setMode] = useState<Mode>('login');
@@ -13,8 +13,11 @@ export default function LoginForm() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [forgotSent, setForgotSent] = useState(false);
+    const [challengeToken, setChallengeToken] = useState('');
+    const [code, setCode] = useState('');
+    const [useRecoveryCode, setUseRecoveryCode] = useState(false);
 
-    const { login, register, forgotPassword } = useAuth();
+    const { login, register, forgotPassword, completeTwoFactorLogin } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -23,7 +26,23 @@ export default function LoginForm() {
 
         try {
             if (mode === 'login') {
-                await login(email, password);
+                const { twoFactorChallenge } = await login(email, password);
+                if (twoFactorChallenge) {
+                    setChallengeToken(twoFactorChallenge);
+                    setCode('');
+                    setMode('two-factor');
+                }
+            } else if (mode === 'two-factor') {
+                try {
+                    await completeTwoFactorLogin(challengeToken, code);
+                } catch (err) {
+                    // Took too long: back to the password step.
+                    if ((err as { challengeExpired?: boolean }).challengeExpired) {
+                        setMode('login');
+                        setPassword('');
+                    }
+                    throw err;
+                }
             } else if (mode === 'register') {
                 // Validation
                 if (password.length < 6) {
@@ -48,6 +67,7 @@ export default function LoginForm() {
         setMode(next);
         setError('');
         setForgotSent(false);
+        setUseRecoveryCode(false);
     };
 
     return (
@@ -67,6 +87,7 @@ export default function LoginForm() {
                         {mode === 'login' && 'Sign in to your account'}
                         {mode === 'register' && 'Create your account'}
                         {mode === 'forgot' && 'Reset your password'}
+                        {mode === 'two-factor' && 'Two-factor authentication'}
                     </p>
                 </div>
 
@@ -79,6 +100,34 @@ export default function LoginForm() {
                     </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="auth-form">
+                        {mode === 'two-factor' && (
+                            <div className="form-group">
+                                <label htmlFor="code">
+                                    {useRecoveryCode ? 'Recovery code' : 'Code from your authenticator app'}
+                                </label>
+                                <input
+                                    id="code"
+                                    type="text"
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value)}
+                                    required
+                                    autoFocus
+                                    placeholder={useRecoveryCode ? 'xxxxx-xxxxx' : '123456'}
+                                    autoComplete="one-time-code"
+                                    inputMode={useRecoveryCode ? 'text' : 'numeric'}
+                                    pattern={useRecoveryCode ? undefined : '[0-9]{6}'}
+                                    maxLength={useRecoveryCode ? 32 : 6}
+                                />
+                                <button
+                                    type="button"
+                                    className="toggle-btn forgot-password-link"
+                                    onClick={() => { setUseRecoveryCode(v => !v); setCode(''); setError(''); }}
+                                >
+                                    {useRecoveryCode ? 'Use a code from the app instead' : 'Lost your phone? Use a recovery code'}
+                                </button>
+                            </div>
+                        )}
+
                         {mode === 'register' && (
                             <div className="form-group">
                                 <label htmlFor="username">Username</label>
@@ -96,6 +145,7 @@ export default function LoginForm() {
                             </div>
                         )}
 
+                        {mode !== 'two-factor' && (
                         <div className="form-group">
                             <label htmlFor="email">Email</label>
                             <input
@@ -108,8 +158,9 @@ export default function LoginForm() {
                                 autoComplete="email"
                             />
                         </div>
+                        )}
 
-                        {mode !== 'forgot' && (
+                        {(mode === 'login' || mode === 'register') && (
                             <div className="form-group">
                                 <label htmlFor="password">Password</label>
                                 <input
@@ -150,19 +201,29 @@ export default function LoginForm() {
                                     {mode === 'login' && 'Signing in...'}
                                     {mode === 'register' && 'Creating account...'}
                                     {mode === 'forgot' && 'Sending...'}
+                                    {mode === 'two-factor' && 'Verifying...'}
                                 </>
                             ) : (
                                 <>
                                     {mode === 'login' && 'Sign In'}
                                     {mode === 'register' && 'Sign Up'}
                                     {mode === 'forgot' && 'Send reset link'}
+                                    {mode === 'two-factor' && 'Verify'}
                                 </>
                             )}
                         </button>
                     </form>
                 )}
 
-                {mode !== 'forgot' && (
+                {mode === 'two-factor' && (
+                    <div className="auth-toggle auth-toggle-solo">
+                        <button onClick={() => switchMode('login')} className="toggle-btn">
+                            Back to sign in
+                        </button>
+                    </div>
+                )}
+
+                {(mode === 'login' || mode === 'register') && (
                     <>
                         <div className="auth-divider">
                             <span>or</span>

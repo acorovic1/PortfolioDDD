@@ -133,6 +133,27 @@ export const forgotPasswordSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255),
 });
 
+// An authenticator code ("123456") or a recovery code ("abcde-fghij").
+const secondFactorCode = z.string().trim().min(6).max(32);
+
+export const twoFactorLoginSchema = z.object({
+  challengeToken: z.string().min(1).max(2048),
+  code: secondFactorCode,
+});
+
+export const twoFactorEnableSchema = z.object({
+  code: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code from your app'),
+});
+
+export const twoFactorDisableSchema = z.object({
+  password: z.string().min(1).max(200),
+  code: secondFactorCode,
+});
+
+export const passwordConfirmSchema = z.object({
+  password: z.string().min(1).max(200),
+});
+
 export const verifyEmailSchema = z.object({
   token: z.string().regex(/^[a-f0-9]{64}$/, 'Invalid confirmation link'),
 });

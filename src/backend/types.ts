@@ -32,6 +32,12 @@ export interface UserRecord {
   email_verify_token_hash: string | null;
   email_verify_expires: string | null;
   email_notifications: boolean;
+  totp_secret: string | null;
+  totp_pending_secret: string | null;
+  totp_enabled_at: string | null;
+  totp_last_step: string | null;
+  totp_recovery_hashes: string[];
+  token_version: number;
 }
 
 export type ExperienceEntry = {
@@ -68,6 +74,7 @@ export type PublicUser = {
   experience: ExperienceEntry[];
   emailVerified: boolean;
   emailNotifications: boolean;
+  twoFactorEnabled: boolean;
 };
 
 export interface RenderRecord {
@@ -212,5 +219,6 @@ export interface AuthRequest extends Request {
     // Set by authenticateToken (not part of the token).
     role?: string;
     emailVerified?: boolean;
+    tokenVersion?: number;
   };
 }

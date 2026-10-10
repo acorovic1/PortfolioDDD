@@ -24,7 +24,13 @@ export interface ProfileUpdateFields {
 export interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  // Resolves with a challenge when the account needs a two-factor code next.
+  login: (email: string, password: string) => Promise<{ twoFactorChallenge?: string }>;
+  completeTwoFactorLogin: (challengeToken: string, code: string) => Promise<{ usedRecoveryCode: boolean }>;
+  // Swaps in a new session token (after the server revoked the old ones).
+  replaceSessionToken: (token: string) => Promise<void>;
+  logoutEverywhere: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   register: (email: string, password: string, username: string) => Promise<void>;
   logout: () => void;
   updateUsername: (username: string) => Promise<void>;

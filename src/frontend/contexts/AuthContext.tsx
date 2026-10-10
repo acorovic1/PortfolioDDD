@@ -87,11 +87,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await response.json();
+    if (data.twoFactorRequired) return { twoFactorChallenge: data.challengeToken as string };
+
     localStorage.setItem('token', data.token);
     setToken(data.token);
     // The login response only has {id, email, username, name} - fetch the
     // full profile (avatar, bio, skills, ...) right away.
     await fetchCurrentUser(data.token);
+    return {};
+  };
+
+  const completeTwoFactorLogin = async (challengeToken: string, code: string) => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login/2fa`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeToken, code }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      const error = new Error(data.error || 'Sign-in failed') as Error & { challengeExpired?: boolean };
+      error.challengeExpired = !!data.challengeExpired;
+      throw error;
+    }
+
+    localStorage.setItem('token', data.token);
+    setToken(data.token);
+    await fetchCurrentUser(data.token);
+    return { usedRecoveryCode: !!data.usedRecoveryCode };
+  };
+
+  // The old token stops working the moment the server issues this one, so
+  // the profile is reloaded with the new token (not whatever this render's
+  // closures still hold).
+  const replaceSessionToken = async (next: string) => {
+    localStorage.setItem('token', next);
+    setToken(next);
+    await fetchCurrentUser(next);
+  };
+
+  const refreshUser = async () => {
+    if (token) await fetchCurrentUser(token);
+  };
+
+  const logoutEverywhere = async () => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/logout-everywhere`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to sign out other sessions');
+    await replaceSessionToken(data.token);
   };
 
   const register = async (email: string, password: string, username: string) => {
@@ -169,6 +215,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const error = await response.json();
       throw new Error(error.error || 'Failed to change password');
     }
+    // Other sessions were signed out; this one continues with a new token.
+    const data = await response.json();
+    if (data.token) await replaceSessionToken(data.token);
   };
 
   const updateProfile = async (fields: ProfileUpdateFields) => {
@@ -310,6 +359,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       login,
+      completeTwoFactorLogin,
+      replaceSessionToken,
+      logoutEverywhere,
+      refreshUser,
       register,
       logout,
       updateUsername,

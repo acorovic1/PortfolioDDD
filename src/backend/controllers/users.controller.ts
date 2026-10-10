@@ -10,6 +10,7 @@ import {
   updateUsername as updateUsernameRepo,
   updateEmail as updateEmailRepo,
   updatePasswordHash,
+  bumpTokenVersion,
   deleteUser,
   toPublicUser,
 } from '../repositories/users.repository.ts';
@@ -31,6 +32,7 @@ import { blockState } from '../repositories/moderation.repository.ts';
 import { sendMailInBackground } from '../services/mail.ts';
 import { emailChangedMail, passwordChangedMail } from '../services/mail-templates.ts';
 import { sendVerificationEmail } from './auth.controller.ts';
+import { signToken } from '../middleware/auth.middleware.ts';
 
 export async function search(req: Request, res: Response): Promise<void> {
   const { q } = req.query;
@@ -201,8 +203,10 @@ export async function changePassword(req: Request, res: Response): Promise<void>
 
   const newHash = await bcrypt.hash(newPassword, 10);
   await updatePasswordHash(user.id, newHash);
+  // Every other session is signed out; this one carries on with a new token.
+  const tokenVersion = await bumpTokenVersion(user.id);
   sendMailInBackground(passwordChangedMail(user.email, user.username));
-  res.json({ success: true });
+  res.json({ success: true, token: signToken({ id: user.id, email: user.email, username: user.username, tokenVersion }) });
 }
 
 export async function deleteAccount(req: Request, res: Response): Promise<void> {

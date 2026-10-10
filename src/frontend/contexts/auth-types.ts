@@ -26,4 +26,5 @@ export interface User {
   experience?: ExperienceEntry[];
   emailVerified?: boolean;
   emailNotifications?: boolean;
+  twoFactorEnabled?: boolean;
 }

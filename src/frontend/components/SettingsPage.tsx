@@ -4,6 +4,7 @@ import '@/frontend/css/SettingsPage.css';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { useTheme } from '@/frontend/hooks/useTheme';
 import { SunIcon, MoonIcon } from '@/frontend/svg/Icons';
+import SecuritySection from '@/frontend/components/settings/SecuritySection';
 
 export default function SettingsPage() {
     const {
@@ -227,6 +228,8 @@ export default function SettingsPage() {
                         </div>
                     </form>
                 </section>
+
+                <SecuritySection />
 
                 <section className="settings-section">
                     <h3 className="settings-section-title">Content</h3>
