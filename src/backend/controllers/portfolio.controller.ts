@@ -93,8 +93,23 @@ export async function createArtworkWithModel(req: Request, res: Response): Promi
     return;
   }
 
-  const { title, description, year, category, tools, draft } = req.body;
+  const { title, description, year, category, tools, draft, publishAt } = req.body;
   const id = uuidv4();
+
+  // draft=true keeps it a draft; publishAt (ISO time) schedules it; otherwise
+  // it goes live as soon as it has processed.
+  let publishedAt: Date | null = new Date();
+  if (draft === 'true') {
+    publishedAt = null;
+  } else if (publishAt) {
+    const when = new Date(String(publishAt));
+    if (Number.isNaN(when.getTime())) {
+      await rm(file.path, { force: true });
+      res.status(400).json({ error: 'publishAt must be a date and time' });
+      return;
+    }
+    if (when.getTime() > Date.now()) publishedAt = when;
+  }
 
   // The artwork exists right away (status 'processing'); the upload is
   // converted/optimized in the background - poll GET .../status for the result.
@@ -108,7 +123,7 @@ export async function createArtworkWithModel(req: Request, res: Response): Promi
     tools: parseTools(tools),
     pendingSourcePath: file.path,
     sourceFormat: uploadFormat(file),
-    draft: draft === 'true',
+    publishedAt,
   });
   enqueueModelJob({ artworkId: id, sourcePath: file.path, originalName: file.originalname });
 

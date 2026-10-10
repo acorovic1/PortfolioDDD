@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useMemo } from 'react';
+import UploadDialog, { type UploadOptions } from '@/frontend/components/UploadDialog';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
@@ -167,6 +168,11 @@ function Scene3D({
 
   const [frontIndex, setFrontIndex] = useState(initialIndex);
   const [jobNotice, setJobNotice] = useState<ModelJobNotice | null>(null);
+  // The upload dialog, open while waiting for the title/publishing choice.
+  const [uploadRequest, setUploadRequest] = useState<{
+    fileName: string;
+    resolve: (options: UploadOptions | null) => void;
+  } | null>(null);
   const jobNoticeRef = useRef<ModelJobNotice | null>(null);
   useEffect(() => {
     jobNoticeRef.current = jobNotice?.kind === 'error' ? null : jobNotice;
@@ -1025,16 +1031,17 @@ function Scene3D({
 
       const file = await pickModelFile();
       if (!file) return;
-      const title = prompt('Enter title for this model:') || 'Untitled';
-      const publishNow = confirm(
-        'Publish this artwork as soon as it has processed?\n\n'
-        + 'OK = publish, Cancel = save as a draft (only you can see it until you publish it).'
+      const options = await new Promise<UploadOptions | null>(resolve =>
+        setUploadRequest({ fileName: file.name, resolve })
       );
+      if (!options) return;
+      const { title } = options;
 
       const formData = new FormData();
       formData.append('model', file);
       formData.append('title', title);
-      formData.append('draft', publishNow ? 'false' : 'true');
+      formData.append('draft', options.when === 'draft' ? 'true' : 'false');
+      if (options.when === 'schedule' && options.publishAt) formData.append('publishAt', options.publishAt);
 
       // Upload, then wait for the server to convert/optimize it - the scene
       // only ever loads the processed GLB.
@@ -1257,6 +1264,14 @@ function Scene3D({
             <div>Double-click the front model to inspect it</div>
           </div>
         </>
+      )}
+
+      {uploadRequest && (
+        <UploadDialog
+          fileName={uploadRequest.fileName}
+          onSubmit={(options) => { uploadRequest.resolve(options); setUploadRequest(null); }}
+          onCancel={() => { uploadRequest.resolve(null); setUploadRequest(null); }}
+        />
       )}
 
       {jobNotice && (

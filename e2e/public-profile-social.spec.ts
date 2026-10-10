@@ -1,4 +1,4 @@
-import { test, expect, type Page, type Dialog, type FileChooser } from '@playwright/test';
+import { test, expect, type Page, type FileChooser } from '@playwright/test';
 import path from 'node:path';
 
 const dirname = import.meta.dirname;
@@ -39,8 +39,8 @@ async function register(page: Page) {
 }
 
 // Uploads a model via the 3D scene's click-to-add flow (native file chooser,
-// window.prompt for the title, window.confirm to publish rather than save a
-// draft), waits for server-side processing, and returns the artwork id.
+// then the upload dialog: title, publish once processed), waits for
+// server-side processing, and returns the artwork id.
 async function uploadArtwork(page: Page, fixture: string, title: string): Promise<string> {
   const isEdit = await page.getByRole('switch').getAttribute('aria-checked');
   if (isEdit !== 'true') {
@@ -50,12 +50,6 @@ async function uploadArtwork(page: Page, fixture: string, title: string): Promis
     // a beat before raycasting against it.
     await page.waitForTimeout(500);
   }
-
-  const onDialog = (dialog: Dialog) => {
-    // The title prompt, then "publish now?" (OK = publish).
-    void (dialog.type() === 'prompt' ? dialog.accept(title) : dialog.accept());
-  };
-  page.on('dialog', onDialog);
 
   const uploadResponsePromise = page.waitForResponse(
     (res) => res.url().endsWith('/api/portfolio/artworks') && res.request().method() === 'POST'
@@ -72,12 +66,15 @@ async function uploadArtwork(page: Page, fixture: string, title: string): Promis
   expect(fileChooser).not.toBeNull();
   await fileChooser!.setFiles(path.join(dirname, 'fixtures', fixture));
 
+  const dialog = page.getByRole('dialog', { name: 'Upload a model' });
+  await dialog.getByLabel('Title').fill(title);
+  await dialog.getByRole('button', { name: 'Upload' }).click();
+
   const uploadResponse = await uploadResponsePromise;
   const body = await uploadResponse.json();
 
   // The model appears once the server has processed it.
   await expect(page.getByRole('heading', { level: 2, name: title })).toBeVisible({ timeout: 30_000 });
-  page.off('dialog', onDialog);
   return body.id as string;
 }
 

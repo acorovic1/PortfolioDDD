@@ -127,13 +127,13 @@ export async function createArtwork(artwork: {
   // processing pipeline (see markModelReady).
   pendingSourcePath: string;
   sourceFormat: string;
-  // Drafts get no publish time (and aren't listed) until published.
-  draft?: boolean;
+  // null = draft (not listed until published); a future time = scheduled.
+  publishedAt: Date | null;
 }): Promise<void> {
   await pool.query(
     `INSERT INTO artworks (id, user_id, title, description, year, category, tools, model_path,
                            processing_status, pending_source_path, source_format, published_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, '', 'processing', $8, $9, CASE WHEN $10 THEN NULL ELSE NOW() END)`,
+     VALUES ($1, $2, $3, $4, $5, $6, $7, '', 'processing', $8, $9, $10)`,
     [
       artwork.id,
       artwork.userId,
@@ -144,7 +144,7 @@ export async function createArtwork(artwork: {
       JSON.stringify(artwork.tools),
       artwork.pendingSourcePath,
       artwork.sourceFormat,
-      artwork.draft ?? false,
+      artwork.publishedAt,
     ]
   );
 }

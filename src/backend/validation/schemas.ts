@@ -83,6 +83,9 @@ export const createArtworkSchema = z.object({
 // Upload form fields arrive as multipart strings.
 export const uploadArtworkSchema = createArtworkSchema.extend({
   draft: z.enum(['true', 'false']).optional(),
+  // ISO time to publish at (checked by the controller, which also removes
+  // the upload if it's rejected).
+  publishAt: z.string().max(64).optional(),
 });
 
 const unit = z.number().finite().min(-1).max(1);

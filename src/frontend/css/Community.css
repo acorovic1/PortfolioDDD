@@ -485,3 +485,26 @@
     margin: 16px 16px 0;
   }
 }
+
+.upload-dialog-file {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+
+.upload-dialog-schedule {
+  align-self: flex-start;
+  margin-left: 24px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface-inset);
+  color: var(--color-text);
+  font-family: inherit;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] .upload-dialog-schedule {
+  color-scheme: light;
+}
