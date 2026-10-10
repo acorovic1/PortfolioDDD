@@ -161,6 +161,17 @@ export async function copyLocalFileToBucket(url: string): Promise<string> {
   return putToBucket(config, localPathFor(url), url.replace(/^\/uploads\//, ''));
 }
 
+const IMAGE_KEY = /^(renders|thumbnails|avatars|covers)\/[\w-]+\.(png|jpe?g|webp)$/i;
+
+// Whether `url` is one of our stored images (local or in the bucket) - the
+// image resizer only works on those, never arbitrary URLs.
+export function isStoredImageUrl(url: string): boolean {
+  if (isLocalUrl(url)) return IMAGE_KEY.test(url.slice('/uploads/'.length));
+  const config = s3();
+  const key = config && keyFor(url, config);
+  return !!key && IMAGE_KEY.test(key);
+}
+
 // For tests.
 export function resetStorageConfig(): void {
   s3Config = undefined;

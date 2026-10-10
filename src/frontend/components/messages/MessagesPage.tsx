@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { resizedUrl } from '@/frontend/utils/images';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { apiFetch, assetUrl } from '@/frontend/utils/api';
@@ -38,7 +39,7 @@ const MESSAGES_READ_EVENT = 'messages-read';
 
 function Avatar({ username, url }: { username: string; url: string | null }) {
   return url
-    ? <img className="msg-avatar" src={assetUrl(url)!} alt="" />
+    ? <img className="msg-avatar" src={resizedUrl(assetUrl(url)!, 96)} alt="" />
     : <span className="msg-avatar artwork-card-avatar">{username.charAt(0).toUpperCase()}</span>;
 }
 

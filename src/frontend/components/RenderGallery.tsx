@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { responsiveImage } from '@/frontend/utils/images';
 import '@/frontend/css/RenderGallery.css';
 
 import type { PortfolioImage } from '@/types/PortfolioPiece';
@@ -30,7 +31,14 @@ export default function RenderGallery({
                         onClick={() => setSelectedRender(render)}
                     >
                         <div className="render-image-container">
-                            <img src={render.url} alt={render.caption} className="render-image" />
+                            <img
+                                {...responsiveImage(render.url, [480, 640, 960, 1280])}
+                                sizes="(max-width: 768px) 100vw, 50vw"
+                                alt={render.caption}
+                                className="render-image"
+                                loading="lazy"
+                                decoding="async"
+                            />
                             <div className={`render-overlay ${hoveredId === render.id ? 'visible' : ''}`}>
                                 <ZoomIcon />
                             </div>
@@ -74,7 +82,7 @@ export default function RenderGallery({
                         <button className="lightbox-close" onClick={() => setSelectedRender(null)}>
                             <CloseIcon width={24} height={24} />
                         </button>
-                        <img src={selectedRender.url} alt={selectedRender.caption} />
+                        <img {...responsiveImage(selectedRender.url, [960, 1280, 1920])} sizes="100vw" alt={selectedRender.caption} />
                         <p className="lightbox-caption">{selectedRender.caption}</p>
                     </div>
                 </div>

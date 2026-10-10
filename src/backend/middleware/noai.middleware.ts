@@ -5,9 +5,10 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_CACHE_ENTRIES = 5000;
 const cache = new Map<string, { optedOut: boolean; expires: number }>();
 
-// Whether the file at this public /uploads path belongs to a user who opted
-// out of AI training (models, thumbnails, renders and avatars are checked).
-async function ownerOptedOut(publicPath: string): Promise<boolean> {
+// Whether the stored file at this URL (/uploads path or bucket URL) belongs
+// to a user who opted out of AI training (models, thumbnails, renders,
+// avatars and covers are checked).
+export async function noAiForUrl(publicPath: string): Promise<boolean> {
   const cached = cache.get(publicPath);
   if (cached && cached.expires > Date.now()) return cached.optedOut;
 
@@ -35,7 +36,7 @@ export function noAiHeaders(req: Request, res: Response, next: NextFunction): vo
     return;
   }
 
-  ownerOptedOut(`/uploads${req.path}`)
+  noAiForUrl(`/uploads${req.path}`)
     .then(optedOut => {
       if (optedOut) res.setHeader('X-Robots-Tag', 'noai, noimageai');
     })

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { responsiveImage, resizedUrl } from '@/frontend/utils/images';
 import type { FeedArtwork } from '@/types/Feed';
 import { assetUrl } from '@/frontend/utils/api';
 import { HeartIcon, EyeIcon, CubeIcon } from '@/frontend/svg/Icons';
@@ -27,7 +28,9 @@ export default function ArtworkCard({ artwork, showMature, onOpen, onOpenAuthor,
         onClick={() => (blurred ? setRevealed(true) : onOpen())}
         aria-label={blurred ? `Show mature artwork "${artwork.title}"` : `Open "${artwork.title}"`}
       >
-        {image ? <img src={image} alt="" loading="lazy" /> : <CubeIcon className="artwork-card-placeholder" />}
+        {image
+          ? <img {...responsiveImage(image, [320, 480, 640, 960])} sizes="(max-width: 600px) 50vw, 300px" alt="" loading="lazy" decoding="async" />
+          : <CubeIcon className="artwork-card-placeholder" />}
         {blurred && (
           <span className="artwork-card-mature">
             <strong>Mature content</strong>
@@ -48,7 +51,7 @@ export default function ArtworkCard({ artwork, showMature, onOpen, onOpenAuthor,
         <div className="artwork-card-meta">
           <button className="artwork-card-author" onClick={onOpenAuthor ?? onOpen}>
             {artwork.avatarUrl
-              ? <img src={assetUrl(artwork.avatarUrl)!} alt="" />
+              ? <img src={resizedUrl(assetUrl(artwork.avatarUrl)!, 96)} alt="" loading="lazy" />
               : <span className="artwork-card-avatar">{artwork.username.charAt(0).toUpperCase()}</span>}
             <span>{artwork.username}</span>
           </button>

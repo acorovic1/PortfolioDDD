@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { responsiveImage } from '@/frontend/utils/images';
 import '@/frontend/css/LikedPostsPage.css';
 import type { RemoteArtwork } from '@/types/PortfolioPiece';
 import { HeartIcon, ImageIcon } from '@/frontend/svg/Icons';
@@ -66,7 +67,7 @@ export default function LikedPostsPage({ likedArtworkIds, onSelectArtwork }: Lik
                         >
                             <div className="liked-card-thumb">
                                 {artwork.renders[0] || artwork.thumbnailUrl ? (
-                                    <img src={assetUrl(artwork.renders[0]?.url ?? artwork.thumbnailUrl)!} alt={artwork.title} />
+                                    <img {...responsiveImage(assetUrl(artwork.renders[0]?.url ?? artwork.thumbnailUrl)!, [320, 480, 640, 960])} sizes="(max-width: 600px) 100vw, 300px" alt={artwork.title} loading="lazy" decoding="async" />
                                 ) : (
                                     <ImageIcon />
                                 )}

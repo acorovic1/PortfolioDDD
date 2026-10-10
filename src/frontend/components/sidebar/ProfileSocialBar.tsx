@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { resizedUrl } from '@/frontend/utils/images';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { apiFetch, assetUrl } from '@/frontend/utils/api';
 import { CloseIcon, FlagIcon, BlockIcon } from '@/frontend/svg/Icons';
@@ -199,7 +200,7 @@ export default function ProfileSocialBar({ username, onOpenUser, onRequireLogin,
                 <li key={u.username}>
                   <button onClick={() => { setList(null); onOpenUser(u.username); }}>
                     {u.avatarUrl
-                      ? <img src={assetUrl(u.avatarUrl)!} alt="" />
+                      ? <img src={resizedUrl(assetUrl(u.avatarUrl)!, 96)} alt="" />
                       : <span className="artwork-card-avatar">{u.username.charAt(0).toUpperCase()}</span>}
                     <span>
                       <strong>{u.username}</strong>

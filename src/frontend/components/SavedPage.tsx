@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { responsiveImage } from '@/frontend/utils/images';
 import '@/frontend/css/SavedPage.css';
 import type { RemoteArtwork } from '@/types/PortfolioPiece';
 import type { Collection } from '@/types/Collection';
@@ -140,7 +141,7 @@ export default function SavedPage({ collections, onCreateCollection, onRenameCol
                             >
                                 <div className="liked-card-thumb">
                                     {artwork.renders[0] || artwork.thumbnailUrl ? (
-                                        <img src={assetUrl(artwork.renders[0]?.url ?? artwork.thumbnailUrl)!} alt={artwork.title} />
+                                        <img {...responsiveImage(assetUrl(artwork.renders[0]?.url ?? artwork.thumbnailUrl)!, [320, 480, 640, 960])} sizes="(max-width: 600px) 100vw, 300px" alt={artwork.title} loading="lazy" decoding="async" />
                                     ) : (
                                         <ImageIcon />
                                     )}

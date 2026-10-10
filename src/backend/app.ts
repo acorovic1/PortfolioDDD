@@ -20,6 +20,7 @@ import { jobsRoutes, marketplaceRoutes } from './routes/community.routes.ts';
 import { analyticsRoutes } from './routes/analytics.routes.ts';
 import { eventsRoutes } from './routes/events.routes.ts';
 import { noAiHeaders } from './middleware/noai.middleware.ts';
+import { resizeImage } from './services/images.ts';
 import { generalApiRateLimiter } from './middleware/rate-limit.middleware.ts';
 import { resumeInterruptedModelJobs } from './pipeline/processor.ts';
 import { startPublisher } from './services/publisher.ts';
@@ -52,6 +53,9 @@ app.use(['/uploads/sources', '/uploads/tmp'], (_req: Request, res: Response) => 
 // Upload names are random UUIDs - a URL's content never changes, so
 // browsers and CDNs may cache them forever.
 app.use('/uploads', noAiHeaders, express.static('uploads', { immutable: true, maxAge: '365d' }));
+// Responsive image variants (outside /api: a gallery page requests many,
+// and they're cached hard, so they shouldn't count against API limits).
+app.get('/img', resizeImage);
 app.use('/api', generalApiRateLimiter);
 
 app.use('/api/auth', authRoutes);

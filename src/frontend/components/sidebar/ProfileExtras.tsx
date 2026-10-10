@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { resizedUrl } from '@/frontend/utils/images';
 import CommitInput from './CommitInput';
 import type { ProfileData, SocialNetwork, WorkType, ExperienceEntry } from '@/types/ProfileData';
 import { safeUrl, displayUrl, validateLink } from '@/frontend/utils/safeUrl';
@@ -23,7 +24,7 @@ export function CoverBanner({ profile, editable, onCoverUpload }: {
   return (
     <div
       className={`profile-cover ${profile.coverUrl ? '' : 'empty'}`}
-      style={profile.coverUrl ? { backgroundImage: `url("${profile.coverUrl}")` } : undefined}
+      style={profile.coverUrl ? { backgroundImage: `url("${resizedUrl(profile.coverUrl, 960)}")` } : undefined}
     >
       {editable && (
         <>

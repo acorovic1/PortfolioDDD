@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { resizedUrl } from '@/frontend/utils/images';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { apiFetch, queryString, assetUrl } from '@/frontend/utils/api';
@@ -189,7 +190,7 @@ function JobDetail({ job, onChanged, onOpenUser, onRequireLogin }: {
             {applications?.map(a => (
               <li key={a.username}>
                 <button onClick={() => onOpenUser(a.username)}>
-                  {a.avatarUrl ? <img src={assetUrl(a.avatarUrl)!} alt="" /> : <span className="artwork-card-avatar">{a.username.charAt(0).toUpperCase()}</span>}
+                  {a.avatarUrl ? <img src={resizedUrl(assetUrl(a.avatarUrl)!, 96)} alt="" /> : <span className="artwork-card-avatar">{a.username.charAt(0).toUpperCase()}</span>}
                   <strong>@{a.username}</strong>{a.title && <small>{a.title}</small>}
                 </button>
                 <p>{a.message}</p>

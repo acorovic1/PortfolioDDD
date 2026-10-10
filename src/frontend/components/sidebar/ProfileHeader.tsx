@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { responsiveImage } from '@/frontend/utils/images';
 import type { ProfileHeaderProps } from '@/types/ProfileData';
 import { PhotoIcon } from '@/frontend/svg/Icons';
 
@@ -10,7 +11,7 @@ export default function ProfileHeader({ profile, editable, onUpdate, onAvatarUpl
   return (
     <div className="profile-header">
       <div className="avatar-container">
-        <img src={profile.avatarUrl} alt={profile.username || 'Profile'} className="avatar" />
+        <img {...responsiveImage(profile.avatarUrl, [160, 320])} sizes="110px" alt={profile.username || 'Profile'} className="avatar" />
         {editable && (
           <>
             <button
