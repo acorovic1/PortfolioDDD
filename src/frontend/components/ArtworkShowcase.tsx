@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { profilePath } from '@/frontend/utils/api';
 import { publishStatus, type PortfolioPiece, type PublishingState } from '@/types/PortfolioPiece';
 import PublishingPanel from '@/frontend/components/PublishingPanel';
 import ListingBox from '@/frontend/components/marketplace/ListingBox';
@@ -109,7 +110,7 @@ export default function ArtworkShowcase({
     const status = publishing ? publishStatus(publishing.publishedAt) : 'published';
 
     const share = async () => {
-        const url = `${window.location.origin}/u/${encodeURIComponent(ownerUsername)}?artwork=${artwork.id}`;
+        const url = `${window.location.origin}${profilePath(ownerUsername)}?artwork=${artwork.id}`;
         try {
             if (navigator.share) {
                 await navigator.share({ title: info.title, url });

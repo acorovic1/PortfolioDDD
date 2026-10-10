@@ -17,6 +17,7 @@ import {
   verifyEmailByTokenHash,
   markEmailVerified,
   bumpTokenVersion,
+  isUsernameReserved,
 } from '../repositories/users.repository.ts';
 import { checkSecondFactor } from './two-factor.controller.ts';
 import { sendMailInBackground } from '../services/mail.ts';
@@ -39,7 +40,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     const name = req.body.name || username;
 
     const existingUser = await findUserByEmailOrUsername(email, username);
-    if (existingUser) {
+    if (existingUser || (await isUsernameReserved(username, null))) {
       res.status(400).json({ error: 'User already exists' });
       return;
     }

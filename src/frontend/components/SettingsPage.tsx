@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { apiFetch } from '@/frontend/utils/api';
+import { apiFetch, profilePath } from '@/frontend/utils/api';
 import '@/frontend/css/SettingsPage.css';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { useTheme } from '@/frontend/hooks/useTheme';
@@ -11,6 +11,8 @@ export default function SettingsPage() {
         user, token, updateUsername, updateEmail, changePassword, deleteAccount, updateProfile, resendVerification,
     } = useAuth();
     const [verificationSent, setVerificationSent] = useState(false);
+    const [linkCopied, setLinkCopied] = useState(false);
+    const profileUrl = user ? `${window.location.origin}${profilePath(user.username)}` : '';
     const [preferenceError, setPreferenceError] = useState('');
     const [blockedUsers, setBlockedUsers] = useState<{ username: string }[]>([]);
 
@@ -149,6 +151,18 @@ export default function SettingsPage() {
                         {usernameError && <span className="settings-error-hint">{usernameError}</span>}
                         {usernameSaved && <span className="settings-saved-hint">Saved</span>}
                     </form>
+                    <p className="settings-section-description settings-profile-link">
+                        Your profile: <a href={profilePath(user?.username ?? '')}>{profileUrl}</a>
+                        <button
+                            type="button"
+                            className="settings-link-btn"
+                            onClick={() => navigator.clipboard.writeText(profileUrl).then(() => setLinkCopied(true))}
+                        >
+                            {linkCopied ? 'Copied' : 'Copy'}
+                        </button>
+                        <br />
+                        If you change your username, links to the old one keep working.
+                    </p>
                 </section>
 
                 <section className="settings-section">

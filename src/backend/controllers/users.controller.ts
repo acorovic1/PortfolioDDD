@@ -4,6 +4,8 @@ import type { AuthRequest } from '../types.ts';
 import {
   searchUsers,
   findUserByUsername,
+  findRenamedUser,
+  isUsernameReserved,
   findUserByEmail,
   findUserById,
   updateUserProfile,
@@ -51,6 +53,14 @@ export async function getPublicPortfolio(req: Request, res: Response): Promise<v
   const username = req.params.username as string;
 
   const user = await findUserByUsername(username);
+  if (!user) {
+    // A renamed profile: the app follows `movedTo` to the new name.
+    const renamed = await findRenamedUser(username);
+    if (renamed && !renamed.suspended_at) {
+      res.status(404).json({ error: 'This profile has moved', movedTo: renamed.username });
+      return;
+    }
+  }
   const viewerId = (req as AuthRequest).user?.id ?? null;
   // Suspended accounts, and people who blocked the viewer, aren't viewable.
   const hidden = !user || user.suspended_at !== null
@@ -146,7 +156,7 @@ export async function changeUsername(req: Request, res: Response): Promise<void>
   const { username } = req.body;
 
   const existing = await findUserByUsername(username);
-  if (existing && existing.id !== authReq.user!.id) {
+  if ((existing && existing.id !== authReq.user!.id) || (await isUsernameReserved(username, authReq.user!.id))) {
     res.status(400).json({ error: 'Username is already taken' });
     return;
   }

@@ -20,7 +20,7 @@ import VerifyEmailPage from '@/frontend/components/VerifyEmailPage';
 import type { ProfileData } from './types/ProfileData';
 import type { PortfolioPiece, PublishingState, RemoteArtwork } from './types/PortfolioPiece';
 import type { ViewSource } from './types/Feed';
-import { apiFetch, assetUrl } from '@/frontend/utils/api';
+import { apiFetch, assetUrl, profilePath } from '@/frontend/utils/api';
 import { useRealtimeConnection } from '@/frontend/realtime/realtime';
 import type { ArtworkInfoData } from './types/ArtworkInfoData';
 import type { Comment } from './types/Comment';
@@ -72,7 +72,8 @@ function App() {
   const location = useLocation();
   const page = pageForPath(location.pathname);
   const setPage = (next: Page) => navigate(PAGE_PATHS[next]);
-  const publicProfileMatch = location.pathname.match(/^\/u\/([^/]+)$/);
+  // Profiles: /@username (what the app links to) or the older /u/username.
+  const publicProfileMatch = location.pathname.match(/^\/(?:@|u\/)([^/]+)$/);
   const publicProfileUsername = publicProfileMatch ? decodeURIComponent(publicProfileMatch[1]) : null;
 
   const [editable, setEditable] = useState(false);
@@ -196,12 +197,17 @@ function App() {
       .then(async res => {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
+          // Renamed since this link was made: follow it to the new name.
+          if (body.movedTo) {
+            navigate(`${profilePath(body.movedTo)}${window.location.search}`, { replace: true });
+            return null;
+          }
           throw new Error(body.error || 'User not found');
         }
         return res.json();
       })
-      .then((body: { user: User; artworks: RemoteArtwork[] }) => {
-        if (cancelled) return;
+      .then((body: { user: User; artworks: RemoteArtwork[] } | null) => {
+        if (cancelled || !body) return;
         setPublicProfileUser(body.user);
         setPublicRemoteArtworksToLoad(body.artworks);
       })
@@ -212,7 +218,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [publicProfileUsername, token]);
+  }, [publicProfileUsername, token, navigate]);
 
   // View tracking for other people's artworks. The first artwork seen gets
   // the source it was opened from (?src=, e.g. explore/search), or external/
@@ -328,11 +334,11 @@ function App() {
 
   const goToUserProfile = (username: string) => {
     if (user && username === user.username) navigate(PAGE_PATHS.portfolio);
-    else navigate(`/u/${username}`);
+    else navigate(profilePath(username));
   };
   // `source` is recorded with the view (creator analytics' traffic sources).
   const goToArtworkOnProfile = (username: string, artworkId: string, source: ViewSource = 'search') =>
-    navigate(`/u/${username}?artwork=${artworkId}&src=${source}`);
+    navigate(`${profilePath(username)}?artwork=${artworkId}&src=${source}`);
 
   const onArtworkAdd = (newArtwork: PortfolioPiece) => {
      setArtworks(prev => [...prev, newArtwork]);

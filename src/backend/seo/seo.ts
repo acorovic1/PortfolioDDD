@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { pool } from '../config/db.ts';
-import { findUserByUsername } from '../repositories/users.repository.ts';
+import { findUserByUsername, findRenamedUser } from '../repositories/users.repository.ts';
 import { findArtworkById, canViewArtwork, listedCondition } from '../repositories/artworks.repository.ts';
 import { readStoredFile } from '../storage/storage.ts';
 
@@ -30,7 +30,17 @@ export type PageMeta = {
   noai: boolean;
   jsonLd: Record<string, unknown> | null;
   canonicalPath: string;
+  // Set when the page lives elsewhere now (a renamed profile): answered with
+  // a permanent redirect instead of a page.
+  redirectTo?: string;
 };
+
+// Profiles live at /@username (canonical) and /u/username.
+const PROFILE_PATH = /^\/(?:@|u\/)([^/]+)$/;
+
+export function profilePath(username: string): string {
+  return `/@${encodeURIComponent(username)}`;
+}
 
 // The public origin used in absolute URLs (og:url, og:image, sitemap).
 // PUBLIC_URL is the reliable choice behind a proxy/CDN.
@@ -66,11 +76,20 @@ export async function pageMeta(pathname: string, query: Record<string, unknown>)
     return { ...base, title: `3D model marketplace · ${SITE_NAME}`, description: 'Game-ready models, kitbash parts and props - free downloads and assets for sale.' };
   }
 
-  const profile = /^\/u\/([^/]+)$/.exec(pathname);
+  const profile = PROFILE_PATH.exec(pathname);
   if (!profile) return base;
 
-  const user = await findUserByUsername(decodeURIComponent(profile[1]));
+  const username = decodeURIComponent(profile[1]);
+  const user = await findUserByUsername(username);
+  if (!user) {
+    const renamed = await findRenamedUser(username);
+    if (renamed && !renamed.suspended_at) {
+      const search = new URLSearchParams(query as Record<string, string>).toString();
+      return { ...base, redirectTo: `${profilePath(renamed.username)}${search ? `?${search}` : ''}` };
+    }
+  }
   if (!user || user.suspended_at) return { ...base, title: `Profile not found · ${SITE_NAME}`, noindex: true };
+  const canonicalProfile = profilePath(user.username);
 
   const displayName = user.name && user.name !== user.username ? `${user.name} (@${user.username})` : `@${user.username}`;
   const artworkId = typeof query.artwork === 'string' ? query.artwork : null;
@@ -88,7 +107,7 @@ export async function pageMeta(pathname: string, query: Record<string, unknown>)
         // Unlisted work is reachable by link but shouldn't be indexed.
         noindex: artwork.visibility !== 'public',
         noai: user.no_ai_training,
-        canonicalPath: `${pathname}?artwork=${artwork.id}`,
+        canonicalPath: `${canonicalProfile}?artwork=${artwork.id}`,
         jsonLd: {
           '@context': 'https://schema.org',
           '@type': 'VisualArtwork',
@@ -111,6 +130,7 @@ export async function pageMeta(pathname: string, query: Record<string, unknown>)
     image: `/og/user/${encodeURIComponent(user.username)}.jpg`,
     type: 'profile',
     noai: user.no_ai_training,
+    canonicalPath: canonicalProfile,
     jsonLd: {
       '@context': 'https://schema.org',
       '@type': 'ProfilePage',
@@ -170,7 +190,12 @@ export function serveAppHtml(distPath: string) {
     template ??= readFileSync(path.join(distPath, 'index.html'), 'utf-8');
     let head: string;
     try {
-      head = renderHead(await pageMeta(req.path, req.query), publicOrigin(req));
+      const meta = await pageMeta(req.path, req.query);
+      if (meta.redirectTo) {
+        res.redirect(301, meta.redirectTo);
+        return;
+      }
+      head = renderHead(meta, publicOrigin(req));
     } catch (error) {
       // Never fail the page over metadata (e.g. the database is down).
       console.error('Failed to build page metadata:', error);
@@ -310,8 +335,8 @@ export async function sitemapXml(req: Request, res: Response): Promise<void> {
     entry(`${origin}/`),
     entry(`${origin}/jobs`),
     entry(`${origin}/marketplace`),
-    ...profiles.rows.map(p => entry(`${origin}/u/${encodeURIComponent(p.username)}`, p.lastmod)),
-    ...artworks.rows.map(a => entry(`${origin}/u/${encodeURIComponent(a.username)}?artwork=${a.id}`, a.lastmod)),
+    ...profiles.rows.map(p => entry(`${origin}${profilePath(p.username)}`, p.lastmod)),
+    ...artworks.rows.map(a => entry(`${origin}${profilePath(a.username)}?artwork=${a.id}`, a.lastmod)),
   ];
 
   res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>

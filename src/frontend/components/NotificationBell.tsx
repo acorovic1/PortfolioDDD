@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { profilePath } from '@/frontend/utils/api';
 import { BellIcon } from '@/frontend/svg/Icons';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { API_BASE_URL } from '@/frontend/config/api';
@@ -30,9 +31,9 @@ function timeAgo(iso: string): string {
 function notificationTarget(n: Notification, ownUsername: string | undefined): string | null {
   switch (n.type) {
     case 'follow':
-      return `/u/${encodeURIComponent(n.actorUsername)}`;
+      return profilePath(n.actorUsername);
     case 'new_artwork':
-      return n.artworkId ? `/u/${encodeURIComponent(n.actorUsername)}?artwork=${n.artworkId}&src=notification` : null;
+      return n.artworkId ? `${profilePath(n.actorUsername)}?artwork=${n.artworkId}&src=notification` : null;
     case 'message':
     case 'hire':
       return `/messages?with=${encodeURIComponent(n.actorUsername)}`;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/frontend/hooks/useAuth';
-import { apiFetch } from '@/frontend/utils/api';
+import { apiFetch, profilePath } from '@/frontend/utils/api';
 import '@/frontend/css/Community.css';
 import '@/frontend/css/Admin.css';
 
@@ -87,8 +87,8 @@ function ReportCard({ report, onResolved }: { report: Report; onResolved: () => 
 
   const linksToArtwork = report.targetType === 'artwork' && report.targetUsername !== null && report.targetExists;
   const targetLink = linksToArtwork
-    ? `/u/${report.targetUsername}?artwork=${report.targetId}`
-    : report.targetUsername ? `/u/${report.targetUsername}` : null;
+    ? `${profilePath(report.targetUsername!)}?artwork=${report.targetId}`
+    : report.targetUsername ? profilePath(report.targetUsername) : null;
   const isOpen = report.status === 'open';
 
   return (
@@ -193,7 +193,7 @@ function UsersTab() {
           <tbody>
             {users.map(u => (
               <tr key={u.id}>
-                <td><Link to={`/u/${u.username}`}>@{u.username}</Link>{u.role === 'admin' && <span className="content-badge noai">admin</span>}</td>
+                <td><Link to={profilePath(u.username)}>@{u.username}</Link>{u.role === 'admin' && <span className="content-badge noai">admin</span>}</td>
                 <td>{u.email}</td>
                 <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                 <td>{u.artworks}</td>

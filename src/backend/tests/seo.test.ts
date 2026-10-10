@@ -93,7 +93,7 @@ describe('page metadata', () => {
 
     const sitemap = await request(app).get('/sitemap.xml');
     expect(sitemap.headers['content-type']).toContain('xml');
-    expect(sitemap.text).toContain(`/u/${artist.username}?artwork=${artworkId}`);
+    expect(sitemap.text).toContain(`/@${artist.username}?artwork=${artworkId}`);
     expect(sitemap.text).not.toContain(unlistedId);
   });
 });

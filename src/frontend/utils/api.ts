@@ -44,6 +44,11 @@ export function assetUrl(path: string | null | undefined): string | null {
   return /^https?:\/\//.test(path) ? path : `${API_BASE_URL}${path}`;
 }
 
+// A profile's address: /@username.
+export function profilePath(username: string): string {
+  return `/@${encodeURIComponent(username)}`;
+}
+
 export function queryString(params: Record<string, string | number | boolean | null | undefined>): string {
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
