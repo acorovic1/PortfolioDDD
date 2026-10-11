@@ -6,14 +6,17 @@ import App from './App.tsx'
 import { AuthProvider } from '@/frontend/contexts/AuthContext.tsx'
 import { ThemeProvider } from '@/frontend/contexts/ThemeContext.tsx'
 import EmailVerifyBanner from '@/frontend/components/EmailVerifyBanner.tsx'
+import { I18nProvider } from '@/frontend/i18n/I18nProvider.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <App />
-          <EmailVerifyBanner />
+          <I18nProvider>
+            <App />
+            <EmailVerifyBanner />
+          </I18nProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>
