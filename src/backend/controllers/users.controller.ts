@@ -132,7 +132,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
   const authReq = req as AuthRequest;
   const {
     name, avatarUrl, title, bio, location, github, linkedin, skills, showMature, hideAi, noAiTraining,
-    website, socialLinks, availableForWork, workTypes, experience, emailNotifications,
+    website, socialLinks, availableForWork, workTypes, experience, emailNotifications, locale,
   } = req.body;
 
   // Empty social links are dropped rather than stored as "".
@@ -142,7 +142,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
 
   await updateUserProfile(authReq.user!.id, {
     name, avatarUrl, title, bio, location, github, linkedin, skills, showMature, hideAi, noAiTraining,
-    website, socialLinks: links, availableForWork, workTypes, experience, emailNotifications,
+    website, socialLinks: links, availableForWork, workTypes, experience, emailNotifications, locale,
   });
   // Uploads' X-Robots-Tag headers depend on the NoAI flag.
   if (noAiTraining !== undefined) clearNoAiCache();

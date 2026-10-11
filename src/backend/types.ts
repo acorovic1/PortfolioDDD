@@ -41,6 +41,7 @@ export interface UserRecord {
   custom_domain: string | null;
   custom_domain_token: string | null;
   custom_domain_verified_at: string | null;
+  locale: string | null;
 }
 
 export type ExperienceEntry = {
@@ -78,6 +79,7 @@ export type PublicUser = {
   emailVerified: boolean;
   emailNotifications: boolean;
   twoFactorEnabled: boolean;
+  locale: string | null;
 };
 
 export interface RenderRecord {

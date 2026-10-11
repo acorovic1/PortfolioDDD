@@ -28,6 +28,7 @@ export function toPublicUser(row: UserRecord): PublicUser {
     emailVerified: row.email_verified_at !== null,
     emailNotifications: row.email_notifications,
     twoFactorEnabled: row.totp_enabled_at !== null,
+    locale: row.locale,
   };
 }
 
@@ -102,7 +103,7 @@ export async function updateUserProfile(
   fields: Partial<Pick<PublicUser,
     'avatarUrl' | 'title' | 'bio' | 'location' | 'github' | 'linkedin' | 'skills' | 'name'
     | 'showMature' | 'hideAi' | 'noAiTraining' | 'coverUrl' | 'website' | 'socialLinks'
-    | 'availableForWork' | 'workTypes' | 'experience' | 'emailNotifications'>>
+    | 'availableForWork' | 'workTypes' | 'experience' | 'emailNotifications' | 'locale'>>
 ): Promise<void> {
   const columnMap: Record<string, string> = {
     coverUrl: 'cover_url',
@@ -112,6 +113,7 @@ export async function updateUserProfile(
     workTypes: 'work_types',
     experience: 'experience',
     emailNotifications: 'email_notifications',
+    locale: 'locale',
     showMature: 'show_mature',
     hideAi: 'hide_ai',
     noAiTraining: 'no_ai_training',

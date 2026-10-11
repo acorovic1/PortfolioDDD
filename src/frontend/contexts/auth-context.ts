@@ -19,6 +19,7 @@ export interface ProfileUpdateFields {
   workTypes?: WorkType[];
   experience?: ExperienceEntry[];
   emailNotifications?: boolean;
+  locale?: 'en' | 'bs' | 'de';
 }
 
 export interface AuthContextType {

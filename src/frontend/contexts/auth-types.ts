@@ -27,4 +27,5 @@ export interface User {
   emailVerified?: boolean;
   emailNotifications?: boolean;
   twoFactorEnabled?: boolean;
+  locale?: string | null;
 }

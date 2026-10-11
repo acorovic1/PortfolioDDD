@@ -57,6 +57,7 @@ export const updateProfileSchema = z.object({
   hideAi: z.boolean().optional(),
   noAiTraining: z.boolean().optional(),
   emailNotifications: z.boolean().optional(),
+  locale: z.enum(['en', 'bs', 'de']).optional(),
 });
 
 export const updateUsernameSchema = z.object({
