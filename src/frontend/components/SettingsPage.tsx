@@ -6,11 +6,14 @@ import { useTheme } from '@/frontend/hooks/useTheme';
 import { SunIcon, MoonIcon } from '@/frontend/svg/Icons';
 import SecuritySection from '@/frontend/components/settings/SecuritySection';
 import CustomDomainSection from '@/frontend/components/settings/CustomDomainSection';
+import { useI18n } from '@/frontend/hooks/useI18n';
+import { LOCALES, isLocale } from '@/frontend/i18n/i18n-context';
 
 export default function SettingsPage() {
     const {
         user, token, updateUsername, updateEmail, changePassword, deleteAccount, updateProfile, resendVerification,
     } = useAuth();
+    const { t, locale, setLocale } = useI18n();
     const [verificationSent, setVerificationSent] = useState(false);
     const [linkCopied, setLinkCopied] = useState(false);
     const profileUrl = user ? `${window.location.origin}${profilePath(user.username)}` : '';
@@ -33,7 +36,7 @@ export default function SettingsPage() {
     const setPreference = (key: 'showMature' | 'hideAi' | 'noAiTraining' | 'emailNotifications', value: boolean) => {
         setPreferenceError('');
         updateProfile({ [key]: value }).catch(err => {
-            setPreferenceError(err instanceof Error ? err.message : 'Failed to save preference');
+            setPreferenceError(err instanceof Error ? err.message : t('security.error'));
         });
     };
     const { theme, toggleTheme } = useTheme();
@@ -67,7 +70,7 @@ export default function SettingsPage() {
             setUsernameSaved(true);
             setTimeout(() => setUsernameSaved(false), 2000);
         } catch (err) {
-            setUsernameError(err instanceof Error ? err.message : 'Failed to update username');
+            setUsernameError(err instanceof Error ? err.message : t('security.error'));
         }
     };
 
@@ -82,7 +85,7 @@ export default function SettingsPage() {
             setEmailSaved(true);
             setTimeout(() => setEmailSaved(false), 2000);
         } catch (err) {
-            setEmailError(err instanceof Error ? err.message : 'Failed to update email');
+            setEmailError(err instanceof Error ? err.message : t('security.error'));
         }
     };
 
@@ -90,7 +93,7 @@ export default function SettingsPage() {
         e.preventDefault();
         setDeleteError('');
 
-        if (!confirm('This will permanently delete your account, artworks, and all associated data. This cannot be undone. Continue?')) {
+        if (!confirm(t('settings.deleteConfirm'))) {
             return;
         }
 
@@ -98,7 +101,7 @@ export default function SettingsPage() {
         try {
             await deleteAccount(deletePassword);
         } catch (err) {
-            setDeleteError(err instanceof Error ? err.message : 'Failed to delete account');
+            setDeleteError(err instanceof Error ? err.message : t('security.error'));
             setIsDeleting(false);
         }
     };
@@ -108,11 +111,11 @@ export default function SettingsPage() {
         setPasswordError('');
 
         if (newPassword.length < 6) {
-            setPasswordError('New password must be at least 6 characters');
+            setPasswordError(t('settings.passwordTooShort'));
             return;
         }
         if (newPassword !== confirmPassword) {
-            setPasswordError('New passwords do not match');
+            setPasswordError(t('settings.passwordsDiffer'));
             return;
         }
 
@@ -124,52 +127,52 @@ export default function SettingsPage() {
             setPasswordSaved(true);
             setTimeout(() => setPasswordSaved(false), 2000);
         } catch (err) {
-            setPasswordError(err instanceof Error ? err.message : 'Failed to change password');
+            setPasswordError(err instanceof Error ? err.message : t('security.error'));
         }
     };
 
     return (
         <div className="settings-page">
             <div className="activity-hero">
-                <h2>Settings</h2>
-                <p>Manage your account and app preferences.</p>
+                <h2>{t('settings.title')}</h2>
+                <p>{t('settings.subtitle')}</p>
             </div>
 
             <div className="settings-sections">
                 <section className="settings-section">
-                    <h3 className="settings-section-title">Username</h3>
+                    <h3 className="settings-section-title">{t('settings.username')}</h3>
                     <form className="settings-form" onSubmit={handleUsernameSubmit}>
                         <input
                             className="settings-input"
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
-                            placeholder="Username"
+                            placeholder={t('settings.username')}
                             minLength={3}
                         />
                         <button type="submit" className="settings-save-btn" disabled={!username.trim()}>
-                            Save
+                            {t('common.save')}
                         </button>
                         {usernameError && <span className="settings-error-hint">{usernameError}</span>}
-                        {usernameSaved && <span className="settings-saved-hint">Saved</span>}
+                        {usernameSaved && <span className="settings-saved-hint">{t('common.saved')}</span>}
                     </form>
                     <p className="settings-section-description settings-profile-link">
-                        Your profile: <a href={profilePath(user?.username ?? '')}>{profileUrl}</a>
+                        {t('settings.profileLink')} <a href={profilePath(user?.username ?? '')}>{profileUrl}</a>
                         <button
                             type="button"
                             className="settings-link-btn"
                             onClick={() => navigator.clipboard.writeText(profileUrl).then(() => setLinkCopied(true))}
                         >
-                            {linkCopied ? 'Copied' : 'Copy'}
+                            {t(linkCopied ? 'common.copied' : 'common.copy')}
                         </button>
                         <br />
-                        If you change your username, links to the old one keep working.
+                        {t('settings.profileLinkHint')}
                     </p>
                 </section>
 
                 <CustomDomainSection />
 
                 <section className="settings-section">
-                    <h3 className="settings-section-title">Email</h3>
+                    <h3 className="settings-section-title">{t('settings.email')}</h3>
                     <form className="settings-form" onSubmit={handleEmailSubmit}>
                         <input
                             type="email"
@@ -179,25 +182,25 @@ export default function SettingsPage() {
                             placeholder="email@example.com"
                         />
                         <button type="submit" className="settings-save-btn" disabled={!email.trim()}>
-                            Save
+                            {t('common.save')}
                         </button>
                         {emailError && <span className="settings-error-hint">{emailError}</span>}
-                        {emailSaved && <span className="settings-saved-hint">Saved - check your inbox to confirm it</span>}
+                        {emailSaved && <span className="settings-saved-hint">{t('settings.emailSaved')}</span>}
                     </form>
                     {user?.emailVerified ? (
-                        <p className="settings-section-description settings-email-status">Confirmed</p>
+                        <p className="settings-section-description settings-email-status">{t('settings.emailConfirmed')}</p>
                     ) : (
                         <p className="settings-section-description settings-email-status unconfirmed">
-                            Not confirmed yet.{' '}
-                            {verificationSent ? 'Check your inbox for the link.' : (
+                            {t('settings.emailUnconfirmed')}{' '}
+                            {verificationSent ? t('settings.emailCheckInbox') : (
                                 <button
                                     type="button"
                                     className="settings-link-btn"
                                     onClick={() => resendVerification()
                                         .then(() => setVerificationSent(true))
-                                        .catch(err => setEmailError(err instanceof Error ? err.message : 'Failed to send'))}
+                                        .catch(err => setEmailError(err instanceof Error ? err.message : t('security.error')))}
                                 >
-                                    Resend confirmation email
+                                    {t('settings.emailResend')}
                                 </button>
                             )}
                         </p>
@@ -205,14 +208,14 @@ export default function SettingsPage() {
                 </section>
 
                 <section className="settings-section">
-                    <h3 className="settings-section-title">Change Password</h3>
+                    <h3 className="settings-section-title">{t('settings.password')}</h3>
                     <form className="settings-form settings-form-column" onSubmit={handlePasswordSubmit}>
                         <input
                             type="password"
                             className="settings-input"
                             value={currentPassword}
                             onChange={(e) => setCurrentPassword(e.target.value)}
-                            placeholder="Current password"
+                            placeholder={t('settings.currentPassword')}
                             autoComplete="current-password"
                         />
                         <input
@@ -220,7 +223,7 @@ export default function SettingsPage() {
                             className="settings-input"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="New password"
+                            placeholder={t('settings.newPassword')}
                             autoComplete="new-password"
                             minLength={6}
                         />
@@ -229,7 +232,7 @@ export default function SettingsPage() {
                             className="settings-input"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Confirm new password"
+                            placeholder={t('settings.confirmPassword')}
                             autoComplete="new-password"
                         />
                         {passwordError && <span className="settings-error-hint">{passwordError}</span>}
@@ -239,9 +242,9 @@ export default function SettingsPage() {
                                 className="settings-save-btn"
                                 disabled={!currentPassword || !newPassword || !confirmPassword}
                             >
-                                Update Password
+                                {t('settings.updatePassword')}
                             </button>
-                            {passwordSaved && <span className="settings-saved-hint">Saved</span>}
+                            {passwordSaved && <span className="settings-saved-hint">{t('common.saved')}</span>}
                         </div>
                     </form>
                 </section>
@@ -249,7 +252,7 @@ export default function SettingsPage() {
                 <SecuritySection />
 
                 <section className="settings-section">
-                    <h3 className="settings-section-title">Content</h3>
+                    <h3 className="settings-section-title">{t('settings.content')}</h3>
                     <div className="settings-preferences">
                         <label className="settings-preference">
                             <input
@@ -258,8 +261,8 @@ export default function SettingsPage() {
                                 onChange={(e) => setPreference('showMature', e.target.checked)}
                             />
                             <span>
-                                Show mature content
-                                <small>Artworks marked 18+ are blurred until you click them otherwise.</small>
+                                {t('settings.showMature')}
+                                <small>{t('settings.showMatureHint')}</small>
                             </span>
                         </label>
                         <label className="settings-preference">
@@ -269,8 +272,8 @@ export default function SettingsPage() {
                                 onChange={(e) => setPreference('hideAi', e.target.checked)}
                             />
                             <span>
-                                Hide AI-generated work
-                                <small>Leaves artworks labelled as made with generative AI out of Explore.</small>
+                                {t('settings.hideAi')}
+                                <small>{t('settings.hideAiHint')}</small>
                             </span>
                         </label>
                         <label className="settings-preference">
@@ -280,8 +283,8 @@ export default function SettingsPage() {
                                 onChange={(e) => setPreference('noAiTraining', e.target.checked)}
                             />
                             <span>
-                                NoAI: opt my work out of AI training
-                                <small>Shows a NoAI badge on your profile and asks crawlers not to use your uploads for AI training.</small>
+                                {t('settings.noAi')}
+                                <small>{t('settings.noAiHint')}</small>
                             </span>
                         </label>
                         {preferenceError && <span className="settings-error-hint">{preferenceError}</span>}
@@ -289,7 +292,7 @@ export default function SettingsPage() {
                 </section>
 
                 <section className="settings-section">
-                    <h3 className="settings-section-title">Notifications</h3>
+                    <h3 className="settings-section-title">{t('settings.notifications')}</h3>
                     <div className="settings-preferences">
                         <label className="settings-preference">
                             <input
@@ -298,26 +301,23 @@ export default function SettingsPage() {
                                 onChange={(e) => setPreference('emailNotifications', e.target.checked)}
                             />
                             <span>
-                                Email me about notifications I haven't seen
-                                <small>
-                                    New messages, comments, likes and followers you haven't seen on the site
-                                    within a few minutes, bundled into one email. Needs a confirmed address.
-                                </small>
+                                {t('settings.emailNotifications')}
+                                <small>{t('settings.emailNotificationsHint')}</small>
                             </span>
                         </label>
                     </div>
                 </section>
 
                 <section className="settings-section">
-                    <h3 className="settings-section-title">Blocked users</h3>
+                    <h3 className="settings-section-title">{t('settings.blocked')}</h3>
                     {blockedUsers.length === 0 ? (
-                        <p className="settings-section-description">You haven't blocked anyone.</p>
+                        <p className="settings-section-description">{t('settings.blockedEmpty')}</p>
                     ) : (
                         <ul className="settings-blocked-list">
                             {blockedUsers.map(u => (
                                 <li key={u.username}>
                                     <span>@{u.username}</span>
-                                    <button className="settings-save-btn" onClick={() => unblock(u.username)}>Unblock</button>
+                                    <button className="settings-save-btn" onClick={() => unblock(u.username)}>{t('settings.unblock')}</button>
                                 </li>
                             ))}
                         </ul>
@@ -325,9 +325,9 @@ export default function SettingsPage() {
                 </section>
 
                 <section className="settings-section settings-section-danger">
-                    <h3 className="settings-section-title">Danger Zone</h3>
+                    <h3 className="settings-section-title">{t('settings.danger')}</h3>
                     <p className="settings-section-description">
-                        Permanently delete your account, all your artworks, renders, comments, likes, and collections.
+                        {t('settings.dangerHint')}
                     </p>
                     <form className="settings-form" onSubmit={handleDeleteAccount}>
                         <input
@@ -335,7 +335,7 @@ export default function SettingsPage() {
                             className="settings-input"
                             value={deletePassword}
                             onChange={(e) => setDeletePassword(e.target.value)}
-                            placeholder="Confirm your password"
+                            placeholder={t('settings.confirmPasswordPlaceholder')}
                             autoComplete="current-password"
                         />
                         <button
@@ -343,21 +343,34 @@ export default function SettingsPage() {
                             className="settings-delete-btn"
                             disabled={!deletePassword || isDeleting}
                         >
-                            {isDeleting ? 'Deleting...' : 'Delete account'}
+                            {t(isDeleting ? 'settings.deleting' : 'settings.deleteAccount')}
                         </button>
                         {deleteError && <span className="settings-error-hint">{deleteError}</span>}
                     </form>
                 </section>
 
                 <section className="settings-section">
-                    <h3 className="settings-section-title">Appearance</h3>
+                    <h3 className="settings-section-title">{t('settings.appearance')}</h3>
                     <button className="theme-toggle-btn" onClick={toggleTheme}>
                         {theme === 'dark' ? <MoonIcon /> : <SunIcon />}
-                        <span>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+                        <span>{t(theme === 'dark' ? 'settings.darkMode' : 'settings.lightMode')}</span>
                         <span className={`theme-toggle-switch ${theme === 'light' ? 'on' : ''}`}>
                             <span className="theme-toggle-knob" />
                         </span>
                     </button>
+                </section>
+
+                <section className="settings-section">
+                    <h3 className="settings-section-title">{t('settings.language')}</h3>
+                    <p className="settings-section-description">{t('settings.languageHint')}</p>
+                    <select
+                        className="settings-input"
+                        value={locale}
+                        onChange={(e) => { if (isLocale(e.target.value)) setLocale(e.target.value); }}
+                        aria-label={t('settings.language')}
+                    >
+                        {LOCALES.map(l => <option key={l.code} value={l.code} lang={l.code}>{l.name}</option>)}
+                    </select>
                 </section>
             </div>
         </div>

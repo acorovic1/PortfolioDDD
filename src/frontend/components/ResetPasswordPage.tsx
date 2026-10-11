@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import '@/frontend/css/Auth.css';
 import { Logo, AlertCircleIcon } from '@/frontend/svg/Icons';
+import { useI18n } from '@/frontend/hooks/useI18n';
 
 export default function ResetPasswordPage({ token, onDone }: { token: string; onDone: () => void }) {
     const [newPassword, setNewPassword] = useState('');
@@ -11,17 +12,18 @@ export default function ResetPasswordPage({ token, onDone }: { token: string; on
     const [success, setSuccess] = useState(false);
 
     const { resetPassword } = useAuth();
+    const { t } = useI18n();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
         if (newPassword.length < 6) {
-            setError('Password must be at least 6 characters');
+            setError(t('auth.errorPasswordLength'));
             return;
         }
         if (newPassword !== confirmPassword) {
-            setError('Passwords do not match');
+            setError(t('auth.errorPasswordsMatch'));
             return;
         }
 
@@ -51,17 +53,17 @@ export default function ResetPasswordPage({ token, onDone }: { token: string; on
 
                 {success ? (
                     <div className="action-text">
-                        <p>Your password has been reset. You can sign in now.</p>
-                        <button className="toggle-btn" onClick={onDone}>Back to sign in</button>
+                        <p>{t('reset.done')}</p>
+                        <button className="toggle-btn" onClick={onDone}>{t('auth.backToSignIn')}</button>
                     </div>
                 ) : (
                     <>
                         <div className="action-text">
-                            <p>Choose a new password</p>
+                            <p>{t('reset.title')}</p>
                         </div>
                         <form onSubmit={handleSubmit} className="auth-form">
                             <div className="form-group">
-                                <label htmlFor="newPassword">New password</label>
+                                <label htmlFor="newPassword">{t('reset.newPassword')}</label>
                                 <input
                                     id="newPassword"
                                     type="password"
@@ -73,7 +75,7 @@ export default function ResetPasswordPage({ token, onDone }: { token: string; on
                                 />
                             </div>
                             <div className="form-group">
-                                <label htmlFor="confirmPassword">Confirm password</label>
+                                <label htmlFor="confirmPassword">{t('reset.confirmPassword')}</label>
                                 <input
                                     id="confirmPassword"
                                     type="password"
@@ -96,9 +98,9 @@ export default function ResetPasswordPage({ token, onDone }: { token: string; on
                                 {isLoading ? (
                                     <>
                                         <span className="spinner"></span>
-                                        Resetting...
+                                        {t('reset.submitting')}
                                     </>
-                                ) : 'Reset password'}
+                                ) : t('reset.submit')}
                             </button>
                         </form>
                     </>

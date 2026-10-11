@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import '@/frontend/css/Auth.css';
 import { Logo, AlertCircleIcon } from '@/frontend/svg/Icons';
+import { useI18n } from '@/frontend/hooks/useI18n';
 
 type Mode = 'login' | 'register' | 'forgot' | 'two-factor';
 
@@ -18,6 +19,7 @@ export default function LoginForm() {
     const [useRecoveryCode, setUseRecoveryCode] = useState(false);
 
     const { login, register, forgotPassword, completeTwoFactorLogin } = useAuth();
+    const { t } = useI18n();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -46,10 +48,10 @@ export default function LoginForm() {
             } else if (mode === 'register') {
                 // Validation
                 if (password.length < 6) {
-                    throw new Error('Password must be at least 6 characters');
+                    throw new Error(t('auth.errorPasswordLength'));
                 }
                 if (username.length < 3) {
-                    throw new Error('Username must be at least 3 characters');
+                    throw new Error(t('auth.errorUsernameLength'));
                 }
                 await register(email, password, username);
             } else {
@@ -57,7 +59,7 @@ export default function LoginForm() {
                 setForgotSent(true);
             }
         } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : 'Authentication failed');
+            setError(err instanceof Error ? err.message : t('auth.failed'));
         } finally {
             setIsLoading(false);
         }
@@ -84,18 +86,18 @@ export default function LoginForm() {
                 </div>
                 <div className="action-text">
                     <p>
-                        {mode === 'login' && 'Sign in to your account'}
-                        {mode === 'register' && 'Create your account'}
-                        {mode === 'forgot' && 'Reset your password'}
-                        {mode === 'two-factor' && 'Two-factor authentication'}
+                        {mode === 'login' && t('auth.signInTitle')}
+                        {mode === 'register' && t('auth.registerTitle')}
+                        {mode === 'forgot' && t('auth.forgotTitle')}
+                        {mode === 'two-factor' && t('auth.twoFactorTitle')}
                     </p>
                 </div>
 
                 {mode === 'forgot' && forgotSent ? (
                     <div className="action-text">
-                        <p>If an account exists for that email, a reset link has been sent.</p>
+                        <p>{t('auth.forgotSent')}</p>
                         <button className="toggle-btn" onClick={() => switchMode('login')}>
-                            Back to sign in
+                            {t('auth.backToSignIn')}
                         </button>
                     </div>
                 ) : (
@@ -103,7 +105,7 @@ export default function LoginForm() {
                         {mode === 'two-factor' && (
                             <div className="form-group">
                                 <label htmlFor="code">
-                                    {useRecoveryCode ? 'Recovery code' : 'Code from your authenticator app'}
+                                    {useRecoveryCode ? t('auth.recoveryLabel') : t('auth.codeLabel')}
                                 </label>
                                 <input
                                     id="code"
@@ -123,14 +125,14 @@ export default function LoginForm() {
                                     className="toggle-btn forgot-password-link"
                                     onClick={() => { setUseRecoveryCode(v => !v); setCode(''); setError(''); }}
                                 >
-                                    {useRecoveryCode ? 'Use a code from the app instead' : 'Lost your phone? Use a recovery code'}
+                                    {useRecoveryCode ? t('auth.useApp') : t('auth.useRecovery')}
                                 </button>
                             </div>
                         )}
 
                         {mode === 'register' && (
                             <div className="form-group">
-                                <label htmlFor="username">Username</label>
+                                <label htmlFor="username">{t('auth.username')}</label>
                                 <input
                                     id="username"
                                     type="text"
@@ -141,13 +143,13 @@ export default function LoginForm() {
                                     autoComplete="username"
                                     minLength={3}
                                 />
-                                <span className="field-hint">At least 3 characters</span>
+                                <span className="field-hint">{t('auth.usernameHint')}</span>
                             </div>
                         )}
 
                         {mode !== 'two-factor' && (
                         <div className="form-group">
-                            <label htmlFor="email">Email</label>
+                            <label htmlFor="email">{t('auth.email')}</label>
                             <input
                                 id="email"
                                 type="email"
@@ -162,7 +164,7 @@ export default function LoginForm() {
 
                         {(mode === 'login' || mode === 'register') && (
                             <div className="form-group">
-                                <label htmlFor="password">Password</label>
+                                <label htmlFor="password">{t('auth.password')}</label>
                                 <input
                                     id="password"
                                     type="password"
@@ -173,7 +175,7 @@ export default function LoginForm() {
                                     autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                                     minLength={6}
                                 />
-                                <span className="field-hint">At least 6 characters</span>
+                                <span className="field-hint">{t('auth.passwordHint')}</span>
                             </div>
                         )}
 
@@ -183,7 +185,7 @@ export default function LoginForm() {
                                 className="toggle-btn forgot-password-link"
                                 onClick={() => switchMode('forgot')}
                             >
-                                Forgot password?
+                                {t('auth.forgotLink')}
                             </button>
                         )}
 
@@ -198,17 +200,17 @@ export default function LoginForm() {
                             {isLoading ? (
                                 <>
                                     <span className="spinner"></span>
-                                    {mode === 'login' && 'Signing in...'}
-                                    {mode === 'register' && 'Creating account...'}
-                                    {mode === 'forgot' && 'Sending...'}
-                                    {mode === 'two-factor' && 'Verifying...'}
+                                    {mode === 'login' && t('auth.signingIn')}
+                                    {mode === 'register' && t('auth.signingUp')}
+                                    {mode === 'forgot' && t('auth.sending')}
+                                    {mode === 'two-factor' && t('auth.verifying')}
                                 </>
                             ) : (
                                 <>
-                                    {mode === 'login' && 'Sign In'}
-                                    {mode === 'register' && 'Sign Up'}
-                                    {mode === 'forgot' && 'Send reset link'}
-                                    {mode === 'two-factor' && 'Verify'}
+                                    {mode === 'login' && t('auth.signIn')}
+                                    {mode === 'register' && t('auth.signUp')}
+                                    {mode === 'forgot' && t('auth.sendReset')}
+                                    {mode === 'two-factor' && t('auth.verify')}
                                 </>
                             )}
                         </button>
@@ -218,7 +220,7 @@ export default function LoginForm() {
                 {mode === 'two-factor' && (
                     <div className="auth-toggle auth-toggle-solo">
                         <button onClick={() => switchMode('login')} className="toggle-btn">
-                            Back to sign in
+                            {t('auth.backToSignIn')}
                         </button>
                     </div>
                 )}
@@ -226,18 +228,18 @@ export default function LoginForm() {
                 {(mode === 'login' || mode === 'register') && (
                     <>
                         <div className="auth-divider">
-                            <span>or</span>
+                            <span>{t('auth.or')}</span>
                         </div>
 
                         <div className="auth-toggle">
                             <p>
-                                {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+                                {mode === 'login' ? t('auth.noAccount') : t('auth.haveAccount')}
                             </p>
                             <button
                                 onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}
                                 className="toggle-btn"
                             >
-                                {mode === 'login' ? 'Create one now' : 'Sign in instead'}
+                                {mode === 'login' ? t('auth.createOne') : t('auth.signInInstead')}
                             </button>
                         </div>
                     </>

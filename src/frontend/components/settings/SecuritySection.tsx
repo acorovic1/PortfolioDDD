@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/frontend/utils/api';
 import { useAuth } from '@/frontend/hooks/useAuth';
+import { useI18n } from '@/frontend/hooks/useI18n';
 
 type Status = { enabled: boolean; enabledAt: string | null; recoveryCodesLeft: number };
 type Setup = { secret: string; otpauthUrl: string; qrCode: string };
@@ -11,6 +12,7 @@ function errorText(err: unknown, fallback: string): string {
 
 // Shown once, right after they're generated.
 function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
+    const { t } = useI18n();
     const text = codes.join('\n');
     const [copied, setCopied] = useState(false);
 
@@ -26,8 +28,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
     return (
         <div className="security-recovery">
             <p className="settings-section-description">
-                Save these recovery codes somewhere safe. Each one gets you in once if you lose your phone.
-                They won't be shown again.
+                {t('security.recoveryIntro')}
             </p>
             <ol className="security-recovery-codes">
                 {codes.map(code => <li key={code}><code>{code}</code></li>)}
@@ -38,10 +39,10 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
                     className="settings-save-btn"
                     onClick={() => navigator.clipboard.writeText(text).then(() => setCopied(true))}
                 >
-                    {copied ? 'Copied' : 'Copy'}
+                    {t(copied ? 'common.copied' : 'common.copy')}
                 </button>
-                <button type="button" className="settings-save-btn" onClick={download}>Download</button>
-                <button type="button" className="settings-save-btn" onClick={onDone}>I've saved them</button>
+                <button type="button" className="settings-save-btn" onClick={download}>{t('security.download')}</button>
+                <button type="button" className="settings-save-btn" onClick={onDone}>{t('security.savedThem')}</button>
             </div>
         </div>
     );
@@ -49,6 +50,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
 
 export default function SecuritySection() {
     const { token, replaceSessionToken, refreshUser, logoutEverywhere } = useAuth();
+    const { t, tp } = useI18n();
     const [status, setStatus] = useState<Status | null>(null);
     const [setup, setSetup] = useState<Setup | null>(null);
     const [code, setCode] = useState('');
@@ -61,7 +63,7 @@ export default function SecuritySection() {
 
     const loadStatus = () => apiFetch<Status>('/api/auth/2fa', { token })
         .then(setStatus)
-        .catch(err => setError(errorText(err, 'Failed to load two-factor status')));
+        .catch(err => setError(errorText(err, t('security.error'))));
 
     useEffect(() => {
         if (!token) return;
@@ -75,7 +77,7 @@ export default function SecuritySection() {
         try {
             await action();
         } catch (err) {
-            setError(errorText(err, 'Something went wrong'));
+            setError(errorText(err, t('security.error')));
         } finally {
             setBusy(false);
         }
@@ -133,26 +135,26 @@ export default function SecuritySection() {
     return (
         <>
             <section className="settings-section">
-                <h3 className="settings-section-title">Two-factor authentication</h3>
+                <h3 className="settings-section-title">{t('security.title')}</h3>
 
                 {recoveryCodes ? (
                     <RecoveryCodes codes={recoveryCodes} onDone={() => setRecoveryCodes(null)} />
                 ) : !status ? (
-                    <p className="settings-section-description">Loading...</p>
+                    <p className="settings-section-description">{t('common.loading')}</p>
                 ) : status.enabled ? (
                     <>
                         <p className="settings-section-description">
-                            <span className="security-badge on">On</span>
-                            Signing in needs a code from your authenticator app.
-                            {' '}{status.recoveryCodesLeft} recovery code{status.recoveryCodesLeft === 1 ? '' : 's'} left.
+                            <span className="security-badge on">{t('security.on')}</span>
+                            {t('security.onHint')}
+                            {' '}{tp('security.codesLeft', status.recoveryCodesLeft)}
                         </p>
                         {panel === 'none' && (
                             <div className="settings-form-row">
                                 <button type="button" className="settings-save-btn" onClick={() => setPanel('regenerate')}>
-                                    New recovery codes
+                                    {t('security.newCodes')}
                                 </button>
                                 <button type="button" className="settings-delete-btn" onClick={() => setPanel('disable')}>
-                                    Turn off
+                                    {t('security.turnOff')}
                                 </button>
                             </div>
                         )}
@@ -163,7 +165,7 @@ export default function SecuritySection() {
                                     className="settings-input"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Your password"
+                                    placeholder={t('security.yourPassword')}
                                     autoComplete="current-password"
                                     required
                                 />
@@ -171,13 +173,13 @@ export default function SecuritySection() {
                                     className="settings-input"
                                     value={code}
                                     onChange={(e) => setCode(e.target.value)}
-                                    placeholder="Code from your app, or a recovery code"
+                                    placeholder={t('security.codeOrRecovery')}
                                     autoComplete="one-time-code"
                                     required
                                 />
                                 <div className="settings-form-row">
-                                    <button type="submit" className="settings-delete-btn" disabled={busy}>Turn off two-factor</button>
-                                    <button type="button" className="settings-save-btn" onClick={() => setPanel('none')}>Cancel</button>
+                                    <button type="submit" className="settings-delete-btn" disabled={busy}>{t('security.turnOffConfirm')}</button>
+                                    <button type="button" className="settings-save-btn" onClick={() => setPanel('none')}>{t('common.cancel')}</button>
                                 </div>
                             </form>
                         )}
@@ -188,25 +190,24 @@ export default function SecuritySection() {
                                     className="settings-input"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Your password"
+                                    placeholder={t('security.yourPassword')}
                                     autoComplete="current-password"
                                     required
                                 />
-                                <button type="submit" className="settings-save-btn" disabled={busy}>Generate</button>
-                                <button type="button" className="settings-save-btn" onClick={() => setPanel('none')}>Cancel</button>
+                                <button type="submit" className="settings-save-btn" disabled={busy}>{t('security.generate')}</button>
+                                <button type="button" className="settings-save-btn" onClick={() => setPanel('none')}>{t('common.cancel')}</button>
                             </form>
                         )}
                     </>
                 ) : setup ? (
                     <form className="security-setup" onSubmit={confirmSetup}>
-                        <img src={setup.qrCode} alt="QR code for your authenticator app" width={180} height={180} />
+                        <img src={setup.qrCode} alt={t('security.qrAlt')} width={180} height={180} />
                         <div className="security-setup-steps">
                             <p className="settings-section-description">
-                                1. Scan this with an authenticator app (Google Authenticator, 1Password, Authy...).
-                                Can't scan it? Enter this key instead:
+                                {t('security.step1')}
                             </p>
                             <code className="security-secret">{setup.secret.match(/.{1,4}/g)?.join(' ')}</code>
-                            <p className="settings-section-description">2. Enter the 6-digit code the app shows:</p>
+                            <p className="settings-section-description">{t('security.step2')}</p>
                             <div className="settings-form-row">
                                 <input
                                     className="settings-input security-code-input"
@@ -218,19 +219,19 @@ export default function SecuritySection() {
                                     autoFocus
                                 />
                                 <button type="submit" className="settings-save-btn" disabled={busy || code.length !== 6}>
-                                    Turn on
+                                    {t('security.turnOn')}
                                 </button>
-                                <button type="button" className="settings-save-btn" onClick={() => setSetup(null)}>Cancel</button>
+                                <button type="button" className="settings-save-btn" onClick={() => setSetup(null)}>{t('common.cancel')}</button>
                             </div>
                         </div>
                     </form>
                 ) : (
                     <>
                         <p className="settings-section-description">
-                            Protect your account with a code from an authenticator app in addition to your password.
+                            {t('security.intro')}
                         </p>
                         <button type="button" className="settings-save-btn" onClick={startSetup} disabled={busy}>
-                            Set up two-factor
+                            {t('security.setUp')}
                         </button>
                     </>
                 )}
@@ -238,16 +239,15 @@ export default function SecuritySection() {
             </section>
 
             <section className="settings-section">
-                <h3 className="settings-section-title">Sessions</h3>
+                <h3 className="settings-section-title">{t('security.sessions')}</h3>
                 <p className="settings-section-description">
-                    Signed in on a device you no longer use? This signs out everywhere except here.
-                    Changing your password does the same.
+                    {t('security.sessionsHint')}
                 </p>
                 <div className="settings-form-row">
                     <button type="button" className="settings-save-btn" onClick={signOutOthers} disabled={busy}>
-                        Sign out of all other sessions
+                        {t('security.signOutOthers')}
                     </button>
-                    {signedOutOthers && <span className="settings-saved-hint">Done</span>}
+                    {signedOutOthers && <span className="settings-saved-hint">{t('security.done')}</span>}
                 </div>
             </section>
         </>
