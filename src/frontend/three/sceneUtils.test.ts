@@ -6,6 +6,7 @@ import {
   disposeObject,
   fitCameraClipping,
   inspectionDistance,
+  pointerToNdc,
   resetCameraClipping,
   DEFAULT_CAMERA_FAR,
   DEFAULT_CAMERA_NEAR,
@@ -61,6 +62,18 @@ describe('disposeObject', () => {
     const spies = [geometry, ...materials].map(resource => vi.spyOn(resource, 'dispose'));
     disposeObject(root);
     spies.forEach(spy => expect(spy).toHaveBeenCalledOnce());
+  });
+});
+
+describe('pointerToNdc', () => {
+  it('maps the element’s corners to -1..1 with +y up', () => {
+    const element = document.createElement('div');
+    vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({ left: 100, top: 50, width: 200, height: 100 } as DOMRect);
+
+    const at = (clientX: number, clientY: number) => pointerToNdc(new MouseEvent('click', { clientX, clientY }), element).toArray();
+    expect(at(100, 50)).toEqual([-1, 1]);
+    expect(at(300, 150)).toEqual([1, -1]);
+    expect(at(200, 100)).toEqual([0, 0]);
   });
 });
 

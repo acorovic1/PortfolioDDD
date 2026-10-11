@@ -30,6 +30,16 @@ export function resetCameraClipping(camera: THREE.PerspectiveCamera): void {
   camera.updateProjectionMatrix();
 }
 
+// Pointer position over `element` in normalized device coordinates (-1..1,
+// +y up), as raycasting expects.
+export function pointerToNdc(event: MouseEvent, element: HTMLElement, out = new THREE.Vector2()): THREE.Vector2 {
+  const rect = element.getBoundingClientRect();
+  return out.set(
+    ((event.clientX - rect.left) / rect.width) * 2 - 1,
+    -((event.clientY - rect.top) / rect.height) * 2 + 1
+  );
+}
+
 export function countVertices(piece?: PortfolioPiece): number {
   if (!piece) return 0;
   let count = 0;
