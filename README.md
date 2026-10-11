@@ -2,6 +2,8 @@
 
 A portfolio site for 3D artists, somewhere between Sketchfab and ArtStation. Artists upload models and renders, and visitors browse them in a circular 3D carousel. Any piece can be opened in a focus mode with a full inspector: wireframe, texture channels, matcap, and post-processing.
 
+How it fits together, and why: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Stack
 
 | Layer    | Tech |
@@ -48,7 +50,7 @@ Make an account an admin:
 npm run make-admin -- <email or username>
 ```
 
-`docker compose up` starts Postgres and the app together (see [docs/DOCKER.md](docs/DOCKER.md)).
+`docker compose up` starts Postgres and the app together.
 
 ### Production
 
@@ -105,7 +107,7 @@ src/
 │   ├── components/            pages and UI (explore, jobs, marketplace, messages,
 │   │                          analytics, moderation, sidebar, toolbar, ...)
 │   ├── inspector/             model inspector, post-processing, texture channels
-│   ├── three/                 glTF loader setup
+│   ├── three/                 pure Three.js logic (carousel, camera, saved views) + glTF loader
 │   ├── realtime/              SSE client and hooks
 │   ├── contexts/, hooks/      auth and theme
 │   ├── config/api.ts          backend URL and asset URL helper
@@ -123,5 +125,5 @@ src/
     ├── scripts/               make-admin, migrate-storage
     └── tests/                 backend tests
 e2e/                           Playwright specs
-docs/                          concept and architecture write-ups
+docs/                          architecture overview
 ```
