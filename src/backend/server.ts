@@ -2,7 +2,13 @@ import { app, scheduleReconnect } from './app.ts';
 
 const port = Number(process.env.PORT) || 3001;
 
-app.listen(port, () => {
+// Express 5 hands listen errors (e.g. the port is taken) to this callback
+// instead of throwing - without the check the process would quietly exit.
+app.listen(port, (error?: Error) => {
+  if (error) {
+    console.error(`Could not start the server on port ${port}:`, error.message);
+    process.exit(1);
+  }
   console.log(`Server is running on http://localhost:${port}`);
   scheduleReconnect();
 });
