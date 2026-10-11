@@ -22,7 +22,7 @@ import { statusPollRateLimiter } from '../middleware/rate-limit.middleware.ts';
 export const portfolioRoutes = Router();
 
 portfolioRoutes.get('/', authenticateToken, listOwnArtworks);
-portfolioRoutes.get('/artworks/batch', listArtworksByIds);
+portfolioRoutes.get('/artworks/batch', optionalAuth, listArtworksByIds);
 portfolioRoutes.post('/artworks',
   authenticateToken,
   uploadModel.single('model'),

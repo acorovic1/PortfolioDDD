@@ -117,3 +117,35 @@ describe('comment moderation', () => {
     expect(del.status).toBe(403);
   });
 });
+
+describe('GET /api/portfolio/artworks/batch', () => {
+  it("leaves out other people's drafts, scheduled and private artworks", async () => {
+    const owner = await registerTestUser();
+    const other = await registerTestUser();
+    createdUserIds.push(owner.id, other.id);
+
+    const published = await createProcessedArtwork(owner.token);
+    const unlisted = await createProcessedArtwork(owner.token, { visibility: 'unlisted' });
+    const draft = await createProcessedArtwork(owner.token, { draft: 'true' });
+    const priv = await createProcessedArtwork(owner.token, { visibility: 'private' });
+    const scheduled = await createProcessedArtwork(owner.token, {
+      publishedAt: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    const all = [published, unlisted, draft, priv, scheduled];
+    const url = `/api/portfolio/artworks/batch?ids=${all.join(',')}`;
+    const ids = (body: { id: string }[]) => body.map(a => a.id).sort();
+
+    // Anonymous and other users: only what they could open anyway (unlisted
+    // artworks open by link).
+    const anonymous = await request(app).get(url);
+    expect(anonymous.status).toBe(200);
+    expect(ids(anonymous.body)).toEqual([published, unlisted].sort());
+
+    const asOther = await request(app).get(url).set('Authorization', `Bearer ${other.token}`);
+    expect(ids(asOther.body)).toEqual([published, unlisted].sort());
+
+    // The owner still sees all of their own.
+    const asOwner = await request(app).get(url).set('Authorization', `Bearer ${owner.token}`);
+    expect(ids(asOwner.body)).toEqual(all.sort());
+  });
+});

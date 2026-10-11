@@ -11,6 +11,7 @@ import {
   toArtworkDTO,
   startModelReprocessing,
   setThumbnail,
+  canViewArtwork,
 } from '../repositories/artworks.repository.ts';
 import {
   createRender,
@@ -65,8 +66,11 @@ export async function listOwnArtworks(req: Request, res: Response): Promise<void
 
 // Resolves artworks by id across all users (e.g. someone's liked-posts or
 // saved-collection list, which can reference artworks other than their own),
-// each annotated with its owner's username and current like count.
+// each annotated with its owner's username and current like count. Artworks
+// the caller may not open (other people's drafts, scheduled or private work)
+// are left out, as if they didn't exist.
 export async function listArtworksByIds(req: Request, res: Response): Promise<void> {
+  const viewerId = (req as AuthRequest).user?.id ?? null;
   const idsParam = req.query.ids;
   const ids = typeof idsParam === 'string'
     ? idsParam.split(',').map(s => s.trim()).filter(Boolean)
@@ -77,7 +81,7 @@ export async function listArtworksByIds(req: Request, res: Response): Promise<vo
     return;
   }
 
-  const artworks = await findArtworksByIds(ids);
+  const artworks = (await findArtworksByIds(ids)).filter(a => canViewArtwork(a, viewerId));
   const rendersByArtwork = await findRendersByArtworkIds(artworks.map(a => a.id));
   const likeCounts = await countLikesForArtworkIds(artworks.map(a => a.id));
 
