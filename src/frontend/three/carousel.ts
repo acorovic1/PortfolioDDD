@@ -43,10 +43,13 @@ export function rotateCarouselTo(pieces: PortfolioPiece[], frontIndex: number, r
   });
 }
 
-// Moves every piece to its neighbour's current position: step 1 takes the
-// next piece's spot, -1 the previous one's.
+// Moves every piece to its neighbour's spot: step 1 takes the next piece's,
+// -1 the previous one's. Shifts from where pieces are heading, so steps
+// taken mid-animation add up instead of starting from half-way positions.
 export function shiftCarousel(pieces: PortfolioPiece[], step: 1 | -1): void {
-  const positions = pieces.map(p => p.root.position.clone());
+  const positions = pieces.map(p =>
+    ((p.root.userData.targetPosition as THREE.Vector3 | undefined) ?? p.root.position).clone()
+  );
   pieces.forEach((piece, i) => {
     piece.root.userData.targetPosition = positions[(i + step + pieces.length) % pieces.length].clone();
   });

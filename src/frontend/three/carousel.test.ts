@@ -90,7 +90,21 @@ describe('shiftCarousel', () => {
 
     shiftCarousel(pieces, -1);
     pieces.forEach((piece, i) => {
-      expect(target(piece)!.distanceTo(before[(i + 2) % 3])).toBeCloseTo(0);
+      expect(target(piece)!.distanceTo(before[i])).toBeCloseTo(0);
+    });
+  });
+
+  it('adds up steps taken before the previous one has finished animating', () => {
+    const pieces = ['a', 'b', 'c', 'd'].map(id => cubePiece(id));
+    snapCarousel(pieces, 0, 4);
+    const before = pieces.map(p => p.root.position.clone());
+
+    shiftCarousel(pieces, 1);
+    stepCarousel(pieces); // part-way there
+    shiftCarousel(pieces, 1);
+
+    pieces.forEach((piece, i) => {
+      expect(target(piece)!.distanceTo(before[(i + 2) % 4])).toBeCloseTo(0);
     });
   });
 });
