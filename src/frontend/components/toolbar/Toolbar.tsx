@@ -9,11 +9,12 @@ import { Logo, PersonIcon, CompassIcon, BriefcaseIcon, StoreIcon } from '@/front
 import { NavLink } from 'react-router-dom';
 
 const NAV_LINKS = [
-    { to: '/', label: 'Explore', icon: CompassIcon },
-    { to: '/jobs', label: 'Jobs', icon: BriefcaseIcon },
-    { to: '/marketplace', label: 'Marketplace', icon: StoreIcon },
-];
+    { to: '/', label: 'nav.explore', icon: CompassIcon },
+    { to: '/jobs', label: 'nav.jobs', icon: BriefcaseIcon },
+    { to: '/marketplace', label: 'nav.marketplace', icon: StoreIcon },
+] as const;
 import { useAuth } from '@/frontend/hooks/useAuth';
+import { useI18n } from '@/frontend/hooks/useI18n';
 
 type ToolbarProps = {
     onViewModeChange?: (mode: 'view' | 'edit') => void;
@@ -34,6 +35,7 @@ export default function Toolbar({ onViewModeChange, onSearch, onLogoClick, onLog
     const [viewMode, setViewMode] = useState<'view' | 'edit'>('view');
     const [searchQuery, setSearchQuery] = useState('');
     const { user } = useAuth();
+    const { t } = useI18n();
 
     const handleViewModeToggle = () => {
         const newMode = viewMode === 'view' ? 'edit' : 'view';
@@ -49,15 +51,15 @@ export default function Toolbar({ onViewModeChange, onSearch, onLogoClick, onLog
     return (
         <header className="toolbar">
             <div className="toolbar-left">
-                <button className="logo" onClick={onLogoClick} title="Go to home page">
+                <button className="logo" onClick={onLogoClick} title={t('nav.home')}>
                     <Logo />
                     <h1 className="toolbar-title"> Portfolio </h1>
                 </button>
-                <nav className="toolbar-nav" aria-label="Main">
+                <nav className="toolbar-nav" aria-label={t('nav.main')}>
                     {NAV_LINKS.map(({ to, label, icon: Icon }) => (
-                        <NavLink key={to} to={to} end={to === '/'} className="toolbar-nav-link" title={label}>
+                        <NavLink key={to} to={to} end={to === '/'} className="toolbar-nav-link" title={t(label)}>
                             <Icon />
-                            <span>{label}</span>
+                            <span>{t(label)}</span>
                         </NavLink>
                     ))}
                 </nav>
@@ -76,7 +78,7 @@ export default function Toolbar({ onViewModeChange, onSearch, onLogoClick, onLog
                     <>
                         <MessagesButton />
                         <NotificationBell />
-                        <button className="profile-icon-btn" onClick={onProfileClick} title="Go to your profile">
+                        <button className="profile-icon-btn" onClick={onProfileClick} title={t('nav.profile')}>
                             <PersonIcon />
                         </button>
                         <UserMenu
@@ -89,7 +91,7 @@ export default function Toolbar({ onViewModeChange, onSearch, onLogoClick, onLog
                     </>
                 ) : (
                     <button className="login-button" onClick={onLoginClick}>
-                        Login
+                        {t('nav.login')}
                     </button>
                 )}
             </div>

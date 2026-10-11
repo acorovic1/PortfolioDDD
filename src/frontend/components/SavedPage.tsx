@@ -4,8 +4,8 @@ import '@/frontend/css/SavedPage.css';
 import type { RemoteArtwork } from '@/types/PortfolioPiece';
 import type { Collection } from '@/types/Collection';
 import { BookmarkIcon, HeartIcon, ImageIcon, PlusIcon, ChevronDownIcon, CloseIcon, PencilIcon } from '@/frontend/svg/Icons';
-import { API_BASE_URL } from '@/frontend/config/api';
-import { assetUrl } from '@/frontend/utils/api';
+import { apiFetch, assetUrl } from '@/frontend/utils/api';
+import { useAuth } from '@/frontend/hooks/useAuth';
 
 type SavedPageProps = {
     collections: Collection[];
@@ -16,6 +16,7 @@ type SavedPageProps = {
 };
 
 export default function SavedPage({ collections, onCreateCollection, onRenameCollection, onDeleteCollection, onSelectArtwork }: SavedPageProps) {
+    const { token } = useAuth();
     const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [newName, setNewName] = useState('');
@@ -34,9 +35,8 @@ export default function SavedPage({ collections, onCreateCollection, onRenameCol
         }
 
         let cancelled = false;
-        fetch(`${API_BASE_URL}/api/portfolio/artworks/batch?ids=${activeArtworkIdsKey}`)
-            .then(res => (res.ok ? res.json() : []))
-            .then((data: RemoteArtwork[]) => {
+        apiFetch<RemoteArtwork[]>(`/api/portfolio/artworks/batch?ids=${activeArtworkIdsKey}`, { token })
+            .then(data => {
                 if (!cancelled) setCollectionArtworks(data);
             })
             .catch(err => console.error('Failed to load saved artworks:', err));
@@ -44,7 +44,7 @@ export default function SavedPage({ collections, onCreateCollection, onRenameCol
         return () => {
             cancelled = true;
         };
-    }, [activeArtworkIdsKey]);
+    }, [activeArtworkIdsKey, token]);
 
     const handleCreate = (e: React.FormEvent) => {
         e.preventDefault();

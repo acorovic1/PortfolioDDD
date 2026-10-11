@@ -6,13 +6,15 @@ import type { FeedArtwork, FeedFacets, FeedTab, ViewSource } from '@/types/Feed'
 import ArtworkCard from './ArtworkCard';
 import { CloseIcon, SearchIcon } from '@/frontend/svg/Icons';
 import '@/frontend/css/Explore.css';
+import { useI18n } from '@/frontend/hooks/useI18n';
+import type { MessageKey } from '@/frontend/i18n/en';
 
 const PAGE_SIZE = 24;
 
-const TABS: { id: FeedTab; label: string; needsAuth?: boolean }[] = [
-  { id: 'trending', label: 'Trending' },
-  { id: 'latest', label: 'Latest' },
-  { id: 'following', label: 'Following', needsAuth: true },
+const TABS: { id: FeedTab; label: MessageKey; needsAuth?: boolean }[] = [
+  { id: 'trending', label: 'explore.trending' },
+  { id: 'latest', label: 'explore.latest' },
+  { id: 'following', label: 'explore.following', needsAuth: true },
 ];
 
 type ExplorePageProps = {
@@ -25,6 +27,7 @@ type ExplorePageProps = {
 // elsewhere in the app (e.g. on an artwork) can open a filtered explore page.
 export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePageProps) {
   const { user, token } = useAuth();
+  const { t } = useI18n();
   const [params, setParams] = useSearchParams();
 
   const requestedTab = params.get('tab') as FeedTab | null;
@@ -97,8 +100,8 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
     <div className="explore-page">
       <header className="explore-header">
         <div>
-          <h2>Explore</h2>
-          <p>Discover 3D work from the community.</p>
+          <h2>{t('explore.title')}</h2>
+          <p>{t('explore.subtitle')}</p>
         </div>
         <form
           className="explore-search"
@@ -111,21 +114,21 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
           <input
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
-            placeholder="Search artworks or artists"
-            aria-label="Search artworks"
+            placeholder={t('explore.searchPlaceholder')}
+            aria-label={t('explore.searchLabel')}
           />
         </form>
       </header>
 
-      <nav className="explore-tabs" aria-label="Feeds">
-        {TABS.filter(t => !t.needsAuth || user).map(t => (
+      <nav className="explore-tabs" aria-label={t('explore.feeds')}>
+        {TABS.filter(tabInfo => !tabInfo.needsAuth || user).map(tabInfo => (
           <button
-            key={t.id}
-            className={`explore-tab ${tab === t.id ? 'active' : ''}`}
-            onClick={() => setFilter('tab', t.id === 'trending' ? '' : t.id)}
-            aria-current={tab === t.id ? 'page' : undefined}
+            key={tabInfo.id}
+            className={`explore-tab ${tab === tabInfo.id ? 'active' : ''}`}
+            onClick={() => setFilter('tab', tabInfo.id === 'trending' ? '' : tabInfo.id)}
+            aria-current={tab === tabInfo.id ? 'page' : undefined}
           >
-            {t.label}
+            {t(tabInfo.label)}
           </button>
         ))}
       </nav>
@@ -133,7 +136,7 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
       {facets && (
         <div className="explore-filters">
           {facets.categories.length > 0 && (
-            <div className="explore-chip-row" aria-label="Categories">
+            <div className="explore-chip-row" aria-label={t('explore.categories')}>
               {facets.categories.map(c => (
                 <button
                   key={c.name}
@@ -147,18 +150,18 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
           )}
           <div className="explore-chip-row secondary">
             {facets.tools.length > 0 && (
-              <select value={tool} onChange={(e) => setFilter('tool', e.target.value)} aria-label="Software">
-                <option value="">Any software</option>
-                {facets.tools.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
+              <select value={tool} onChange={(e) => setFilter('tool', e.target.value)} aria-label={t('explore.software')}>
+                <option value="">{t('explore.anySoftware')}</option>
+                {facets.tools.map(facet => <option key={facet.name} value={facet.name}>{facet.name}</option>)}
               </select>
             )}
-            {facets.tags.slice(0, 15).map(t => (
+            {facets.tags.slice(0, 15).map(facet => (
               <button
-                key={t.name}
-                className={`explore-chip tag ${tag === t.name ? 'active' : ''}`}
-                onClick={() => setFilter('tag', tag === t.name ? '' : t.name)}
+                key={facet.name}
+                className={`explore-chip tag ${tag === facet.name ? 'active' : ''}`}
+                onClick={() => setFilter('tag', tag === facet.name ? '' : facet.name)}
               >
-                #{t.name}
+                #{facet.name}
               </button>
             ))}
           </div>
@@ -182,11 +185,11 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
 
       {!loading && !error && artworks.length === 0 && (
         <div className="explore-empty">
-          <h3>{tab === 'following' ? 'Nothing from people you follow yet' : 'No artworks found'}</h3>
+          <h3>{tab === 'following' ? t('explore.emptyFollowing') : t('explore.empty')}</h3>
           <p>
             {tab === 'following'
-              ? 'Follow artists from their profile to see their new work here.'
-              : activeFilters.length > 0 ? 'Try removing a filter.' : 'Be the first to publish something!'}
+              ? t('explore.emptyFollowingHint')
+              : activeFilters.length > 0 ? t('explore.emptyFiltered') : t('explore.emptyHint')}
           </p>
         </div>
       )}
@@ -205,7 +208,7 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
 
       {loading && <div className="explore-loading"><div className="loading-spinner" /></div>}
       {!loading && hasMore && (
-        <button className="explore-more" onClick={() => load(artworks.length)}>Load more</button>
+        <button className="explore-more" onClick={() => load(artworks.length)}>{t('explore.loadMore')}</button>
       )}
     </div>
   );

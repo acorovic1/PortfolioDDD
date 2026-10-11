@@ -3,8 +3,8 @@ import { responsiveImage } from '@/frontend/utils/images';
 import '@/frontend/css/LikedPostsPage.css';
 import type { RemoteArtwork } from '@/types/PortfolioPiece';
 import { HeartIcon, ImageIcon } from '@/frontend/svg/Icons';
-import { API_BASE_URL } from '@/frontend/config/api';
-import { assetUrl } from '@/frontend/utils/api';
+import { apiFetch, assetUrl } from '@/frontend/utils/api';
+import { useAuth } from '@/frontend/hooks/useAuth';
 
 type LikedPostsPageProps = {
     likedArtworkIds: Record<string, boolean>;
@@ -12,6 +12,7 @@ type LikedPostsPageProps = {
 };
 
 export default function LikedPostsPage({ likedArtworkIds, onSelectArtwork }: LikedPostsPageProps) {
+    const { token } = useAuth();
     const [likedArtworks, setLikedArtworks] = useState<RemoteArtwork[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -29,9 +30,8 @@ export default function LikedPostsPage({ likedArtworkIds, onSelectArtwork }: Lik
         let cancelled = false;
         setIsLoading(true);
 
-        fetch(`${API_BASE_URL}/api/portfolio/artworks/batch?ids=${likedIdsKey}`)
-            .then(res => (res.ok ? res.json() : []))
-            .then((data: RemoteArtwork[]) => {
+        apiFetch<RemoteArtwork[]>(`/api/portfolio/artworks/batch?ids=${likedIdsKey}`, { token })
+            .then(data => {
                 if (!cancelled) setLikedArtworks(data);
             })
             .catch(err => console.error('Failed to load liked artworks:', err))
@@ -42,7 +42,7 @@ export default function LikedPostsPage({ likedArtworkIds, onSelectArtwork }: Lik
         return () => {
             cancelled = true;
         };
-    }, [likedIdsKey]);
+    }, [likedIdsKey, token]);
 
     return (
         <div className="liked-posts-page">

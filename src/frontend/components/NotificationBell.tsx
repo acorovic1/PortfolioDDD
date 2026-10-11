@@ -5,6 +5,7 @@ import { useAuth } from '@/frontend/hooks/useAuth';
 import { API_BASE_URL } from '@/frontend/config/api';
 import { useNavigate } from 'react-router-dom';
 import { useRealtimeEvent } from '@/frontend/realtime/realtime';
+import { useI18n } from '@/frontend/hooks/useI18n';
 
 type Notification = {
   id: string;
@@ -15,17 +16,6 @@ type Notification = {
   isRead: boolean;
   createdAt: string;
 };
-
-function timeAgo(iso: string): string {
-  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 60) return 'Just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? '' : 's'} ago`;
-}
 
 // Where clicking a notification takes you.
 function notificationTarget(n: Notification, ownUsername: string | undefined): string | null {
@@ -49,6 +39,7 @@ export default function NotificationBell() {
   const { token, user } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const { t, timeAgo } = useI18n();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -111,7 +102,7 @@ export default function NotificationBell() {
       <button
         className="notification-bell"
         onClick={toggleOpen}
-        title="Notifications"
+        title={t('notifications.title')}
       >
         <BellIcon />
         {unreadCount > 0 && <span className="notification-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
@@ -120,14 +111,14 @@ export default function NotificationBell() {
       {isOpen && (
         <div className="notification-dropdown">
           <div className="notification-header">
-            <h4>Notifications</h4>
-            <button className="mark-read" onClick={markAllRead}>Mark all read</button>
+            <h4>{t('notifications.title')}</h4>
+            <button className="mark-read" onClick={markAllRead}>{t('notifications.markAllRead')}</button>
           </div>
           <div className="notification-list">
             {notifications.length === 0 && (
               <div className="notification-item">
                 <div className="notification-content">
-                  <p className="notification-text">No notifications yet</p>
+                  <p className="notification-text">{t('notifications.empty')}</p>
                 </div>
               </div>
             )}

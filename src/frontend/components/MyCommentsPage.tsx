@@ -3,7 +3,8 @@ import '@/frontend/css/MyCommentsPage.css';
 import type { RemoteArtwork } from '@/types/PortfolioPiece';
 import type { Comment } from '@/types/Comment';
 import { CommentIcon } from '@/frontend/svg/Icons';
-import { API_BASE_URL } from '@/frontend/config/api';
+import { apiFetch } from '@/frontend/utils/api';
+import { useAuth } from '@/frontend/hooks/useAuth';
 
 type MyCommentsPageProps = {
     commentsByArtwork: Record<string, Comment[]>;
@@ -12,6 +13,7 @@ type MyCommentsPageProps = {
 };
 
 export default function MyCommentsPage({ commentsByArtwork, currentUserName, onSelectArtwork }: MyCommentsPageProps) {
+    const { token } = useAuth();
     const [artworkById, setArtworkById] = useState<Map<string, RemoteArtwork>>(new Map());
 
     const myComments = Object.entries(commentsByArtwork)
@@ -35,9 +37,8 @@ export default function MyCommentsPage({ commentsByArtwork, currentUserName, onS
 
         let cancelled = false;
 
-        fetch(`${API_BASE_URL}/api/portfolio/artworks/batch?ids=${artworkIdsKey}`)
-            .then(res => (res.ok ? res.json() : []))
-            .then((data: RemoteArtwork[]) => {
+        apiFetch<RemoteArtwork[]>(`/api/portfolio/artworks/batch?ids=${artworkIdsKey}`, { token })
+            .then(data => {
                 if (!cancelled) setArtworkById(new Map(data.map(a => [a.id, a])));
             })
             .catch(err => console.error('Failed to load commented artworks:', err));
@@ -45,7 +46,7 @@ export default function MyCommentsPage({ commentsByArtwork, currentUserName, onS
         return () => {
             cancelled = true;
         };
-    }, [artworkIdsKey]);
+    }, [artworkIdsKey, token]);
 
     return (
         <div className="my-comments-page">

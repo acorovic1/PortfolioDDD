@@ -1,4 +1,5 @@
 import { EyeIcon, PencilIcon } from '@/frontend/svg/Icons';
+import { useI18n } from '@/frontend/hooks/useI18n';
 
 type ViewModeToggleProps = {
   mode: 'view' | 'edit';
@@ -7,6 +8,7 @@ type ViewModeToggleProps = {
 
 export default function ViewModeToggle({ mode, onToggle }: ViewModeToggleProps) {
   const isEdit = mode === 'edit';
+  const { t } = useI18n();
 
   return (
     <button
@@ -14,14 +16,14 @@ export default function ViewModeToggle({ mode, onToggle }: ViewModeToggleProps) 
       onClick={onToggle}
       role="switch"
       aria-checked={isEdit}
-      title={isEdit ? 'Switch to View Mode' : 'Switch to Edit Mode'}
+      title={isEdit ? t('viewMode.toView') : t('viewMode.toEdit')}
     >
       <span className="view-mode-toggle-track">
         <span className="view-mode-toggle-thumb">
           {isEdit ? <PencilIcon width={11} height={11} /> : <EyeIcon width={11} height={11} />}
         </span>
       </span>
-      <span>{isEdit ? 'Edit' : 'View'}</span>
+      <span>{isEdit ? t('viewMode.edit') : t('viewMode.view')}</span>
     </button>
   );
 }

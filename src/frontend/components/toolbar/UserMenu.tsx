@@ -17,6 +17,7 @@ import {
   ChartIcon,
 } from '@/frontend/svg/Icons';
 import { useNavigate } from 'react-router-dom';
+import { useI18n } from '@/frontend/hooks/useI18n';
 
 type UserMenuProps = {
   onProfileClick?: () => void;
@@ -30,6 +31,7 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   const goTo = (path: string) => {
@@ -55,7 +57,7 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
   }, [isOpen]);
 
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to sign out?')) {
+    if (window.confirm(t('menu.logoutConfirm'))) {
       logout();
       setIsOpen(false);
     }
@@ -95,7 +97,7 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
       <button
         className="user-menu-button"
         onClick={() => setIsOpen(!isOpen)}
-        title="User menu"
+        title={t('menu.title')}
       >
         <div className="user-avatar-small">
           {avatarLetter}
@@ -117,43 +119,43 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
           <div className="user-dropdown-divider"></div>
           <button className="user-dropdown-item" onClick={handleProfileClick}>
             <PersonIcon />
-            <span>Profile</span>
+            <span>{t('menu.profile')}</span>
           </button>
           <button className="user-dropdown-item" onClick={handleLikedPostsClick}>
             <HeartIcon />
-            <span>Liked Posts</span>
+            <span>{t('menu.liked')}</span>
           </button>
           <button className="user-dropdown-item" onClick={handleMyCommentsClick}>
             <CommentIcon />
-            <span>My Comments</span>
+            <span>{t('menu.comments')}</span>
           </button>
           <button className="user-dropdown-item" onClick={() => goTo('/analytics')}>
             <ChartIcon />
-            <span>Analytics</span>
+            <span>{t('menu.analytics')}</span>
           </button>
           <button className="user-dropdown-item" onClick={() => goTo('/messages')}>
             <MessageIcon />
-            <span>Messages</span>
+            <span>{t('menu.messages')}</span>
           </button>
           <button className="user-dropdown-item" onClick={handleSavedClick}>
             <BookmarkIcon />
-            <span>Saved</span>
+            <span>{t('menu.saved')}</span>
           </button>
           <button className="user-dropdown-item" onClick={handleSettingsClick}>
             <SettingsIcon />
-            <span>Settings</span>
+            <span>{t('menu.settings')}</span>
           </button>
           {/* The toolbar nav is hidden on phones - keep it reachable here. */}
           <div className="user-dropdown-mobile-nav">
             <div className="user-dropdown-divider"></div>
-            <button className="user-dropdown-item" onClick={() => goTo('/')}><CompassIcon /><span>Explore</span></button>
-            <button className="user-dropdown-item" onClick={() => goTo('/jobs')}><BriefcaseIcon /><span>Jobs</span></button>
-            <button className="user-dropdown-item" onClick={() => goTo('/marketplace')}><StoreIcon /><span>Marketplace</span></button>
+            <button className="user-dropdown-item" onClick={() => goTo('/')}><CompassIcon /><span>{t('nav.explore')}</span></button>
+            <button className="user-dropdown-item" onClick={() => goTo('/jobs')}><BriefcaseIcon /><span>{t('nav.jobs')}</span></button>
+            <button className="user-dropdown-item" onClick={() => goTo('/marketplace')}><StoreIcon /><span>{t('nav.marketplace')}</span></button>
           </div>
           {user.role === 'admin' && (
             <button className="user-dropdown-item" onClick={() => goTo('/admin')}>
               <ShieldIcon />
-              <span>Moderation</span>
+              <span>{t('menu.moderation')}</span>
             </button>
           )}
           {/* <button className="user-dropdown-item">
@@ -163,7 +165,7 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
           <div className="user-dropdown-divider"></div>
           <button className="user-dropdown-item danger" onClick={handleLogout}>
             <LogoutIcon />
-            <span>Log out</span>
+            <span>{t('menu.logout')}</span>
           </button>
         </div>
       )}

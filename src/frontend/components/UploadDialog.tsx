@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CloseIcon } from '@/frontend/svg/Icons';
+import { useI18n } from '@/frontend/hooks/useI18n';
 import '@/frontend/css/Community.css';
 
 export type UploadOptions = {
@@ -28,6 +29,7 @@ function toLocalInput(date: Date): string {
 
 // Asked right after a model file is picked: its title and when it goes live.
 export default function UploadDialog({ fileName, onSubmit, onCancel }: UploadDialogProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState(() => titleFromFileName(fileName));
   const [when, setWhen] = useState<UploadOptions['when']>('now');
   // Render stays pure: "now" is when the dialog opened. (A time that has
@@ -40,7 +42,7 @@ export default function UploadDialog({ fileName, onSubmit, onCancel }: UploadDia
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
-      title: title.trim() || 'Untitled',
+      title: title.trim() || t('common.untitled'),
       when,
       publishAt: when === 'schedule' ? new Date(publishAt).toISOString() : undefined,
     });
@@ -48,32 +50,32 @@ export default function UploadDialog({ fileName, onSubmit, onCancel }: UploadDia
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Upload a model">
+      <div className="modal-card" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={t('upload.title')}>
         <header>
-          <h3>Upload a model</h3>
-          <button className="modal-close" onClick={onCancel} aria-label="Close"><CloseIcon /></button>
+          <h3>{t('upload.title')}</h3>
+          <button className="modal-close" onClick={onCancel} aria-label={t('common.close')}><CloseIcon /></button>
         </header>
         <form onSubmit={submit}>
           <div className="modal-body">
             <p className="upload-dialog-file">{fileName}</p>
             <label className="form-field">
-              Title
-              <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} autoFocus placeholder="Untitled" />
+              {t('upload.name')}
+              <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={255} autoFocus placeholder={t('common.untitled')} />
             </label>
 
             <fieldset className="report-reasons">
-              <legend>When should it go live?</legend>
+              <legend>{t('upload.when')}</legend>
               <label className="form-check">
                 <input type="radio" name="when" checked={when === 'now'} onChange={() => setWhen('now')} />
-                As soon as it has processed
+                {t('upload.now')}
               </label>
               <label className="form-check">
                 <input type="radio" name="when" checked={when === 'draft'} onChange={() => setWhen('draft')} />
-                Save as a draft - only you can see it until you publish it
+                {t('upload.draft')}
               </label>
               <label className="form-check">
                 <input type="radio" name="when" checked={when === 'schedule'} onChange={() => setWhen('schedule')} />
-                Schedule it
+                {t('upload.schedule')}
               </label>
               {when === 'schedule' && (
                 <input
@@ -86,12 +88,12 @@ export default function UploadDialog({ fileName, onSubmit, onCancel }: UploadDia
                 />
               )}
             </fieldset>
-            {scheduleInPast && <p className="form-error">Pick a time in the future.</p>}
+            {scheduleInPast && <p className="form-error">{t('upload.pastTime')}</p>}
           </div>
           <div className="modal-footer">
-            <button type="button" className="btn" onClick={onCancel}>Cancel</button>
+            <button type="button" className="btn" onClick={onCancel}>{t('common.cancel')}</button>
             <button type="submit" className="btn primary" disabled={scheduleInPast || (when === 'schedule' && !publishAt)}>
-              Upload
+              {t('upload.submit')}
             </button>
           </div>
         </form>

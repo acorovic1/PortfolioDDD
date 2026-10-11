@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { SearchIcon, CloseIcon } from '@/frontend/svg/Icons';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { API_BASE_URL } from '@/frontend/config/api';
+import { useI18n } from '@/frontend/hooks/useI18n';
 
 type SearchUser = {
   id: string;
@@ -26,6 +27,7 @@ type SearchBarProps = {
 
 export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwork }: SearchBarProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const { t } = useI18n();
   const [userResults, setUserResults] = useState<SearchUser[]>([]);
   const [artworkResults, setArtworkResults] = useState<SearchArtwork[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -100,7 +102,7 @@ export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwo
       <input
         type="text"
         className="search-input"
-        placeholder="Search users or artworks..."
+        placeholder={t('search.placeholder')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setIsFocused(true)}
@@ -110,7 +112,7 @@ export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwo
         <button
           className="clear-search"
           onClick={() => onChange('')}
-          title="Clear search"
+          title={t('search.clear')}
         >
           <CloseIcon />
         </button>
@@ -119,17 +121,17 @@ export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwo
       {showDropdown && (
         <div className="search-dropdown">
           {!token && (
-            <div className="search-empty">Sign in to search</div>
+            <div className="search-empty">{t('search.signIn')}</div>
           )}
           {token && isSearching && !hasResults && (
-            <div className="search-empty">Searching...</div>
+            <div className="search-empty">{t('search.searching')}</div>
           )}
           {token && !isSearching && !hasResults && (
-            <div className="search-empty">No results found</div>
+            <div className="search-empty">{t('search.noResults')}</div>
           )}
 
           {userResults.length > 0 && (
-            <div className="search-section-label">Users</div>
+            <div className="search-section-label">{t('search.users')}</div>
           )}
           {userResults.map((result) => (
             <button
@@ -143,7 +145,7 @@ export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwo
           ))}
 
           {artworkResults.length > 0 && (
-            <div className="search-section-label">Artworks</div>
+            <div className="search-section-label">{t('search.artworks')}</div>
           )}
           {artworkResults.map((artwork) => (
             <button
@@ -153,7 +155,7 @@ export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwo
             >
               <span className="search-result-name">{artwork.title}</span>
               <span className="search-result-username">
-                by @{artwork.username}{artwork.category ? ` · ${artwork.category}` : ''}
+                {t('search.by', { username: artwork.username })}{artwork.category ? ` · ${artwork.category}` : ''}
               </span>
             </button>
           ))}
