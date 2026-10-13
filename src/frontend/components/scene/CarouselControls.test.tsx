@@ -28,6 +28,18 @@ describe('CarouselControls', () => {
     expect(handlers.onInspect).toHaveBeenCalledOnce();
   });
 
+  it('mentions reordering only when it is possible', () => {
+    const { rerender } = render(
+      <CarouselControls onRotateCounterClockwise={vi.fn()} onRotateClockwise={vi.fn()} onCenter={vi.fn()} onInspect={vi.fn()} canInspect />
+    );
+    expect(screen.queryByText(/drag a model sideways/i)).toBeNull();
+
+    rerender(
+      <CarouselControls onRotateCounterClockwise={vi.fn()} onRotateClockwise={vi.fn()} onCenter={vi.fn()} onInspect={vi.fn()} canInspect canReorder />
+    );
+    expect(screen.getByText(/drag a model sideways/i)).toBeInTheDocument();
+  });
+
   it('disables Inspect when there is nothing to inspect', () => {
     const handlers = renderControls(false);
     const inspect = screen.getByRole('button', { name: /inspect/i });

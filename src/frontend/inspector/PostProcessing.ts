@@ -7,6 +7,7 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { VignetteShader } from 'three/examples/jsm/shaders/VignetteShader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import type { SceneDefaults } from '@/frontend/three/studioStage';
 
 export type ToneMappingOption = 'none' | 'aces' | 'agx' | 'neutral';
 
@@ -18,7 +19,7 @@ export type PostSettings = {
   bloom: boolean;
   bloomStrength: number;
   vignette: boolean;
-  // Scene background while inspecting ("#rrggbb"); null = the default black.
+  // Scene background while inspecting ("#rrggbb"); null = the studio backdrop.
   background: string | null;
 };
 
@@ -51,8 +52,8 @@ const TONE_MAPPINGS: Record<ToneMappingOption, THREE.ToneMapping> = {
 
 // Inspector-only rendering pipeline: studio environment lighting, tone mapping
 // and screen-space effects. Built lazily the first time a model is focused and
-// fully reverted (reset()) when leaving focus, so the carousel keeps rendering
-// exactly as before.
+// reverted (reset()) to the scene defaults when leaving focus, so the carousel
+// keeps rendering exactly as before.
 export class PostProcessing {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene: THREE.Scene;
@@ -62,10 +63,13 @@ export class PostProcessing {
   private readonly vignettePass: ShaderPass;
   private environmentTexture: THREE.Texture | null = null;
   private settings: PostSettings = DEFAULT_POST_SETTINGS;
+  // Read live, so a theme change to the backdrop is picked up.
+  private readonly defaults: SceneDefaults;
 
-  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
+  constructor(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, defaults: SceneDefaults) {
     this.renderer = renderer;
     this.scene = scene;
+    this.defaults = defaults;
 
     const size = renderer.getSize(new THREE.Vector2());
     const pixelRatio = renderer.getPixelRatio();
@@ -104,7 +108,7 @@ export class PostProcessing {
 
     this.renderer.toneMapping = TONE_MAPPINGS[settings.toneMapping];
     this.renderer.toneMappingExposure = settings.exposure;
-    this.scene.environment = settings.environment ? this.getEnvironment() : null;
+    this.scene.environment = settings.environment ? (this.defaults.environment ?? this.getEnvironment()) : null;
 
     this.aoPass.enabled = settings.ambientOcclusion;
     // GTAO's radius/thickness are in world units; their defaults suit a model
@@ -119,7 +123,7 @@ export class PostProcessing {
     this.bloomPass.strength = settings.bloomStrength;
 
     this.vignettePass.enabled = settings.vignette;
-    this.scene.background = settings.background ? new THREE.Color(settings.background) : null;
+    this.scene.background = settings.background ? new THREE.Color(settings.background) : this.defaults.background;
   }
 
   // Tone mapping and environment work without the composer; it's only needed
@@ -137,13 +141,13 @@ export class PostProcessing {
     this.composer.setSize(width, height);
   }
 
-  // Back to the plain carousel look.
+  // Back to the carousel look.
   reset(): void {
     this.settings = { ...DEFAULT_POST_SETTINGS, ambientOcclusion: false, bloom: false, vignette: false };
-    this.renderer.toneMapping = THREE.NoToneMapping;
+    this.renderer.toneMapping = this.defaults.toneMapping;
     this.renderer.toneMappingExposure = 1;
-    this.scene.environment = null;
-    this.scene.background = null;
+    this.scene.environment = this.defaults.environment;
+    this.scene.background = this.defaults.background;
   }
 
   dispose(): void {

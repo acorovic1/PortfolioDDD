@@ -131,7 +131,7 @@ if ext != '.blend':
 if not any(obj.type == 'MESH' for obj in bpy.context.scene.objects):
     raise RuntimeError('The file contains no mesh objects')
 
-bpy.ops.export_scene.gltf(filepath=dst, export_format='GLB', export_apply=True)
+bpy.ops.export_scene.gltf(filepath=dst, export_format='GLB', export_apply=True, export_lights=True)
 `;
 
 export function isBlenderAvailable(): boolean {

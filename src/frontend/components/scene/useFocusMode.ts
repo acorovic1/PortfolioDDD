@@ -32,7 +32,7 @@ type FocusModeOptions = {
 // Every action only goes through refs and state setters, so they're safe to
 // call from long-lived event listeners.
 export function useFocusMode({ viewport, artworksRef, addButton, animateCameraTo, token }: FocusModeOptions) {
-  const { sceneRef, cameraRef, rendererRef, controlsRef, postRef } = viewport;
+  const { sceneRef, cameraRef, rendererRef, controlsRef, postRef, stageRef } = viewport;
   const focusRef = useRef<FocusSession | null>(null);
   const postSettingsRef = useRef<PostSettings>(DEFAULT_POST_SETTINGS);
   const [focus, setFocus] = useState<FocusSession | null>(null);
@@ -44,7 +44,8 @@ export function useFocusMode({ viewport, artworksRef, addButton, animateCameraTo
     const scene = sceneRef.current;
     const camera = cameraRef.current;
     const controls = controlsRef.current;
-    if (focusRef.current || !renderer || !scene || !camera || !controls) return;
+    const stage = stageRef.current;
+    if (focusRef.current || !renderer || !scene || !camera || !controls || !stage) return;
 
     artworksRef.current.forEach(p => {
       p.root.visible = p === piece;
@@ -56,7 +57,7 @@ export function useFocusMode({ viewport, artworksRef, addButton, animateCameraTo
     const post = { ...DEFAULT_POST_SETTINGS, ...saved?.post };
     postSettingsRef.current = post;
     setPostSettings(post);
-    if (!postRef.current) postRef.current = new PostProcessing(renderer, scene, camera);
+    if (!postRef.current) postRef.current = new PostProcessing(renderer, scene, camera, stage);
     postRef.current.apply(post, modelSize(piece));
 
     const fitDistance = inspectionDistance(piece, camera);

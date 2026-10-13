@@ -3,20 +3,26 @@ import * as THREE from 'three';
 import UploadDialog from '@/frontend/components/UploadDialog';
 import InspectorPanel from '@/frontend/components/InspectorPanel';
 import { useAuth } from '@/frontend/hooks/useAuth';
+import { useTheme } from '@/frontend/hooks/useTheme';
+import { LightLinker } from '@/frontend/three/lightLinking';
 import { loadModel, createPortfolioItemFromRemote, type PortfolioPiece, type RemoteArtwork } from '@/types/PortfolioPiece';
-import { assetUrl } from '@/frontend/utils/api';
+import { apiFetch, assetUrl } from '@/frontend/utils/api';
 import { uploadModelThumbnail } from '@/frontend/utils/modelThumbnail';
 import { createAddButton, disposeObject, pointerToNdc } from '@/frontend/three/sceneUtils';
+import { modelPivot, updatePieceBounds } from '@/frontend/three/modelPivot';
 import { carouselRadius, frontPieceId, pieceIndexForObject, rotateCarouselTo, snapCarousel, stepCarousel } from '@/frontend/three/carousel';
 import { cameraAnimationTo, stepCameraAnimation, type CameraAnimation, type CameraFraming } from '@/frontend/three/cameraAnimation';
 import { useThreeViewport } from './scene/useThreeViewport';
 import { useCarousel, useFollowRequestedIndex } from './scene/useCarousel';
+import { useModelGizmo } from './scene/useModelGizmo';
+import { useCarouselReorder } from './scene/useCarouselReorder';
 import { useFocusMode } from './scene/useFocusMode';
 import { useFullscreen } from './scene/useFullscreen';
 import { useModelJobs } from './scene/useModelJobs';
 import { useSavedArtworkLoader } from './scene/useSavedArtworkLoader';
 import ModelJobOverlay from './scene/ModelJobOverlay';
 import CarouselControls from './scene/CarouselControls';
+import ModelToolbar from './scene/ModelToolbar';
 import PortfolioStatsPanel from './scene/PortfolioStatsPanel';
 
 // Saves a thumbnail of the piece's model, for models that don't have one yet.
@@ -25,11 +31,26 @@ async function backfillThumbnail(piece: PortfolioPiece, token: string) {
   if (thumbnailUrl && piece.modelInfo) piece.modelInfo.thumbnailUrl = thumbnailUrl;
 }
 
+// Stores the model's rotation with the artwork (null = as uploaded) and
+// re-renders its thumbnail to match.
+async function saveModelRotation(piece: PortfolioPiece, token: string) {
+  const rotation = modelPivot(piece).quaternion.clone().normalize();
+  const modelRotation = rotation.equals(new THREE.Quaternion()) ? null : rotation.toArray();
+  try {
+    await apiFetch(`/api/portfolio/artworks/${piece.id}`, { method: 'PUT', token, body: { modelRotation } });
+  } catch (error) {
+    console.error('Failed to save the model rotation:', error);
+    return;
+  }
+  await backfillThumbnail(piece, token);
+}
+
 function Scene3D({
   artworks,
   containerRef,
   onArtworkIndexChange,
   onArtworkAdd,
+  onArtworksReorder,
   editable = false,
   canManage = false,
   initialIndex = 0,
@@ -39,6 +60,8 @@ function Scene3D({
   containerRef: React.RefObject<HTMLDivElement | null>;
   onArtworkIndexChange?: (index: number) => void;
   onArtworkAdd?: (artwork: PortfolioPiece) => void;
+  // The owner dragged the carousel into a new order (ids, front to back).
+  onArtworksReorder?: (artworkIds: string[]) => void;
   editable?: boolean;
   // The viewer owns these artworks (their own portfolio, in view or edit
   // mode): enables new model versions and thumbnail generation.
@@ -48,7 +71,15 @@ function Scene3D({
 }) {
   const { token } = useAuth();
   const viewport = useThreeViewport(containerRef);
-  const { sceneRef, cameraRef, rendererRef, controlsRef, statsRef, postRef } = viewport;
+  const { sceneRef, cameraRef, rendererRef, controlsRef, statsRef, postRef, stageRef } = viewport;
+  const { theme } = useTheme();
+  // Keeps lights that come with a model on that model only.
+  const [lightLinker] = useState(() => new LightLinker());
+
+  // The backdrop and floor follow the site theme.
+  useEffect(() => {
+    stageRef.current?.setTheme(theme);
+  }, [theme, stageRef]);
 
   const cameraAnimationRef = useRef<CameraAnimation | null>(null);
   const animateCameraTo = (piece: PortfolioPiece, framing?: CameraFraming) => {
@@ -63,6 +94,24 @@ function Scene3D({
   const [addButton] = useState(createAddButton);
   const focusMode = useFocusMode({ viewport, artworksRef, addButton, animateCameraTo, token });
   const { focus, focusRef, enterFocus, exitFocus } = focusMode;
+  const gizmo = useModelGizmo({
+    viewport,
+    target: carousel.frontPiece,
+    allowed: editable && canManage,
+    hidden: !!focus,
+    deps: [frontIndex, artworks],
+    // Saved with the artwork, so every visitor sees the model this way.
+    onRotationChange: canManage && token ? (piece) => { void saveModelRotation(piece, token); } : undefined,
+  });
+  const canReorder = editable && canManage && !!onArtworksReorder;
+  const reorder = useCarouselReorder({
+    viewport,
+    carousel,
+    enabled: canReorder && !focus,
+    isPointerOnGizmo: gizmo.isPointerOnGizmo,
+    animateCameraTo,
+    onReorder: onArtworksReorder,
+  });
   const { isFullscreen, toggleFullscreen } = useFullscreen(containerRef);
   const jobs = useModelJobs(token, canManage);
 
@@ -144,6 +193,8 @@ function Scene3D({
       statsRef.current?.update();
       focusRef.current?.inspector.update(delta);
       stepCarousel(artworksRef.current);
+      stageRef.current?.update(artworksRef.current);
+      lightLinker.sync(artworksRef.current.map(p => p.root));
 
       const camera = cameraRef.current;
       const controls = controlsRef.current;
@@ -157,10 +208,19 @@ function Scene3D({
       }
 
       const post = postRef.current;
-      if (focusRef.current && post?.usesComposer) {
+      const focused = focusRef.current;
+      const scene = sceneRef.current;
+      const renderer = rendererRef.current;
+      // Focus shows one model, so a single pass with the right lights does.
+      if (focused && camera) lightLinker.focusOn(focused.piece.root, camera);
+      if (focused && post?.usesComposer) {
         post.render();
-      } else if (sceneRef.current && camera) {
-        rendererRef.current?.render(sceneRef.current, camera);
+      } else if (scene && camera && renderer) {
+        if (focused) renderer.render(scene, camera);
+        else {
+          lightLinker.render(renderer, scene, camera);
+          gizmo.render(renderer, camera);
+        }
       }
       frameId = requestAnimationFrame(animate);
     };
@@ -200,12 +260,14 @@ function Scene3D({
     const wasFocused = focusRef.current?.piece === piece;
     if (wasFocused) exitFocus();
 
-    piece.root.children.slice().forEach((child) => {
-      piece.root.remove(child);
+    // Swapped inside the pivot, so the new version keeps the model's rotation.
+    const pivot = modelPivot(piece);
+    pivot.children.slice().forEach((child) => {
+      pivot.remove(child);
       disposeObject(child);
     });
-    piece.root.add(model.scene);
-    piece.bounds.copy(model.bounds);
+    pivot.add(model.scene);
+    updatePieceBounds(piece);
     piece.animations.splice(0, piece.animations.length, ...model.animations);
     piece.modelInfo = {
       sourceFormat: processed.sourceFormat,
@@ -265,11 +327,13 @@ function Scene3D({
     if (!renderer) return;
     const canvas = renderer.domElement;
     const raycaster = new THREE.Raycaster();
+    // Models with their own lights live on private layers (lightLinking.ts).
+    raycaster.layers.enableAll();
     const pointer = new THREE.Vector2();
 
     const onDoubleClick = (event: MouseEvent) => {
       const camera = cameraRef.current;
-      if (focusRef.current || !camera) return;
+      if (focusRef.current || !camera || gizmo.isPointerOnGizmo() || reorder.isClickFromDrag()) return;
       raycaster.setFromCamera(pointerToNdc(event, canvas, pointer), camera);
 
       const pieces = artworksRef.current;
@@ -301,7 +365,7 @@ function Scene3D({
     const onClick = (event: MouseEvent) => {
       const renderer = rendererRef.current;
       const camera = cameraRef.current;
-      if (focusRef.current || !renderer || !camera) return;
+      if (focusRef.current || !renderer || !camera || gizmo.isPointerOnGizmo() || reorder.isClickFromDrag()) return;
 
       raycaster.setFromCamera(pointerToNdc(event, renderer.domElement, pointer), camera);
       const buttonBounds = addButton.bounds.clone().applyMatrix4(addButton.root.matrixWorld);
@@ -362,6 +426,7 @@ function Scene3D({
           onCenter={carousel.centerOnFront}
           onInspect={inspectFrontArtwork}
           canInspect={artworks.length > 0}
+          canReorder={canReorder && artworks.length > 1}
         />
       )}
 
@@ -379,6 +444,15 @@ function Scene3D({
         onDismiss={jobs.finish}
         onRemoveFailed={jobs.removeFailed}
       />
+
+      {editable && canManage && !focus && (
+        <ModelToolbar
+          rotating={gizmo.enabled}
+          onToggleRotate={gizmo.toggle}
+          onResetRotation={gizmo.resetRotation}
+          disabled={artworks.length === 0}
+        />
+      )}
 
       {editable && !focus && <PortfolioStatsPanel artworks={artworks} frontIndex={frontIndex} />}
     </>

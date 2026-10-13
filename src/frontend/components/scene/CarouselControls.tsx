@@ -6,11 +6,13 @@ type CarouselControlsProps = {
   onCenter: () => void;
   onInspect: () => void;
   canInspect: boolean;
+  // Edit mode with several models: they can be dragged into a new order.
+  canReorder?: boolean;
 };
 
 // Buttons over the carousel, plus the mouse controls hint.
 export default function CarouselControls({
-  onRotateCounterClockwise, onRotateClockwise, onCenter, onInspect, canInspect,
+  onRotateCounterClockwise, onRotateClockwise, onCenter, onInspect, canInspect, canReorder = false,
 }: CarouselControlsProps) {
   return (
     <>
@@ -32,6 +34,7 @@ export default function CarouselControls({
       </div>
 
       <div className="controls-hint">
+        {canReorder && <div>Drag a model sideways to reorder</div>}
         <div>Drag to rotate view</div>
         <div>Right-click + drag to pan</div>
         <div>Ctrl + Scroll to zoom, or click here first</div>

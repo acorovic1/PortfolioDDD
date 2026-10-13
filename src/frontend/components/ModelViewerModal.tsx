@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CloseIcon } from '@/frontend/svg/Icons';
 import { getGLTFLoader } from '@/frontend/three/gltfLoader';
+import { createStudioStage, type StageSubject, type StudioStage } from '@/frontend/three/studioStage';
+import { useTheme } from '@/frontend/hooks/useTheme';
+import { hasOwnLights } from '@/frontend/three/lightLinking';
 import '@/frontend/css/ModelViewerModal.css';
 
 export default function ModelViewerModal({
@@ -17,6 +20,8 @@ export default function ModelViewerModal({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const stageRef = useRef<StudioStage | null>(null);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const container = containerRef.current;
@@ -34,10 +39,18 @@ export default function ModelViewerModal({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const light = new THREE.DirectionalLight(0xffffff, 1);
+    // Default lights, toned down a little; switched off for a model that
+    // brings its own lights (as in the portfolio scene, see lightLinking.ts).
+    const ambient = new THREE.AmbientLight(0xffffff, 0.45);
+    const light = new THREE.DirectionalLight(0xffffff, 0.75);
     light.position.set(10, 20, 10);
-    scene.add(light);
+    scene.add(ambient, light);
+
+    const stage = createStudioStage(renderer, scene);
+    stage.setTheme(theme);
+    stageRef.current = stage;
+    // The loaded model, once there is one.
+    const subjects: StageSubject[] = [];
 
     const resizeObserver = new ResizeObserver(() => {
       if (!container.clientWidth || !container.clientHeight) return;
@@ -49,6 +62,7 @@ export default function ModelViewerModal({
 
     const animate = () => {
       controls.update();
+      stage.update(subjects);
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
     };
@@ -63,6 +77,12 @@ export default function ModelViewerModal({
         const center = bounds.getCenter(new THREE.Vector3());
         gltf.scene.position.sub(center);
         scene.add(gltf.scene);
+        if (hasOwnLights(gltf.scene)) {
+          ambient.visible = false;
+          light.visible = false;
+        }
+        // Measured before centring, so these are the model's own-space bounds.
+        subjects.push({ root: gltf.scene, bounds: bounds.clone() });
 
         const sphere = bounds.getBoundingSphere(new THREE.Sphere());
         const distance = Math.max(sphere.radius * 2.5, 2);
@@ -86,6 +106,8 @@ export default function ModelViewerModal({
       cancelled = true;
       cancelAnimationFrame(frameId);
       resizeObserver.disconnect();
+      stage.dispose();
+      stageRef.current = null;
       controls.dispose();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
@@ -99,7 +121,14 @@ export default function ModelViewerModal({
         else material?.dispose();
       });
     };
+    // The theme is applied by the effect below; recreating the viewer for it
+    // would reload the model.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelUrl]);
+
+  useEffect(() => {
+    stageRef.current?.setTheme(theme);
+  }, [theme]);
 
   return (
     <div className="model-viewer-overlay" onClick={onClose}>

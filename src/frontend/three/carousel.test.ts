@@ -3,9 +3,12 @@ import * as THREE from 'three';
 import {
   carouselRadius,
   frontPieceId,
+  moveItem,
   pieceIndexForObject,
   rotateCarouselTo,
   shiftCarousel,
+  slotAngle,
+  slotAtAngle,
   slotPosition,
   snapCarousel,
   stepCarousel,
@@ -156,5 +159,27 @@ describe('pieceIndexForObject', () => {
 
   it('returns -1 for objects outside the carousel', () => {
     expect(pieceIndexForObject([cubePiece('a')], new THREE.Mesh())).toBe(-1);
+  });
+});
+
+describe('moveItem', () => {
+  it('moves an item forward or back, shifting the ones in between', () => {
+    expect(moveItem(['a', 'b', 'c', 'd'], 0, 2)).toEqual(['b', 'c', 'a', 'd']);
+    expect(moveItem(['a', 'b', 'c', 'd'], 3, 1)).toEqual(['a', 'd', 'b', 'c']);
+  });
+
+  it('leaves the original list alone', () => {
+    const list = ['a', 'b'];
+    moveItem(list, 0, 1);
+    expect(list).toEqual(['a', 'b']);
+  });
+});
+
+describe('slotAtAngle', () => {
+  it('finds the nearest slot, wrapping around the circle', () => {
+    expect(slotAtAngle(0, 4)).toBe(0);
+    expect(slotAtAngle(slotAngle(1, 4) * 0.6, 4)).toBe(1);
+    expect(slotAtAngle(-slotAngle(1, 4), 4)).toBe(3);
+    expect(slotAtAngle(Math.PI * 2 + 0.1, 4)).toBe(0);
   });
 });

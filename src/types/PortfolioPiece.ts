@@ -3,6 +3,7 @@ import type { ArtworkInfoData } from './ArtworkInfoData'
 import { getGLTFLoader } from '@/frontend/three/gltfLoader';
 import { assetUrl } from '@/frontend/utils/api';
 import type { ViewerSettings } from '@/frontend/inspector/PostProcessing';
+import { modelPivot, updatePieceBounds } from '@/frontend/three/modelPivot';
 
 // crypto.randomUUID only exists on secure (HTTPS/localhost) pages; a site
 // opened over plain HTTP (a LAN address, a custom domain before its
@@ -151,6 +152,8 @@ export type RemoteArtwork = {
   aiGenerated: boolean;
   viewCount: number;
   viewerSettings: ViewerSettings | null;
+  // Unit quaternion [x, y, z, w] the artist turned the model by; null = as uploaded.
+  modelRotation?: [number, number, number, number] | null;
   renders: { id: string; url: string; caption: string }[];
   likeCount: number;
   // Populated by endpoints that can return artworks belonging to anyone
@@ -182,6 +185,10 @@ export async function createPortfolioItemFromRemote(
   }));
   piece.likeCount = remote.likeCount;
   piece.viewerSettings = remote.viewerSettings;
+  if (remote.modelRotation) {
+    modelPivot(piece).quaternion.fromArray(remote.modelRotation).normalize();
+    updatePieceBounds(piece);
+  }
   piece.publishing = {
     visibility: remote.visibility,
     publishedAt: remote.publishedAt,

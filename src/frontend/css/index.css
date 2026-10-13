@@ -237,6 +237,75 @@ body,
   z-index: 10;
 }
 
+.rotateButtons button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Edit-mode model tools: a rounded tool palette, set apart from the
+   square carousel buttons */
+.model-toolbar {
+  position: absolute;
+  top: 5%;
+  right: 5%;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(26, 26, 26, 0.85);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.model-toolbar button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.model-toolbar button:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.model-toolbar button.active,
+.model-toolbar button.active:hover {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.model-toolbar button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.model-toolbar-hint {
+  padding: 0 10px 0 4px;
+  font-size: 12px;
+  color: var(--color-text-faint);
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .model-toolbar-hint {
+    display: none;
+  }
+}
+
 .rotateButtons button {
   padding: 12px 20px;
   background: rgba(0, 0, 0, 0.7);

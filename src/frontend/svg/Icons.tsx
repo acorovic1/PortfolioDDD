@@ -434,6 +434,17 @@ export function OrbitIcon(props: IconProps) {
     );
 }
 
+// A sphere with two rings, like a rotate gizmo.
+export function GizmoIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+            <circle cx="12" cy="12" r="9" />
+            <ellipse cx="12" cy="12" rx="9" ry="3.5" />
+            <ellipse cx="12" cy="12" rx="3.5" ry="9" />
+        </svg>
+    );
+}
+
 export function ResetViewIcon(props: IconProps) {
     return (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>

@@ -4,9 +4,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import type { PostProcessing } from '@/frontend/inspector/PostProcessing';
 import { DEFAULT_CAMERA_FAR, DEFAULT_CAMERA_NEAR } from '@/frontend/three/sceneUtils';
+import { createStudioStage, type StudioStage } from '@/frontend/three/studioStage';
+import { DEFAULT_LIGHTS_LAYER } from '@/frontend/three/lightLinking';
 
 // The WebGL side of the portfolio scene: renderer, camera, orbit controls
-// and lights, created once per mount and kept sized to the container.
+// lights and studio stage (backdrop, floor, shadows), created once per mount
+// and kept sized to the container.
 export type ThreeViewport = {
   sceneRef: RefObject<THREE.Scene | null>;
   cameraRef: RefObject<THREE.PerspectiveCamera | null>;
@@ -15,6 +18,9 @@ export type ThreeViewport = {
   statsRef: RefObject<Stats | null>;
   // Created lazily by focus mode; disposed here, before the renderer.
   postRef: RefObject<PostProcessing | null>;
+  // Backdrop, environment lighting and floor; also the defaults the inspector
+  // returns to.
+  stageRef: RefObject<StudioStage | null>;
 };
 
 export function useThreeViewport(containerRef: RefObject<HTMLDivElement | null>): ThreeViewport {
@@ -24,6 +30,7 @@ export function useThreeViewport(containerRef: RefObject<HTMLDivElement | null>)
   const controlsRef = useRef<OrbitControls>(null);
   const statsRef = useRef<Stats>(null);
   const postRef = useRef<PostProcessing>(null);
+  const stageRef = useRef<StudioStage>(null);
 
   // --- Setup once ---
   useEffect(() => {
@@ -52,14 +59,22 @@ export function useThreeViewport(containerRef: RefObject<HTMLDivElement | null>)
 
     statsRef.current = new Stats();
 
-    const light = new THREE.DirectionalLight(0xffffff, 1);
+    // The default lights, for models that don't bring their own. On their own
+    // layer, so they can be kept off models that do (see lightLinking.ts).
+    const light = new THREE.DirectionalLight(0xffffff, 0.75);
     light.position.set(10, 20, 10);
-    scene.add(light);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const ambient = new THREE.AmbientLight(0xffffff, 0.35);
+    light.layers.set(DEFAULT_LIGHTS_LAYER);
+    ambient.layers.set(DEFAULT_LIGHTS_LAYER);
+    scene.add(light, ambient);
+
+    stageRef.current = createStudioStage(renderer, scene);
 
     return () => {
       postRef.current?.dispose();
       postRef.current = null;
+      stageRef.current?.dispose();
+      stageRef.current = null;
       controls.dispose();
 
       renderer.dispose();
@@ -149,5 +164,5 @@ export function useThreeViewport(containerRef: RefObject<HTMLDivElement | null>)
     };
   }, [containerRef]);
 
-  return { sceneRef, cameraRef, rendererRef, controlsRef, statsRef, postRef };
+  return { sceneRef, cameraRef, rendererRef, controlsRef, statsRef, postRef, stageRef };
 }

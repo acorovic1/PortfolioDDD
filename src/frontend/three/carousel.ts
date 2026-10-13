@@ -15,13 +15,27 @@ export function carouselRadius(pieces: PortfolioPiece[]): number {
     : Math.max(3, largest * (pieces.length + 1) / (2 * Math.PI));
 }
 
-export function slotPosition(slot: number, count: number, radius: number, y = 0): THREE.Vector3 {
-  const angle = (slot / count) * Math.PI * 2;
+export function slotAngle(slot: number, count: number): number {
+  return (slot / count) * Math.PI * 2;
+}
+
+// A point on the circle; angle 0 is front-center, growing to the left.
+export function positionAtAngle(angle: number, radius: number, y = 0): THREE.Vector3 {
   return new THREE.Vector3(-radius * Math.sin(angle), y, radius * Math.cos(angle));
 }
 
+export function slotPosition(slot: number, count: number, radius: number, y = 0): THREE.Vector3 {
+  return positionAtAngle(slotAngle(slot, count), radius, y);
+}
+
+// The slot nearest to an angle around the circle.
+export function slotAtAngle(angle: number, count: number): number {
+  const slot = Math.round(angle / slotAngle(1, count));
+  return ((slot % count) + count) % count;
+}
+
 // Slot of the piece at `index` when the piece at `frontIndex` is in front.
-function slotFor(index: number, frontIndex: number, count: number): number {
+export function slotFor(index: number, frontIndex: number, count: number): number {
   return (index - frontIndex + count) % count;
 }
 
@@ -41,6 +55,15 @@ export function rotateCarouselTo(pieces: PortfolioPiece[], frontIndex: number, r
     piece.root.userData.targetPosition =
       slotPosition(slotFor(i, frontIndex, pieces.length), pieces.length, radius, piece.root.position.y);
   });
+}
+
+// A copy of `list` with the item at `from` moved to `to`, shifting the ones
+// in between.
+export function moveItem<T>(list: T[], from: number, to: number): T[] {
+  const result = [...list];
+  const [item] = result.splice(from, 1);
+  result.splice(to, 0, item);
+  return result;
 }
 
 // Moves every piece to its neighbour's spot: step 1 takes the next piece's,

@@ -310,6 +310,7 @@ function App() {
               containerRef={sceneContainerRef}
               onArtworkIndexChange={own.setSelectedIndex}
               onArtworkAdd={own.addArtwork}
+              onArtworksReorder={own.reorderArtworks}
               editable={editable}
               canManage
               initialIndex={own.selectedIndex}

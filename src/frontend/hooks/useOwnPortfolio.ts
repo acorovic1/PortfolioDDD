@@ -46,6 +46,19 @@ export function useOwnPortfolio(token: string | null) {
     setArtworks(prev => [...prev, artwork]);
   };
 
+  // New carousel order (ids, front to back), from dragging in edit mode.
+  const reorderArtworks = (artworkIds: string[]) => {
+    setArtworks(prev => {
+      const byId = new Map(prev.map(a => [a.id, a]));
+      const ordered = artworkIds.flatMap(id => byId.get(id) ?? []);
+      return [...ordered, ...prev.filter(a => !artworkIds.includes(a.id))];
+    });
+
+    if (!token) return;
+    apiFetch('/api/portfolio/order', { method: 'PUT', token, body: { artworkIds } })
+      .catch(err => console.error('Failed to save the artwork order:', err));
+  };
+
   const addRender = async () => {
     const picked = await pickPortfolioImage();
     if (!picked || !selected || !token) return;
@@ -139,6 +152,7 @@ export function useOwnPortfolio(token: string | null) {
     selectedIndex,
     setSelectedIndex,
     addArtwork,
+    reorderArtworks,
     addRender,
     deleteRender,
     deleteArtwork,

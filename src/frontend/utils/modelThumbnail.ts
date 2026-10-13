@@ -3,6 +3,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { API_BASE_URL } from '@/frontend/config/api';
 import type { PortfolioPiece } from '@/types/PortfolioPiece';
+import { hasOwnLights } from '@/frontend/three/lightLinking';
 
 const SIZE = 512;
 
@@ -19,21 +20,27 @@ export async function renderModelThumbnail(piece: PortfolioPiece): Promise<Blob 
   const room = new RoomEnvironment();
   const environment = pmrem.fromScene(room, 0.04).texture;
   scene.environment = environment;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.6));
-  const key = new THREE.DirectionalLight(0xffffff, 1.2);
-  key.position.set(3, 5, 4);
-  scene.add(key);
 
   // The piece's root is rotated to face the carousel center; its child (the
   // loaded model) is already centered on the origin in model space.
   const model = cloneSkinned(piece.root.children[0] ?? piece.root);
   scene.add(model);
 
+  // A model with its own lights is shown in them alone, as in the scene.
+  if (!hasOwnLights(model)) {
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.6));
+    const key = new THREE.DirectionalLight(0xffffff, 1.2);
+    key.position.set(3, 5, 4);
+    scene.add(key);
+  }
+
   const radius = Math.max(piece.bounds.getSize(new THREE.Vector3()).length() / 2, 0.001);
   const camera = new THREE.PerspectiveCamera(35, 1, radius / 100, radius * 100);
   const distance = radius / Math.sin(THREE.MathUtils.degToRad(camera.fov) / 2);
   camera.position.set(1, 0.6, 1).normalize().multiplyScalar(distance);
   camera.lookAt(0, 0, 0);
+  // The clone keeps the layer the scene gave it (lightLinking.ts).
+  camera.layers.enableAll();
 
   try {
     renderer.render(scene, camera);
