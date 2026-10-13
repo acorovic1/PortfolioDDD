@@ -68,11 +68,6 @@ export const updateEmailSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255),
 });
 
-export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1).max(200),
-  newPassword: z.string().min(6).max(200),
-});
-
 export const createArtworkSchema = z.object({
   title: z.string().trim().min(1).max(255).optional(),
   description: z.string().trim().max(2000).optional(),

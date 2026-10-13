@@ -11,7 +11,7 @@ import { LOCALES, isLocale } from '@/frontend/i18n/i18n-context';
 
 export default function SettingsPage() {
     const {
-        user, token, updateUsername, updateEmail, changePassword, deleteAccount, updateProfile, resendVerification,
+        user, token, updateUsername, updateEmail, sendPasswordResetLink, deleteAccount, updateProfile, resendVerification,
     } = useAuth();
     const { t, locale, setLocale } = useI18n();
     const [verificationSent, setVerificationSent] = useState(false);
@@ -53,11 +53,9 @@ export default function SettingsPage() {
     const [emailSaved, setEmailSaved] = useState(false);
     const [emailError, setEmailError] = useState('');
 
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
+    const [resetLinkSent, setResetLinkSent] = useState(false);
+    const [resetLinkSending, setResetLinkSending] = useState(false);
     const [passwordError, setPasswordError] = useState('');
-    const [passwordSaved, setPasswordSaved] = useState(false);
 
     const handleUsernameSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -106,28 +104,17 @@ export default function SettingsPage() {
         }
     };
 
-    const handlePasswordSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    // The password is changed from a link emailed to the account's address.
+    const handleSendResetLink = async () => {
         setPasswordError('');
-
-        if (newPassword.length < 6) {
-            setPasswordError(t('settings.passwordTooShort'));
-            return;
-        }
-        if (newPassword !== confirmPassword) {
-            setPasswordError(t('settings.passwordsDiffer'));
-            return;
-        }
-
+        setResetLinkSending(true);
         try {
-            await changePassword(currentPassword, newPassword);
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
-            setPasswordSaved(true);
-            setTimeout(() => setPasswordSaved(false), 2000);
+            await sendPasswordResetLink();
+            setResetLinkSent(true);
         } catch (err) {
             setPasswordError(err instanceof Error ? err.message : t('security.error'));
+        } finally {
+            setResetLinkSending(false);
         }
     };
 
@@ -209,44 +196,22 @@ export default function SettingsPage() {
 
                 <section className="settings-section">
                     <h3 className="settings-section-title">{t('settings.password')}</h3>
-                    <form className="settings-form settings-form-column" onSubmit={handlePasswordSubmit}>
-                        <input
-                            type="password"
-                            className="settings-input"
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            placeholder={t('settings.currentPassword')}
-                            autoComplete="current-password"
-                        />
-                        <input
-                            type="password"
-                            className="settings-input"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder={t('settings.newPassword')}
-                            autoComplete="new-password"
-                            minLength={6}
-                        />
-                        <input
-                            type="password"
-                            className="settings-input"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder={t('settings.confirmPassword')}
-                            autoComplete="new-password"
-                        />
+                    <p className="settings-section-description">
+                        {resetLinkSent
+                            ? t('settings.passwordLinkSent', { email: user?.email ?? '' })
+                            : t('settings.passwordViaEmail', { email: user?.email ?? '' })}
+                    </p>
+                    <div className="settings-form-row">
+                        <button
+                            type="button"
+                            className="settings-save-btn"
+                            onClick={handleSendResetLink}
+                            disabled={resetLinkSending}
+                        >
+                            {resetLinkSent ? t('settings.passwordResendLink') : t('settings.passwordSendLink')}
+                        </button>
                         {passwordError && <span className="settings-error-hint">{passwordError}</span>}
-                        <div className="settings-form-row">
-                            <button
-                                type="submit"
-                                className="settings-save-btn"
-                                disabled={!currentPassword || !newPassword || !confirmPassword}
-                            >
-                                {t('settings.updatePassword')}
-                            </button>
-                            {passwordSaved && <span className="settings-saved-hint">{t('common.saved')}</span>}
-                        </div>
-                    </form>
+                    </div>
                 </section>
 
                 <SecuritySection />

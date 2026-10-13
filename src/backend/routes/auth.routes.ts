@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  register, login, loginTwoFactor, logoutEverywhere, me, refresh, forgotPassword, resetPassword, verifyEmail,
+  register, login, loginTwoFactor, logoutEverywhere, me, refresh, forgotPassword, resetPassword, requestPasswordReset, verifyEmail,
   resendVerification,
 } from '../controllers/auth.controller.ts';
 import {
@@ -29,6 +29,7 @@ authRoutes.post('/2fa/recovery-codes', authRateLimiter, authenticateToken, valid
   regenerateRecoveryCodes);
 authRoutes.post('/forgot-password', authRateLimiter, validateBody(forgotPasswordSchema), forgotPassword);
 authRoutes.post('/reset-password', authRateLimiter, validateBody(resetPasswordSchema), resetPassword);
+authRoutes.post('/password-reset-link', authRateLimiter, authenticateToken, requestPasswordReset);
 authRoutes.post('/verify-email', authRateLimiter, validateBody(verifyEmailSchema), verifyEmail);
 authRoutes.post('/resend-verification', authRateLimiter, authenticateToken, resendVerification);
 authRoutes.get('/me', authenticateToken, me);

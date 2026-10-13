@@ -1,4 +1,5 @@
 import { app, scheduleReconnect } from './app.ts';
+import { mailConfigured } from './services/mail.ts';
 
 const port = Number(process.env.PORT) || 3001;
 
@@ -10,5 +11,8 @@ app.listen(port, (error?: Error) => {
     process.exit(1);
   }
   console.log(`Server is running on http://localhost:${port}`);
+  if (!mailConfigured()) {
+    console.warn('[mail] SMTP is not configured (SMTP_URL or SMTP_HOST) - emails are printed here instead of sent.');
+  }
   scheduleReconnect();
 });

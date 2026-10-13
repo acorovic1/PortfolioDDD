@@ -201,23 +201,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await response.json());
   };
 
-  const changePassword = async (currentPassword: string, newPassword: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/users/me/password`, {
+  const sendPasswordResetLink = async () => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/password-reset-link`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({ currentPassword, newPassword }),
+      headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to change password');
+      throw new Error(error.error || 'Failed to send the reset link');
     }
-    // Other sessions were signed out; this one continues with a new token.
-    const data = await response.json();
-    if (data.token) await replaceSessionToken(data.token);
   };
 
   const updateProfile = async (fields: ProfileUpdateFields) => {
@@ -367,7 +360,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       updateUsername,
       updateEmail,
-      changePassword,
+      sendPasswordResetLink,
       updateProfile,
       uploadAvatar,
       uploadCover,

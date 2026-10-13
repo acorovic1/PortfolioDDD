@@ -25,6 +25,14 @@ import { verifyEmailMail, passwordResetMail, passwordChangedMail } from '../serv
 import { createEmailToken, hashEmailToken } from '../utils/token.util.ts';
 
 const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+
+// Emails a fresh password reset link (replacing any earlier one).
+async function sendPasswordResetEmail(user: { id: string; email: string; username: string }): Promise<void> {
+  const { token, hash } = createEmailToken();
+  await setResetToken(user.id, hash, new Date(Date.now() + RESET_TOKEN_TTL_MS));
+  sendMailInBackground(passwordResetMail(user.email, user.username, token));
+}
 
 // Emails a fresh verification link (replacing any earlier one).
 export async function sendVerificationEmail(user: { id: string; email: string; username: string }): Promise<void> {
@@ -153,14 +161,21 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
 
   // Always respond the same way regardless of whether the email exists,
   // so this endpoint can't be used to enumerate registered accounts.
-  if (user) {
-    const { token, hash } = createEmailToken();
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  if (user) await sendPasswordResetEmail(user);
 
-    await setResetToken(user.id, hash, expiresAt);
-    sendMailInBackground(passwordResetMail(user.email, user.username, token));
+  res.json({ success: true });
+}
+
+// Signed-in users change their password through the same emailed link, sent
+// to the account's own address: a session alone (e.g. a borrowed or stolen
+// one) is not enough to take over the account.
+export async function requestPasswordReset(req: Request, res: Response): Promise<void> {
+  const user = await findUserById((req as AuthRequest).user!.id);
+  if (!user) {
+    res.status(404).json({ error: 'User not found' });
+    return;
   }
-
+  await sendPasswordResetEmail(user);
   res.json({ success: true });
 }
 

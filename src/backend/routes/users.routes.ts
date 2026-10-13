@@ -5,7 +5,6 @@ import {
   updateProfile,
   changeUsername,
   changeEmail,
-  changePassword,
   deleteAccount,
   uploadAvatar,
   uploadCover,
@@ -19,7 +18,6 @@ import {
   updateProfileSchema,
   updateUsernameSchema,
   updateEmailSchema,
-  changePasswordSchema,
   deleteAccountSchema,
   customDomainSchema,
 } from '../validation/schemas.ts';
@@ -31,7 +29,6 @@ usersRoutes.get('/search', authenticateToken, search);
 usersRoutes.put('/me', authenticateToken, validateBody(updateProfileSchema), updateProfile);
 usersRoutes.put('/me/username', authenticateToken, validateBody(updateUsernameSchema), changeUsername);
 usersRoutes.put('/me/email', authenticateToken, validateBody(updateEmailSchema), changeEmail);
-usersRoutes.post('/me/password', authenticateToken, validateBody(changePasswordSchema), changePassword);
 usersRoutes.delete('/me', authenticateToken, validateBody(deleteAccountSchema), deleteAccount);
 usersRoutes.get('/me/blocks', authenticateToken, listMyBlocks);
 usersRoutes.get('/me/domain', authenticateToken, getMyDomain);

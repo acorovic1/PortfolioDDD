@@ -11,8 +11,6 @@ import {
   updateUserProfile,
   updateUsername as updateUsernameRepo,
   updateEmail as updateEmailRepo,
-  updatePasswordHash,
-  bumpTokenVersion,
   deleteUser,
   toPublicUser,
 } from '../repositories/users.repository.ts';
@@ -32,9 +30,8 @@ import { parsePagination } from '../utils/pagination.util.ts';
 import { clearNoAiCache } from '../middleware/noai.middleware.ts';
 import { blockState } from '../repositories/moderation.repository.ts';
 import { sendMailInBackground } from '../services/mail.ts';
-import { emailChangedMail, passwordChangedMail } from '../services/mail-templates.ts';
+import { emailChangedMail } from '../services/mail-templates.ts';
 import { sendVerificationEmail } from './auth.controller.ts';
-import { signToken } from '../middleware/auth.middleware.ts';
 
 export async function search(req: Request, res: Response): Promise<void> {
   const { q } = req.query;
@@ -193,30 +190,6 @@ export async function changeEmail(req: Request, res: Response): Promise<void> {
   sendMailInBackground(emailChangedMail(before.email, before.username, email));
   await sendVerificationEmail(user);
   res.json(toPublicUser(user));
-}
-
-export async function changePassword(req: Request, res: Response): Promise<void> {
-  const authReq = req as AuthRequest;
-  const { currentPassword, newPassword } = req.body;
-
-  const user = await findUserById(authReq.user!.id);
-  if (!user) {
-    res.status(404).json({ error: 'User not found' });
-    return;
-  }
-
-  const validPassword = await bcrypt.compare(currentPassword, user.password_hash);
-  if (!validPassword) {
-    res.status(401).json({ error: 'Current password is incorrect' });
-    return;
-  }
-
-  const newHash = await bcrypt.hash(newPassword, 10);
-  await updatePasswordHash(user.id, newHash);
-  // Every other session is signed out; this one carries on with a new token.
-  const tokenVersion = await bumpTokenVersion(user.id);
-  sendMailInBackground(passwordChangedMail(user.email, user.username));
-  res.json({ success: true, token: signToken({ id: user.id, email: user.email, username: user.username, tokenVersion }) });
 }
 
 export async function deleteAccount(req: Request, res: Response): Promise<void> {

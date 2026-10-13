@@ -161,16 +161,20 @@ describe('sessions', () => {
     expect((await request(app).get('/api/auth/me').set(auth(token))).status).toBe(200);
   });
 
-  it('changing the password signs out everywhere else', async () => {
+  it('resetting the password from the emailed link signs out every session', async () => {
     const user = await register();
     const other = (await request(app).post('/api/auth/login').send({ email: user.email, password: user.password })).body.token;
 
-    const res = await request(app).post('/api/users/me/password').set(auth(user.token))
-      .send({ currentPassword: user.password, newPassword: 'another-password' });
+    const before = outbox.length;
+    expect((await request(app).post('/api/auth/password-reset-link').set(auth(user.token))).status).toBe(200);
+    const mail = outbox.slice(before).find(m => m.to === user.email);
+    const token = mail?.text.match(/\/reset-password\?token=([a-f0-9]{64})/)?.[1];
+
+    const res = await request(app).post('/api/auth/reset-password').send({ token, newPassword: 'another-password' });
     expect(res.status).toBe(200);
 
     expect((await request(app).get('/api/auth/me').set(auth(other))).status).toBe(401);
-    expect((await request(app).get('/api/auth/me').set(auth(res.body.token))).status).toBe(200);
+    expect((await request(app).get('/api/auth/me').set(auth(user.token))).status).toBe(401);
   });
 
   it('"sign out everywhere" revokes every token but the new one', async () => {

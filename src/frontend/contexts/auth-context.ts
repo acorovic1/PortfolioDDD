@@ -36,7 +36,8 @@ export interface AuthContextType {
   logout: () => void;
   updateUsername: (username: string) => Promise<void>;
   updateEmail: (email: string) => Promise<void>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  // Emails a password reset link to the account's address.
+  sendPasswordResetLink: () => Promise<void>;
   updateProfile: (fields: ProfileUpdateFields) => Promise<void>;
   uploadAvatar: (file: File) => Promise<void>;
   uploadCover: (file: File) => Promise<void>;

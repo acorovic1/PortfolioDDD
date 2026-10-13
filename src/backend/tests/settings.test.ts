@@ -1,6 +1,7 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app.ts';
+import { outbox } from '../services/mail.ts';
 import { registerTestUser, deleteTestUsers } from './helpers.ts';
 
 const createdUserIds: string[] = [];
@@ -50,30 +51,34 @@ describe('account settings', () => {
     expect(ok.body.email).toBe(newEmail);
   });
 
-  it('changes the password only with the correct current password', async () => {
+  it('changes the password only through a link emailed to the account', async () => {
     const user = await registerTestUser();
     createdUserIds.push(user.id);
 
-    const wrongCurrent = await request(app)
-      .post('/api/users/me/password')
-      .set('Authorization', `Bearer ${user.token}`)
-      .send({ currentPassword: 'not-the-password', newPassword: 'newpassword123' });
-    expect(wrongCurrent.status).toBe(401);
-
-    const ok = await request(app)
+    // There is no way to set a new password with just a session.
+    const direct = await request(app)
       .post('/api/users/me/password')
       .set('Authorization', `Bearer ${user.token}`)
       .send({ currentPassword: user.password, newPassword: 'newpassword123' });
-    expect(ok.status).toBe(200);
+    expect(direct.status).toBe(404);
 
-    const loginOld = await request(app)
-      .post('/api/auth/login')
-      .send({ email: user.email, password: user.password });
+    const before = outbox.length;
+    const sent = await request(app)
+      .post('/api/auth/password-reset-link')
+      .set('Authorization', `Bearer ${user.token}`);
+    expect(sent.status).toBe(200);
+    expect((await request(app).post('/api/auth/password-reset-link')).status).toBe(401);
+
+    const mail = outbox.slice(before).find(m => m.to === user.email);
+    const token = mail?.text.match(/\/reset-password\?token=([a-f0-9]{64})/)?.[1];
+    expect(token).toBeDefined();
+
+    const reset = await request(app).post('/api/auth/reset-password').send({ token, newPassword: 'newpassword123' });
+    expect(reset.status).toBe(200);
+
+    const loginOld = await request(app).post('/api/auth/login').send({ email: user.email, password: user.password });
     expect(loginOld.status).toBe(401);
-
-    const loginNew = await request(app)
-      .post('/api/auth/login')
-      .send({ email: user.email, password: 'newpassword123' });
+    const loginNew = await request(app).post('/api/auth/login').send({ email: user.email, password: 'newpassword123' });
     expect(loginNew.status).toBe(200);
   });
 });
