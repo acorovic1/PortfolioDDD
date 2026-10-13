@@ -106,6 +106,12 @@ export const viewerSettingsSchema = z.object({
   autoRotate: z.boolean(),
 });
 
+// A unit quaternion [x, y, z, w].
+export const modelRotationSchema = z.tuple([unit, unit, unit, unit]).refine(
+  ([x, y, z, w]) => Math.abs(Math.hypot(x, y, z, w) - 1) < 1e-3,
+  'Must be a unit quaternion'
+);
+
 export const updateArtworkSchema = createArtworkSchema.extend({
   tags: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   visibility: z.enum(['public', 'unlisted', 'private']).optional(),
@@ -114,6 +120,12 @@ export const updateArtworkSchema = createArtworkSchema.extend({
   isMature: z.boolean().optional(),
   aiGenerated: z.boolean().optional(),
   viewerSettings: viewerSettingsSchema.nullable().optional(),
+  modelRotation: modelRotationSchema.nullable().optional(),
+});
+
+export const reorderArtworksSchema = z.object({
+  artworkIds: z.array(z.string().min(1).max(64)).min(1).max(1000)
+    .refine(ids => new Set(ids).size === ids.length, 'Artwork ids must be unique'),
 });
 
 export const createCollectionSchema = z.object({

@@ -123,6 +123,8 @@ export interface ArtworkRecord {
   view_count: number;
   followers_notified: boolean;
   viewer_settings: Record<string, unknown> | null;
+  model_rotation: [number, number, number, number] | null;
+  sort_order: number | null;
 }
 
 export type Visibility = 'public' | 'unlisted' | 'private';
@@ -155,6 +157,8 @@ export type ArtworkDTO = {
   viewCount: number;
   // The artist's saved inspector view; null = defaults.
   viewerSettings: Record<string, unknown> | null;
+  // Unit quaternion [x, y, z, w] the model is turned by; null = as uploaded.
+  modelRotation: [number, number, number, number] | null;
   renders: RenderDTO[];
   createdAt: string;
   updatedAt: string;

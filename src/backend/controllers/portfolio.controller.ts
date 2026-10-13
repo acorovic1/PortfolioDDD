@@ -5,6 +5,7 @@ import {
   createArtwork,
   findArtworkById,
   findArtworksByUserId,
+  reorderArtworks,
   findArtworksByIds,
   updateArtwork,
   deleteArtwork,
@@ -228,7 +229,7 @@ export async function updateOwnArtwork(req: Request, res: Response): Promise<voi
     return;
   }
 
-  const { title, description, year, category, tools, tags, visibility, publishedAt, isMature, aiGenerated, viewerSettings } = req.body;
+  const { title, description, year, category, tools, tags, visibility, publishedAt, isMature, aiGenerated, viewerSettings, modelRotation } = req.body;
   await updateArtwork(artworkId, {
     title,
     description,
@@ -241,6 +242,7 @@ export async function updateOwnArtwork(req: Request, res: Response): Promise<voi
     isMature,
     aiGenerated,
     viewerSettings,
+    modelRotation,
   });
 
   // Publishing (now, or by making it public) may have put it live.
@@ -250,6 +252,17 @@ export async function updateOwnArtwork(req: Request, res: Response): Promise<voi
   const renders = await findRendersByArtworkId(artworkId);
   const likeCount = await countLikes(artworkId);
   res.json(toArtworkDTO(updated!, renders, likeCount));
+}
+
+// Saves the order of the user's artworks (dragged around in edit mode).
+export async function reorderOwnArtworks(req: Request, res: Response): Promise<void> {
+  const authReq = req as AuthRequest;
+  const ok = await reorderArtworks(authReq.user!.id, req.body.artworkIds);
+  if (!ok) {
+    res.status(404).json({ error: 'Artwork not found' });
+    return;
+  }
+  res.json({ success: true });
 }
 
 export async function deleteOwnArtwork(req: Request, res: Response): Promise<void> {

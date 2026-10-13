@@ -51,6 +51,7 @@ export function toArtworkDTO(
     aiGenerated: row.ai_generated,
     viewCount: row.view_count,
     viewerSettings: row.viewer_settings,
+    modelRotation: row.model_rotation ?? null,
     renders: renders.map(toRenderDTO),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -71,19 +72,20 @@ export async function findArtworksByUserId(
 
   // No limit means "all of this user's artworks" - used to rebuild someone's
   // own 3D scene, which must never be silently truncated by pagination.
-  // Artworks created in the same instant tie on `created_at` - `id` as a
-  // secondary key keeps the order stable across requests instead of
-  // shuffling (which visibly reshuffles the 3D carousel between page loads).
+  // In the artist's own order (see reorderArtworks). Ties fall back to
+  // newest first, with `id` keeping same-instant uploads stable across
+  // requests instead of reshuffling the 3D carousel between page loads.
+  const order = 'ORDER BY sort_order ASC NULLS LAST, created_at DESC, id DESC';
   if (limit === undefined) {
     const { rows } = await pool.query<ArtworkRecord>(
-      `SELECT * FROM artworks WHERE user_id = $1 ${viewable} ORDER BY created_at DESC, id DESC`,
+      `SELECT * FROM artworks WHERE user_id = $1 ${viewable} ${order}`,
       [userId]
     );
     return rows;
   }
 
   const { rows } = await pool.query<ArtworkRecord>(
-    `SELECT * FROM artworks WHERE user_id = $1 ${viewable} ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`,
+    `SELECT * FROM artworks WHERE user_id = $1 ${viewable} ${order} LIMIT $2 OFFSET $3`,
     [userId, limit, offset ?? 0]
   );
   return rows;
@@ -131,9 +133,11 @@ export async function createArtwork(artwork: {
   publishedAt: Date | null;
 }): Promise<void> {
   await pool.query(
+    // New uploads go to the end of the artist's order.
     `INSERT INTO artworks (id, user_id, title, description, year, category, tools, model_path,
-                           processing_status, pending_source_path, source_format, published_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, '', 'processing', $8, $9, $10)`,
+                           processing_status, pending_source_path, source_format, published_at, sort_order)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, '', 'processing', $8, $9, $10,
+             (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM artworks WHERE user_id = $2))`,
     [
       artwork.id,
       artwork.userId,
@@ -226,6 +230,7 @@ export type ArtworkUpdate = Partial<{
   isMature: boolean;
   aiGenerated: boolean;
   viewerSettings: Record<string, unknown> | null;
+  modelRotation: [number, number, number, number] | null;
 }>;
 
 export async function updateArtwork(id: string, fields: ArtworkUpdate): Promise<void> {
@@ -241,19 +246,41 @@ export async function updateArtwork(id: string, fields: ArtworkUpdate): Promise<
     isMature: 'is_mature',
     aiGenerated: 'ai_generated',
     viewerSettings: 'viewer_settings',
+    modelRotation: 'model_rotation',
   };
 
   const entries = Object.entries(fields).filter(([, v]) => v !== undefined);
   if (entries.length === 0) return;
 
   const setClause = entries.map(([key], i) => `${columnMap[key]} = $${i + 1}`).join(', ');
-  const jsonColumns = new Set(['tools', 'viewerSettings']);
+  const jsonColumns = new Set(['tools', 'viewerSettings', 'modelRotation']);
   const values = entries.map(([key, value]) => (jsonColumns.has(key) && value !== null ? JSON.stringify(value) : value));
 
   await pool.query(
     `UPDATE artworks SET ${setClause}, updated_at = NOW() WHERE id = $${values.length + 1}`,
     [...values, id]
   );
+}
+
+// Puts the given artworks of a user in the given order. Artworks left out
+// (e.g. ones still processing, which the carousel doesn't show) keep their
+// place: the listed ones are rearranged among the positions they hold now.
+// Returns false if any id isn't one of the user's artworks.
+export async function reorderArtworks(userId: string, artworkIds: string[]): Promise<boolean> {
+  const current = (await findArtworksByUserId(userId)).map(a => a.id);
+  const listed = new Set(artworkIds);
+  if (artworkIds.some(id => !current.includes(id))) return false;
+
+  const reordered = [...artworkIds];
+  const order = current.map(id => (listed.has(id) ? reordered.shift()! : id));
+
+  await pool.query(
+    `UPDATE artworks a SET sort_order = o.position
+     FROM unnest($1::text[]) WITH ORDINALITY AS o(id, position)
+     WHERE a.id = o.id AND a.user_id = $2`,
+    [order, userId]
+  );
+  return true;
 }
 
 export async function deleteArtwork(id: string): Promise<void> {

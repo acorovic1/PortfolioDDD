@@ -4,6 +4,7 @@ import {
   listArtworksByIds,
   createArtworkWithModel,
   updateOwnArtwork,
+  reorderOwnArtworks,
   deleteOwnArtwork,
   addRender,
   removeRender,
@@ -15,7 +16,7 @@ import { listComments, addComment, removeComment } from '../controllers/comments
 import { listMyLikes, likeArtwork, unlikeArtwork } from '../controllers/likes.controller.ts';
 import { authenticateToken, optionalAuth, requireVerifiedEmail } from '../middleware/auth.middleware.ts';
 import { validateBody } from '../middleware/validate.middleware.ts';
-import { uploadArtworkSchema, updateArtworkSchema, addCommentSchema } from '../validation/schemas.ts';
+import { uploadArtworkSchema, updateArtworkSchema, addCommentSchema, reorderArtworksSchema } from '../validation/schemas.ts';
 import { uploadModel, uploadImage, uploadThumbnail } from '../utils/upload.util.ts';
 import { statusPollRateLimiter } from '../middleware/rate-limit.middleware.ts';
 
@@ -29,6 +30,7 @@ portfolioRoutes.post('/artworks',
   validateBody(uploadArtworkSchema),
   createArtworkWithModel
 );
+portfolioRoutes.put('/order', authenticateToken, validateBody(reorderArtworksSchema), reorderOwnArtworks);
 portfolioRoutes.put('/artworks/:artworkId', authenticateToken, validateBody(updateArtworkSchema), updateOwnArtwork);
 portfolioRoutes.put('/artworks/:artworkId/model', authenticateToken, uploadModel.single('model'), replaceArtworkModel);
 portfolioRoutes.get('/artworks/:artworkId/status', statusPollRateLimiter, authenticateToken, getArtworkStatus);

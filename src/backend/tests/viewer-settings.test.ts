@@ -49,6 +49,26 @@ describe('saved viewer settings', () => {
     }
   });
 
+  it('saves the model rotation and returns it to everyone', async () => {
+    const rotation = [0, Math.SQRT1_2, 0, Math.SQRT1_2];
+    const save = await request(app).put(`/api/portfolio/artworks/${artworkId}`).set(auth(owner.token)).send({ modelRotation: rotation });
+    expect(save.status).toBe(200);
+    expect(save.body.modelRotation).toEqual(rotation);
+
+    const profile = await request(app).get(`/api/users/${owner.username}/portfolio?all=true`);
+    expect(profile.body.artworks[0].modelRotation).toEqual(rotation);
+
+    const cleared = await request(app).put(`/api/portfolio/artworks/${artworkId}`).set(auth(owner.token)).send({ modelRotation: null });
+    expect(cleared.body.modelRotation).toBeNull();
+  });
+
+  it('rejects a rotation that is not a unit quaternion', async () => {
+    for (const bad of [[0, 0, 0], [0, 0, 0, 0], [0.5, 0.5, 0.5, 0.2], ['0', 0, 0, 1]]) {
+      const res = await request(app).put(`/api/portfolio/artworks/${artworkId}`).set(auth(owner.token)).send({ modelRotation: bad });
+      expect(res.status).toBe(400);
+    }
+  });
+
   it('clears back to defaults with null', async () => {
     const res = await request(app).put(`/api/portfolio/artworks/${artworkId}`).set(auth(owner.token)).send({ viewerSettings: null });
     expect(res.body.viewerSettings).toBeNull();
