@@ -4,7 +4,7 @@ import ProfileHeader from './ProfileHeader';
 import ContactSection from './ContactSection';
 import BioSection from './BioSection';
 import SkillsSection from './SkillsSection';
-import { CoverBanner, AvailabilitySection, LinksSection, ExperienceSection } from './ProfileExtras';
+import { CoverBanner, AvailabilitySection, ExperienceSection } from './ProfileExtras';
 import '@/frontend/css/Sidebar.css';
 
 
@@ -45,7 +45,6 @@ export default function Sidebar({
         onUpdate={update} 
       />
       
-      <LinksSection profile={profile} editable={editable} onUpdate={update} />
 
       <BioSection 
         profile={profile} 

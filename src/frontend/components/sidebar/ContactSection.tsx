@@ -1,5 +1,5 @@
 import type { ContactSectionProps } from '@/types/ProfileData';
-import { MailIcon, GithubIcon, LinkedinIcon } from '@/frontend/svg/Icons';
+import { MailIcon, LinkedinIcon } from '@/frontend/svg/Icons';
 import { safeUrl, validateLink } from '@/frontend/utils/safeUrl';
 import CommitInput from './CommitInput';
 
@@ -7,9 +7,8 @@ import CommitInput from './CommitInput';
 
 export default function ContactSection({ profile, editable, onUpdate }: ContactSectionProps) {
   // Only http(s) links are rendered (a stored "javascript:" link would run on click).
-  const github = safeUrl(profile.github);
   const linkedin = safeUrl(profile.linkedin);
-  if (!editable && !profile.email && !github && !linkedin) return null;
+  if (!editable && !profile.email && !linkedin) return null;
 
   return (
     <div className="contact-section">
@@ -23,15 +22,6 @@ export default function ContactSection({ profile, editable, onUpdate }: ContactS
                 value={profile.email}
                 onChange={(e) => onUpdate('email', e.target.value)}
                 placeholder="email@example.com"
-              />
-            </div>
-            <div className="contact-item">
-              <GithubIcon />
-              <CommitInput
-                value={profile.github ?? ''}
-                onCommit={(value) => onUpdate('github', value.trim())}
-                validate={validateLink}
-                placeholder="github.com/username"
               />
             </div>
             <div className="contact-item">
@@ -50,12 +40,6 @@ export default function ContactSection({ profile, editable, onUpdate }: ContactS
               <a href={`mailto:${profile.email}`} className="contact-link">
                 <MailIcon />
                 <span>Email</span>
-              </a>
-            )}
-            {github && (
-              <a href={github} className="contact-link" target="_blank" rel="noopener noreferrer">
-                <GithubIcon />
-                <span>GitHub</span>
               </a>
             )}
             {linkedin && (

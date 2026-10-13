@@ -412,57 +412,6 @@
   padding-left: 24px;
 }
 
-/* --- Links --- */
-.links-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.links-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.links-list a {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  text-decoration: none;
-  overflow: hidden;
-}
-
-.links-list a span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.links-list a strong {
-  color: var(--color-text);
-  font-weight: 600;
-  margin-right: 4px;
-}
-
-.links-list a:hover span {
-  color: var(--color-text);
-}
-
-.links-edit {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.links-edit input,
 .experience-edit input,
 .experience-edit textarea {
   padding: 7px 9px;
