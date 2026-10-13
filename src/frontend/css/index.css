@@ -364,6 +364,40 @@ body,
   text-align: right;
 }
 
+/* Default scrollbars for every scrolling area (pages, panels, lists), in the
+   theme's colours instead of the browser's white ones. Areas below with
+   their own rules keep them. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox has no ::-webkit-scrollbar; it gets the standard properties
+   instead (only there - in Chrome they would switch off the rules above). */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+}
+
 /* Scrollbar styling for portfolio */
 .portfolio::-webkit-scrollbar {
   width: 8px;

@@ -79,6 +79,25 @@
   padding: 4px 14px 14px;
 }
 
+/* Scrollbar styling, as in the sidebar; the track stays transparent over
+   the translucent panel */
+.inspector-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.inspector-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.inspector-body::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+.inspector-body::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-strong);
+}
+
 .inspector-section {
   padding: 10px 0;
   border-top: 1px solid var(--color-border-subtle);
