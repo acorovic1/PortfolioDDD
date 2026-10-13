@@ -5,6 +5,8 @@ import Sidebar from '@/frontend/components/sidebar/Sidebar';
 import Toolbar from '@/frontend/components/toolbar/Toolbar';
 import ArtworkShowcase from '@/frontend/components/ArtworkShowcase';
 import ExplorePage from '@/frontend/components/explore/ExplorePage';
+import LandingPage from '@/frontend/components/landing/LandingPage';
+import type { HeroTransition } from '@/frontend/components/landing/useHeroTransition';
 import AdminPage from '@/frontend/components/moderation/AdminPage';
 import MessagesPage from '@/frontend/components/messages/MessagesPage';
 import JobsPage from '@/frontend/components/jobs/JobsPage';
@@ -31,11 +33,12 @@ import { useComments } from '@/frontend/hooks/useComments';
 import { useOwnPortfolio } from '@/frontend/hooks/useOwnPortfolio';
 import { usePublicProfile } from '@/frontend/hooks/usePublicProfile';
 
-type Page = 'home' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings' | 'admin' | 'messages'
+type Page = 'home' | 'explore' | 'login' | 'portfolio' | 'liked-posts' | 'my-comments' | 'saved' | 'settings' | 'admin' | 'messages'
   | 'jobs' | 'marketplace' | 'analytics';
 
 const PAGE_PATHS: Record<Page, string> = {
   home: '/',
+  explore: '/explore',
   login: '/login',
   portfolio: '/portfolio',
   'liked-posts': '/liked-posts',
@@ -50,6 +53,7 @@ const PAGE_PATHS: Record<Page, string> = {
 };
 
 const PAGE_TITLES: Partial<Record<Page, string>> = {
+  explore: 'Explore 3D art',
   portfolio: 'Your portfolio',
   jobs: '3D art jobs',
   marketplace: '3D model marketplace',
@@ -71,6 +75,8 @@ function pageForPath(pathname: string): Page {
 function App() {
   const sceneContainerRef = useRef<HTMLDivElement>(null);
   const publicSceneContainerRef = useRef<HTMLDivElement>(null);
+  // The home page's hero transition into the login page (see LandingPage).
+  const landingTransitionRef = useRef<HeroTransition>(null);
 
   const { user, isLoading, token, updateProfile: updateAuthProfile, uploadAvatar, uploadCover } = useAuth();
   const sessionToken = user ? token : null;
@@ -106,6 +112,14 @@ function App() {
       navigate(PAGE_PATHS.portfolio, { replace: true });
     }
   }, [user, page, navigate]);
+
+  // Signing out (from the menu, by deleting the account or when the session
+  // ends) lands on the login page.
+  const wasSignedInRef = useRef(false);
+  useEffect(() => {
+    if (wasSignedInRef.current && !user) navigate(PAGE_PATHS.login);
+    wasSignedInRef.current = !!user;
+  }, [user, navigate]);
 
   // Fetch persisted comments for an artwork the first time it's viewed.
   const ownSelectedId = own.artworks[own.selectedIndex]?.id;
@@ -179,10 +193,15 @@ function App() {
   }
 
   const goToLogin = () => setPage('login');
+  // On the home page, Login grows the hero carousel into the login page.
+  const loginFromToolbar = () => {
+    if (page === 'home' && landingTransitionRef.current) landingTransitionRef.current.enter(false);
+    else goToLogin();
+  };
 
   const toolbarNav = {
     onLogoClick: () => setPage('home'),
-    onLoginClick: goToLogin,
+    onLoginClick: loginFromToolbar,
     onProfileClick: () => setPage('portfolio'),
     onLikedPostsClick: () => setPage('liked-posts'),
     onMyCommentsClick: () => setPage('my-comments'),
@@ -397,10 +416,25 @@ function App() {
     return singleColumnPage(<SettingsPage />);
   }
 
+  if (page === 'explore') {
+    return singleColumnPage(
+      <ExplorePage
+        onOpenArtwork={(username, artworkId, source) => openArtworkFrom(source)(username, artworkId)}
+        onOpenUser={goToUserProfile}
+      />
+    );
+  }
+
   return singleColumnPage(
-    <ExplorePage
-      onOpenArtwork={(username, artworkId, source) => openArtworkFrom(source)(username, artworkId)}
+    <LandingPage
+      onEnterAuth={signup => navigate(`${PAGE_PATHS.login}${signup ? '?signup' : ''}`, { state: { fromLanding: true } })}
+      transitionRef={landingTransitionRef}
+      onExplore={() => setPage('explore')}
+      onGoToPortfolio={() => setPage('portfolio')}
+      onOpenArtwork={openArtworkFrom('explore')}
       onOpenUser={goToUserProfile}
+      onJobs={() => setPage('jobs')}
+      onMarketplace={() => setPage('marketplace')}
     />
   );
 }

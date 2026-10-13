@@ -70,6 +70,9 @@ export async function pageMeta(pathname: string, query: Record<string, unknown>)
   if (PRIVATE_PATHS.some(p => pathname === p || pathname.startsWith(`${p}/`))) {
     return { ...base, noindex: true };
   }
+  if (pathname === '/explore') {
+    return { ...base, title: `Explore 3D art · ${SITE_NAME}`, description: 'Trending and latest 3D models, renders and breakdowns from the community.' };
+  }
   if (pathname === '/jobs') {
     return { ...base, title: `3D art jobs · ${SITE_NAME}`, description: 'Studios and clients hiring 3D artists - full-time, contract and freelance roles.' };
   }
@@ -340,6 +343,7 @@ export async function sitemapXml(req: Request, res: Response): Promise<void> {
     `  <url><loc>${escapeHtml(loc)}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString()}</lastmod>` : ''}</url>`;
   const urls = [
     entry(`${origin}/`),
+    entry(`${origin}/explore`),
     entry(`${origin}/jobs`),
     entry(`${origin}/marketplace`),
     ...profiles.rows.map(p => entry(`${origin}${profilePath(p.username)}`, p.lastmod)),

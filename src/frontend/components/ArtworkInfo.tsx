@@ -28,7 +28,7 @@ export default function ArtworkInfo({
   onReportComment?: (comment: Comment) => void;
 }) {
   const navigate = useNavigate();
-  const explore = (key: 'tag' | 'tool', value: string) => navigate(`/?${key}=${encodeURIComponent(value)}`);
+  const explore = (key: 'tag' | 'tool', value: string) => navigate(`/explore?${key}=${encodeURIComponent(value)}`);
 
   return (
     <div className="artwork-info">

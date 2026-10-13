@@ -9,7 +9,7 @@ import { Logo, PersonIcon, CompassIcon, BriefcaseIcon, StoreIcon } from '@/front
 import { NavLink } from 'react-router-dom';
 
 const NAV_LINKS = [
-    { to: '/', label: 'nav.explore', icon: CompassIcon },
+    { to: '/explore', label: 'nav.explore', icon: CompassIcon },
     { to: '/jobs', label: 'nav.jobs', icon: BriefcaseIcon },
     { to: '/marketplace', label: 'nav.marketplace', icon: StoreIcon },
 ] as const;
@@ -57,7 +57,7 @@ export default function Toolbar({ onViewModeChange, onSearch, onLogoClick, onLog
                 </button>
                 <nav className="toolbar-nav" aria-label={t('nav.main')}>
                     {NAV_LINKS.map(({ to, label, icon: Icon }) => (
-                        <NavLink key={to} to={to} end={to === '/'} className="toolbar-nav-link" title={t(label)}>
+                        <NavLink key={to} to={to} className="toolbar-nav-link" title={t(label)}>
                             <Icon />
                             <span>{t(label)}</span>
                         </NavLink>

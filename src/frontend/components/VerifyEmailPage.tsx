@@ -26,6 +26,8 @@ export default function VerifyEmailPage({ token, onDone }: { token: string; onDo
 
     return (
         <div className="auth-container">
+            <div className="auth-card-wrap">
+            <div className="auth-card-glow" aria-hidden="true" />
             <div className="auth-card">
                 <div className="auth-header">
                     <div className="auth-logo"><Logo /></div>
@@ -46,6 +48,7 @@ export default function VerifyEmailPage({ token, onDone }: { token: string; onDo
                         <button className="toggle-btn" onClick={onDone}>{t('verify.continue')}</button>
                     )}
                 </div>
+            </div>
             </div>
         </div>
     );

@@ -5,19 +5,127 @@
     min-height: 100vh;
     background: linear-gradient(135deg, var(--color-bg-alt) 0%, var(--color-surface) 100%);
     padding: 20px;
+    position: relative;
+
+    /* Neon colours, shared with the 3D scene behind the card. */
+    --auth-violet: #a855f7;
+    --auth-cyan: #22d3ee;
+    --auth-pink: #f472b6;
+}
+
+/* 3D carousel behind the card (LoginBackdrop) */
+.auth-backdrop {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+    touch-action: pan-y;
+}
+
+.auth-backdrop:active {
+    cursor: grabbing;
+}
+
+/* --- Card --- */
+
+/* Lets the neon border's gradient rotate (browsers without @property show it still). */
+@property --auth-angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+}
+
+@keyframes auth-spin {
+    to {
+        --auth-angle: 360deg;
+    }
+}
+
+.auth-card-wrap {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    /* 460px of content plus the card's 40px side padding, as before. */
+    max-width: 540px;
+    animation: slideUp 0.5s ease-out;
+}
+
+/* After the home page's carousel has grown into this backdrop, only the
+   card comes in. */
+.auth-card-wrap.from-landing {
+    animation: authCardIn 0.45s ease-out both;
+}
+
+@keyframes authCardIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: none; }
+}
+
+/* Under the toolbar, the login page fills exactly the area below it (the
+   same box the home page's hero grows into) and scrolls if the card is
+   taller. */
+.app-layout.single-column > .auth-container {
+    min-height: 0;
+    height: 100%;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+/* Soft glow around the card. A sibling rather than part of the card, since
+   inside the translucent card it would tint the whole face. The ring is
+   masked first and blurred by its parent, so only the edges glow. */
+.auth-card-glow {
+    position: absolute;
+    inset: -3px;
+    border-radius: 23px;
+    filter: blur(12px);
+    opacity: 1;
+    pointer-events: none;
+}
+
+/* Two bright light trails (violet into cyan, pink into violet) racing
+   round a dim neon border; each trail ends in a sharp bright head. */
+.auth-card-glow::before,
+.auth-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+        conic-gradient(from var(--auth-angle),
+            transparent 0deg 110deg,
+            var(--auth-violet) 150deg, var(--auth-cyan) 173deg, #fff 178deg, transparent 180deg 290deg,
+            var(--auth-pink) 330deg, var(--auth-violet) 353deg, #fff 358deg, transparent 360deg),
+        linear-gradient(135deg,
+            color-mix(in srgb, var(--auth-violet) 22%, transparent),
+            color-mix(in srgb, var(--auth-cyan) 22%, transparent),
+            color-mix(in srgb, var(--auth-pink) 22%, transparent));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: auth-spin 4s linear infinite;
+    pointer-events: none;
+}
+
+.auth-card-glow::before {
+    padding: 5px;
 }
 
 .auth-card {
-    width: 100%;
-    
-    max-width: 460px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
+    position: relative;
+    background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
     border-radius: 20px;
-    padding: 0px 40px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    animation: slideUp 0.4s ease-out;
-   
+    padding: 30px 40px 26px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* The neon border itself, 2.5px wide. */
+.auth-card::before {
+    padding: 2.5px;
 }
 
 @keyframes slideUp {
@@ -32,106 +140,148 @@
     }
 }
 
+/* Sections rise in one after another. */
+@keyframes auth-rise {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.auth-card > * {
+    animation: auth-rise 0.45s ease-out both;
+}
+
+.auth-card > :nth-child(1) { animation-delay: 0.1s; }
+.auth-card > :nth-child(2) { animation-delay: 0.16s; }
+.auth-card > :nth-child(3) { animation-delay: 0.22s; }
+.auth-card > :nth-child(4) { animation-delay: 0.28s; }
+.auth-card > :nth-child(5) { animation-delay: 0.34s; }
+
+/* --- Header --- */
+
 .auth-header {
     display: flex;
     align-items: center;
     justify-content: center;
-  
 }
-
-
 
 .auth-logo {
     display: flex;
     justify-content: center;
-    margin-bottom: 0px;
-    /* margin-left: -70px; */
+    filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.45));
+    animation: auth-float 4s ease-in-out infinite;
 }
 
+.auth-header .auth-logo:last-child {
+    animation-delay: -2s;
+}
+
+@keyframes auth-float {
+    50% {
+        transform: translateY(-3px);
+    }
+}
+
+@keyframes auth-shimmer {
+    to {
+        background-position: 200% center;
+    }
+}
+
+/* Title in the logo's colours, drifting slowly across the letters. */
 .auth-header h1 {
-    margin-left: 15px;
-    margin-right: 15px;
+    margin: 0 14px;
     text-align: center;
     font-size: 28px;
     font-weight: 700;
+    letter-spacing: 0.01em;
     color: var(--color-text);
-    background: linear-gradient(135deg, var(--color-text) 0%, var(--color-text-secondary) 100%);
+    background: linear-gradient(90deg, #38bdf8, #34d399, #f472b6, #a855f7, #38bdf8);
+    background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    animation: auth-shimmer 8s linear infinite;
 }
 
 .action-text {
-
     text-align: center;
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--color-text);
-    background: linear-gradient(135deg, var(--color-text) 0%, var(--color-text-secondary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-
-    margin-top: -10px;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--color-text-secondary);
+    margin: 10px 0 22px;
 }
 
+.action-text p {
+    margin: 0;
+}
 
+/* --- Form --- */
 
 .auth-form {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 14px;
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .form-group label {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
-    color: var(--color-text);
+    letter-spacing: 0.02em;
+    color: var(--color-text-secondary);
 }
 
-/*  hoop */
 .form-group input {
     width: 100%;
-    padding: 8px 0px;
-    background: var(--color-surface-hover);
-    border: 2px solid var(--color-border);
+    box-sizing: border-box;
+    padding: 11px 14px;
+    background: color-mix(in srgb, var(--color-surface-inset) 70%, transparent);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
     color: var(--color-text);
     font-size: 15px;
-    transition: all 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.form-group input:hover {
+    border-color: var(--color-border-strong);
 }
 
 .form-group input:focus {
-    padding-left: 2%;
     outline: none;
-    border-color: var(--color-accent);
-    background: var(--color-border-subtle);
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    border-color: var(--auth-violet);
+    background: var(--color-surface-inset);
+    box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.18), 0 0 22px rgba(34, 211, 238, 0.14);
 }
 
 .form-group input::placeholder {
-    padding-left: 2%;
-    color: var(--color-border-strong);
+    color: var(--color-text-faint);
 }
 
 .field-hint {
     font-size: 12px;
     color: var(--color-text-faint);
-    /* margin-top: 8px; */
-    margin-left: 2%;
+    margin-left: 2px;
 }
 
 .error-message {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 16px;
+    padding: 12px 14px;
     background: rgba(220, 38, 38, 0.1);
     border: 1px solid var(--color-danger-hover);
     border-radius: 10px;
@@ -143,27 +293,54 @@
     flex-shrink: 0;
 }
 
+/* Violet-to-cyan button; a band of light sweeps across it on hover. */
 .auth-submit-btn {
+    position: relative;
+    overflow: hidden;
     width: 100%;
-    padding: 16px;
-    background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
+    margin-top: 4px;
+    padding: 15px;
+    background: linear-gradient(110deg, #7c3aed 0%, #2563eb 50%, #0891b2 100%);
+    background-size: 150% 100%;
+    background-position: 0% 0%;
     border: none;
     border-radius: 10px;
-    color: var(--color-text);
+    color: #fff;
     font-size: 16px;
     font-weight: 700;
+    letter-spacing: 0.02em;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background-position 0.4s, transform 0.2s, box-shadow 0.3s;
+    box-shadow: 0 8px 24px -10px rgba(124, 58, 237, 0.7);
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 10px;
 }
 
+.auth-submit-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform 0.7s ease;
+    pointer-events: none;
+}
+
 .auth-submit-btn:hover:not(:disabled) {
-    background: linear-gradient(135deg, var(--color-accent-hover) 0%, #1e40af 100%);
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
+    background-position: 100% 0%;
+    transform: translateY(-1px);
+    box-shadow: 0 12px 32px -8px rgba(124, 58, 237, 0.75), 0 0 24px rgba(34, 211, 238, 0.25);
+}
+
+.auth-submit-btn:hover:not(:disabled)::after {
+    transform: translateX(120%);
+}
+
+.auth-submit-btn:focus-visible {
+    outline: 2px solid var(--auth-cyan);
+    outline-offset: 3px;
 }
 
 .auth-submit-btn:active:not(:disabled) {
@@ -180,7 +357,7 @@
     width: 16px;
     height: 16px;
     border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top-color: var(--color-text);
+    border-top-color: #fff;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
 }
@@ -191,80 +368,120 @@
     }
 }
 
+/* Lines either side of the label, so it needs no background to hide a
+   line behind it (the card is translucent). */
 .auth-divider {
-    position: relative;
-    text-align: center;
-    margin: 10px 0 0px 0 ;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 20px 0 12px;
 }
 
-.auth-divider::before {
+.auth-divider::before,
+.auth-divider::after {
     content: '';
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
+    flex: 1;
     height: 1px;
-    background: var(--color-border);
+    background: linear-gradient(90deg, transparent, var(--color-border));
+}
+
+.auth-divider::after {
+    background: linear-gradient(90deg, var(--color-border), transparent);
 }
 
 .auth-divider span {
-    position: relative;
-    display: inline-block;
-    padding: 0 16px;
-    background: var(--color-surface);
     color: var(--color-text-faint);
-    font-size: 13px;
+    font-size: 12px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
 }
 
 .auth-toggle {
     display: flex;
     justify-content: center;
-    margin-top: -10px;
+    align-items: center;
+    gap: 8px;
 }
 
 .auth-toggle p {
-
-    margin-right: 3%;
+    margin: 0;
     font-size: 14px;
     color: var(--color-text-secondary);
 }
 
+/* Links get a neon underline that draws in on hover. */
 .toggle-btn {
-    background: none;
+    background: linear-gradient(90deg, var(--auth-violet), var(--auth-cyan)) no-repeat 0 100% / 0% 1.5px;
     border: none;
     color: var(--color-accent);
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    transition: color 0.2s;
-    padding: 0;
-    
+    transition: color 0.2s, background-size 0.3s;
+    padding: 0 0 2px;
 }
 
 .toggle-btn:hover {
-    color: var(--color-accent-hover);
-    text-decoration: underline;
+    color: #4f86f7;
+    background-size: 100% 1.5px;
+}
+
+.toggle-btn:focus-visible {
+    outline: 2px solid var(--auth-cyan);
+    outline-offset: 3px;
+    border-radius: 2px;
 }
 
 .forgot-password-link {
     align-self: flex-end;
     font-size: 13px;
-    margin-top: -8px;
+    margin-top: -6px;
 }
 
-/* Responsive */
+/* A lone link under the form (no "or" divider/text above it). */
+.auth-toggle-solo {
+    margin: 18px 0 4px;
+}
+
+/* --- Light theme --- */
+
+:root[data-theme="light"] .auth-card {
+    background: color-mix(in srgb, var(--color-surface) 76%, transparent);
+    box-shadow: 0 24px 60px rgba(76, 29, 149, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+:root[data-theme="light"] .auth-card-glow {
+    opacity: 0.4;
+}
+
+/* Deeper shades of the logo colours, readable on a white card. */
+:root[data-theme="light"] .auth-header h1 {
+    background-image: linear-gradient(90deg, #0284c7, #059669, #db2777, #7c3aed, #0284c7);
+}
+
+/* --- Responsive --- */
+
 @media (max-width: 480px) {
     .auth-card {
-        padding: 32px 24px;
+        padding: 26px 22px 22px;
     }
 
     .auth-header h1 {
         font-size: 24px;
     }
 }
-/* A lone link under the form (no "or" divider/text above it). */
-.auth-toggle-solo {
-    margin: 16px 0 24px;
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-card-wrap,
+    .auth-card > *,
+    .auth-logo,
+    .auth-header h1,
+    .auth-card::before,
+    .auth-card-glow::before {
+        animation: none;
+    }
+
+    .auth-submit-btn::after {
+        display: none;
+    }
 }

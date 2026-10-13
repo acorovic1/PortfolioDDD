@@ -1,13 +1,18 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import '@/frontend/css/Auth.css';
 import { Logo, AlertCircleIcon } from '@/frontend/svg/Icons';
 import { useI18n } from '@/frontend/hooks/useI18n';
+import LoginBackdrop from '@/frontend/components/LoginBackdrop';
 
 type Mode = 'login' | 'register' | 'forgot' | 'two-factor';
 
 export default function LoginForm() {
-    const [mode, setMode] = useState<Mode>('login');
+    // Arrived through the home page's hero transition: the scene is already
+    // there, so only the card comes in.
+    const fromLanding = !!(useLocation().state as { fromLanding?: boolean } | null)?.fromLanding;
+    const [mode, setMode] = useState<Mode>(() => (new URLSearchParams(window.location.search).has('signup') ? 'register' : 'login'));
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [username, setUsername] = useState('');
@@ -74,6 +79,9 @@ export default function LoginForm() {
 
     return (
         <div className="auth-container">
+            <LoginBackdrop />
+            <div className={`auth-card-wrap${fromLanding ? ' from-landing' : ''}`}>
+            <div className="auth-card-glow" aria-hidden="true" />
             <div className="auth-card">
                 <div className="auth-header">
                     <div className="auth-logo">
@@ -244,6 +252,7 @@ export default function LoginForm() {
                         </div>
                     </>
                 )}
+            </div>
             </div>
         </div>
     );

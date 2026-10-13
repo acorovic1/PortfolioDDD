@@ -40,6 +40,8 @@ export default function ResetPasswordPage({ token, onDone }: { token: string; on
 
     return (
         <div className="auth-container">
+            <div className="auth-card-wrap">
+            <div className="auth-card-glow" aria-hidden="true" />
             <div className="auth-card">
                 <div className="auth-header">
                     <div className="auth-logo">
@@ -105,6 +107,7 @@ export default function ResetPasswordPage({ token, onDone }: { token: string; on
                         </form>
                     </>
                 )}
+            </div>
             </div>
         </div>
     );
