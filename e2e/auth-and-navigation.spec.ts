@@ -13,7 +13,8 @@ test('registers a new account and lands on the portfolio page', async ({ page })
   const user = randomUser();
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Login' }).click();
+  // The toolbar's Login (the landing page has its own in the site nav too).
+  await page.getByRole('banner').getByRole('button', { name: 'Login' }).click();
   await expect(page).toHaveURL(/\/login$/);
 
   await page.getByRole('button', { name: 'Create one now' }).click();

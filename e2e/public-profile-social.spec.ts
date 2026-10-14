@@ -84,6 +84,9 @@ test.describe('cross-user social features on a public profile', () => {
   // fixed UI (search bar, sidebar fields) - a layout/interaction concern
   // that's separate from what this suite is testing. Desktop only.
   test.skip(({ isMobile }) => isMobile, 'Uploading via canvas click is desktop-only in this suite');
+  // Two accounts, two uploads waiting on server-side processing and several
+  // reloads: far more than the default per-test time.
+  test.slow();
 
   test('like/save/comment on another user\'s artwork, and it shows up correctly everywhere', async ({ browser }) => {
     const ownerContext = await browser.newContext();
@@ -158,8 +161,9 @@ test.describe('cross-user social features on a public profile', () => {
     await expect(likedCard).toBeVisible();
     await expect(likedCard).toContainText('1');
 
+    // Opens the artwork on the owner's profile (/@username).
     await likedCard.click();
-    await expect(viewerPage).toHaveURL(new RegExp(`/u/${owner.username}\\?artwork=${blueId}`));
+    await expect(viewerPage).toHaveURL(new RegExp(`/@${owner.username}\\?artwork=${blueId}`));
     await expect(viewerPage.getByRole('heading', { level: 2, name: 'Beta Artwork' })).toBeVisible({ timeout: 30000 });
 
     // --- Saved page shows the saved artwork with real data ---
@@ -170,7 +174,7 @@ test.describe('cross-user social features on a public profile', () => {
     await expect(savedCard).toContainText('1');
 
     await savedCard.click();
-    await expect(viewerPage).toHaveURL(new RegExp(`/u/${owner.username}\\?artwork=${blueId}`));
+    await expect(viewerPage).toHaveURL(new RegExp(`/@${owner.username}\\?artwork=${blueId}`));
 
     // --- The owner's own Liked/Saved pages remain empty (they liked nothing) ---
     await ownerPage.goto('/liked-posts');

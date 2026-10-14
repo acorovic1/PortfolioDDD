@@ -116,13 +116,10 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run migrate
-      # Playwright starts the backend and the Vite dev server itself
-      # (see playwright.config.ts).
+      # Playwright starts the backend (with rate limits off, since every test
+      # request comes from one address) and the Vite dev server itself - see
+      # playwright.config.ts.
       - run: npm run test:e2e
-        env:
-          # Every browser test comes from one address; the real limits would
-          # trip. (Only here: the backend tests check those limits.)
-          DISABLE_RATE_LIMIT: 'true'
       # Screenshots of failed tests, downloadable from the run's page.
       - uses: actions/upload-artifact@v6
         if: failure()

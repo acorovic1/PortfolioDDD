@@ -12,6 +12,11 @@ export default defineConfig({
   // On GitHub Actions (CI=true) failures also show up as annotations on the
   // run's page, readable without opening the logs.
   reporter: process.env.CI ? [['list'], ['github']] : 'list',
+  // CI machines have no GPU: Chromium renders WebGL in software there, so the
+  // 3D pages (landing hero, login backdrop, portfolio scene) run several
+  // times slower than on a desktop. Same tests, more time.
+  timeout: process.env.CI ? 90_000 : 30_000,
+  expect: { timeout: process.env.CI ? 15_000 : 5_000 },
   use: {
     baseURL: 'http://localhost:5173',
     screenshot: 'only-on-failure',
@@ -25,7 +30,9 @@ export default defineConfig({
       command: 'npx ts-node src/backend/server.ts',
       port: 3001,
       // Every test runs from one IP; production rate limits would trip.
-      env: { DISABLE_RATE_LIMIT: 'true' },
+      // Empty SMTP settings keep the tests from sending real email through
+      // the account in .env (dotenv doesn't override variables already set).
+      env: { DISABLE_RATE_LIMIT: 'true', SMTP_URL: '', SMTP_HOST: '' },
       reuseExistingServer: false,
       timeout: 30_000,
     },
