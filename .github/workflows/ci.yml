@@ -28,16 +28,17 @@ env:
   DB_PASSWORD: postgres
   DB_NAME: portfolioddd_test
   JWT_SECRET: ci-only-jwt-secret-not-used-anywhere-else
-  DISABLE_RATE_LIMIT: 'true'
 
+# Jobs run on a fixed Ubuntu version (not ubuntu-latest), so the pipeline
+# doesn't change under a project that sits untouched for months.
 jobs:
   checks:
     name: Lint and build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -47,7 +48,7 @@ jobs:
 
   backend-tests:
     name: Backend tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     services:
       postgres:
@@ -64,8 +65,8 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -75,11 +76,11 @@ jobs:
 
   frontend-tests:
     name: Frontend tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -90,7 +91,7 @@ jobs:
     name: End-to-end tests
     needs: [checks, backend-tests, frontend-tests]
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
       postgres:
@@ -107,8 +108,8 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -118,8 +119,12 @@ jobs:
       # Playwright starts the backend and the Vite dev server itself
       # (see playwright.config.ts).
       - run: npm run test:e2e
+        env:
+          # Every browser test comes from one address; the real limits would
+          # trip. (Only here: the backend tests check those limits.)
+          DISABLE_RATE_LIMIT: 'true'
       # Screenshots of failed tests, downloadable from the run's page.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: failure()
         with:
           name: playwright-results
