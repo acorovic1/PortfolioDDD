@@ -99,6 +99,10 @@ test.describe('cross-user social features on a public profile', () => {
     const blueId = await uploadArtwork(ownerPage, 'blue-triangle.gltf', 'Beta Artwork');
     expect(redId).not.toBe(blueId);
     expect(ownerErrors).toEqual([]);
+    // Park the owner on a page without a 3D scene until it's needed again:
+    // on CI (no GPU) two pages rendering WebGL in software starve each other,
+    // and the viewer's sign-up below could take longer than its timeout.
+    await ownerPage.goto('/settings');
 
     const viewerContext = await browser.newContext();
     const viewerPage = await viewerContext.newPage();
@@ -148,7 +152,9 @@ test.describe('cross-user social features on a public profile', () => {
     await expect(viewerPage.getByText(viewer.username, { exact: true })).toBeVisible();
 
     // --- The owner sees the like count and the comment too ---
-    await ownerPage.reload();
+    // (Viewer parked off the 3D scene meanwhile, as above.)
+    await viewerPage.goto('/settings');
+    await ownerPage.goto('/portfolio');
     await expect(ownerPage.getByRole('heading', { level: 2 })).toBeVisible({ timeout: 30000 });
     await bringToFront(ownerPage, 'Beta Artwork');
     await expect(ownerPage.getByRole('button', { name: /^Like/ })).toContainText('1');
