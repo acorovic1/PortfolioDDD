@@ -14,5 +14,15 @@ app.listen(port, (error?: Error) => {
   if (!mailConfigured()) {
     console.warn('[mail] SMTP is not configured (SMTP_URL or SMTP_HOST) - emails are printed here instead of sent.');
   }
+  // A public (https) deployment should have the anti-spam and message
+  // encryption settings on; they're optional for local development.
+  if (process.env.PUBLIC_URL?.startsWith('https://')) {
+    if (process.env.REQUIRE_EMAIL_VERIFICATION !== 'true') {
+      console.warn('[security] REQUIRE_EMAIL_VERIFICATION is not "true" - unconfirmed accounts can send messages and comments.');
+    }
+    if (!process.env.MESSAGE_ENCRYPTION_KEY) {
+      console.warn('[security] MESSAGE_ENCRYPTION_KEY is not set - messages are encrypted with JWT_SECRET, so rotating it would make them unreadable.');
+    }
+  }
   scheduleReconnect();
 });

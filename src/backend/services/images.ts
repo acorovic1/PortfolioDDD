@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import crypto from 'node:crypto';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { isStoredImageUrl, readStoredFile, IMMUTABLE_CACHE_CONTROL } from '../storage/storage.ts';
@@ -17,8 +18,20 @@ export const IMAGE_WIDTHS = [96, 160, 320, 480, 640, 960, 1280, 1920] as const;
 const CACHE_DIR = path.join('uploads', 'cache', 'img');
 const inFlight = new Map<string, Promise<Buffer>>();
 
+function variantName(src: string, width: number): string {
+  return `${crypto.createHash('sha256').update(src).digest('hex').slice(0, 32)}-${width}.webp`;
+}
+
+// Whether the variant a /img request asks for is ready to serve (cached, or
+// being made right now) - serving it costs next to nothing.
+export function isVariantReady(req: Request): boolean {
+  const src = typeof req.query.src === 'string' ? req.query.src : '';
+  const name = variantName(src, Number(req.query.w));
+  return inFlight.has(name) || existsSync(path.join(CACHE_DIR, name));
+}
+
 async function resized(src: string, width: number): Promise<Buffer> {
-  const name = `${crypto.createHash('sha256').update(src).digest('hex').slice(0, 32)}-${width}.webp`;
+  const name = variantName(src, width);
   const cached = path.join(CACHE_DIR, name);
   try {
     return await readFile(cached);

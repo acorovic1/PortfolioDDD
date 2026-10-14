@@ -39,16 +39,37 @@ describe('account settings', () => {
     const conflict = await request(app)
       .put('/api/users/me/email')
       .set('Authorization', `Bearer ${userA.token}`)
-      .send({ email: userB.email });
+      .send({ email: userB.email, password: userA.password });
     expect(conflict.status).toBe(400);
 
     const newEmail = `changed_${crypto.randomUUID().slice(0, 8)}@vitest.local`;
     const ok = await request(app)
       .put('/api/users/me/email')
       .set('Authorization', `Bearer ${userA.token}`)
-      .send({ email: newEmail });
+      .send({ email: newEmail, password: userA.password });
     expect(ok.status).toBe(200);
     expect(ok.body.email).toBe(newEmail);
+  });
+
+  it('needs the password to change the email, so a session alone cannot take the account', async () => {
+    const user = await registerTestUser();
+    createdUserIds.push(user.id);
+    const newEmail = `taken_${crypto.randomUUID().slice(0, 8)}@vitest.local`;
+
+    const missing = await request(app)
+      .put('/api/users/me/email')
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ email: newEmail });
+    expect(missing.status).toBe(400);
+
+    const wrong = await request(app)
+      .put('/api/users/me/email')
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ email: newEmail, password: 'not-the-password' });
+    expect(wrong.status).toBe(401);
+
+    const me = await request(app).get('/api/auth/me').set('Authorization', `Bearer ${user.token}`);
+    expect(me.body.email).toBe(user.email);
   });
 
   it('changes the password only through a link emailed to the account', async () => {

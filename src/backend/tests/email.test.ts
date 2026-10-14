@@ -75,7 +75,7 @@ describe('email verification', () => {
     await verify(user.email);
 
     const newEmail = `new_${user.username}@vitest.local`;
-    const res = await request(app).put('/api/users/me/email').set(auth(user.token)).send({ email: newEmail });
+    const res = await request(app).put('/api/users/me/email').set(auth(user.token)).send({ email: newEmail, password: user.password });
     expect(res.status).toBe(200);
     expect(res.body.emailVerified).toBe(false);
 

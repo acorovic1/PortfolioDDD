@@ -40,7 +40,8 @@ function isSessionToken(decoded: string | jwt.JwtPayload | undefined): decoded i
 
 // For public endpoints that personalize when the caller is signed in (feeds,
 // profiles, view counting): attaches req.user for a valid token, otherwise
-// carries on anonymously instead of rejecting.
+// carries on anonymously instead of rejecting. Like authenticateToken, a
+// revoked session or a suspended account counts as signed out.
 export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
   const token = req.headers['authorization']?.split(' ')[1];
   if (!token) {
@@ -49,10 +50,25 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
   }
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (!err && isSessionToken(decoded)) {
-      (req as AuthRequest).user = { id: decoded.id, email: decoded.email, username: decoded.username };
+    if (err || !isSessionToken(decoded)) {
+      next();
+      return;
     }
-    next();
+    const tokenVersion = typeof decoded.tv === 'number' ? decoded.tv : 0;
+    pool.query<{ role: string; suspended_at: string | null; token_version: number }>(
+      'SELECT role, suspended_at, token_version FROM users WHERE id = $1',
+      [decoded.id]
+    )
+      .then(({ rows }) => {
+        const account = rows[0];
+        if (account && account.token_version === tokenVersion && !account.suspended_at) {
+          (req as AuthRequest).user = {
+            id: decoded.id, email: decoded.email, username: decoded.username, role: account.role,
+          };
+        }
+        next();
+      })
+      .catch(next);
   });
 }
 

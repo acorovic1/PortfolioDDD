@@ -70,18 +70,18 @@ export async function register(req: Request, res: Response): Promise<void> {
 
 
 
+// Compared against when no account has the email, so an unknown address
+// takes as long to reject as a wrong password (the timing would otherwise
+// tell which emails are registered).
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('no-such-account', 10);
+
 export async function login(req: Request, res: Response): Promise<void> {
   try {
     const { email, password } = req.body;
 
     const user = await findUserByEmail(email);
-    if (!user) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
-    }
-
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    if (!validPassword) {
+    const validPassword = await bcrypt.compare(password, user?.password_hash ?? DUMMY_PASSWORD_HASH);
+    if (!user || !validPassword) {
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }

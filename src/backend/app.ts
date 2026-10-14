@@ -20,31 +20,40 @@ import { jobsRoutes, marketplaceRoutes } from './routes/community.routes.ts';
 import { analyticsRoutes } from './routes/analytics.routes.ts';
 import { eventsRoutes } from './routes/events.routes.ts';
 import { noAiHeaders } from './middleware/noai.middleware.ts';
+import { contentSecurityPolicy } from './middleware/csp.middleware.ts';
 import { resizeImage } from './services/images.ts';
 import { serveAppHtml, artworkOgImage, userOgImage, robotsTxt, sitemapXml } from './seo/seo.ts';
-import { generalApiRateLimiter } from './middleware/rate-limit.middleware.ts';
+import { generalApiRateLimiter, imageResizeRateLimiter } from './middleware/rate-limit.middleware.ts';
 import { resumeInterruptedModelJobs } from './pipeline/processor.ts';
 import { startPublisher } from './services/publisher.ts';
+import { backfillStorageLedger } from './services/storage-quota.ts';
 import { startNotificationMailer } from './services/notification-mailer.ts';
 import { domainOwner } from './services/custom-domains.ts';
 import { checkDomain } from './controllers/domains.controller.ts';
+import { MulterError } from 'multer';
+import { UploadRejectedError } from './utils/upload.util.ts';
 
 dotenv.config();
 
 export const app = express();
+
+// Behind a reverse proxy (Render, Fly, nginx, a load balancer...) every
+// request arrives from the proxy's address, so all visitors would share one
+// rate-limit budget. TRUST_PROXY is how many proxies sit in front: Express
+// then takes the visitor's address from X-Forwarded-For. Off by default -
+// without a proxy in front, anyone could fake that header.
+const trustedProxies = Number(process.env.TRUST_PROXY) || 0;
+if (trustedProxies > 0) app.set('trust proxy', trustedProxies);
 
 const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);
 
-// CSP is left off: this app's frontend can be served from a different origin
-// than the API in dev (Vite on :5173 vs Express on :3001), and a strict
-// default-src 'self' policy can't be verified here without a real browser.
-// The rest of helmet's defaults (X-Content-Type-Options, X-Frame-Options,
-// HSTS, etc.) are safe, non-visual hardening with no such risk.
+// The CSP matters for the built frontend this server serves from dist/ (see
+// csp.middleware.ts); on JSON responses it's harmless.
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: { useDefaults: false, directives: contentSecurityPolicy() },
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 // The configured origins, plus artists' verified custom domains (their
@@ -76,7 +85,8 @@ app.use(['/uploads/sources', '/uploads/tmp'], (_req: Request, res: Response) => 
 app.use('/uploads', noAiHeaders, express.static('uploads', { immutable: true, maxAge: '365d' }));
 // Responsive image variants (outside /api: a gallery page requests many,
 // and they're cached hard, so they shouldn't count against API limits).
-app.get('/img', resizeImage);
+// Only new variants - an actual resize - count against their own limit.
+app.get('/img', imageResizeRateLimiter, resizeImage);
 
 // Crawlers and link previews.
 app.get('/robots.txt', robotsTxt);
@@ -146,6 +156,7 @@ export function scheduleReconnect(delayMs = 2000): void {
       if (!resumedModelJobs) {
         resumedModelJobs = true;
         resumeInterruptedModelJobs().catch(err => console.error('Failed to resume model processing:', err));
+        backfillStorageLedger().catch(err => console.error('Failed to count existing files towards storage:', err));
         startPublisher();
         startNotificationMailer();
       }
@@ -171,5 +182,30 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     return;
   }
 
-  res.status(400).json({ error: err.message || 'Server error' });
+  // Only errors meant for the client say what went wrong; anything else
+  // (a database or library error) could reveal internals, so it stays in the
+  // log above.
+  if (err instanceof MulterError) {
+    res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: err.message });
+    return;
+  }
+  // Postgres rejecting malformed input (e.g. a non-UUID id in the URL) is
+  // the client's mistake, not a server failure.
+  if ((err as { code?: string }).code === '22P02') {
+    res.status(400).json({ error: 'Invalid request' });
+    return;
+  }
+  if (err instanceof UploadRejectedError) {
+    res.status(400).json({ error: err.message });
+    return;
+  }
+  // body-parser's errors (malformed JSON, a body too large) carry their
+  // status and are marked safe to show.
+  const status = (err as { status?: number }).status;
+  if ((err as { expose?: boolean }).expose && typeof status === 'number' && status >= 400 && status < 500) {
+    res.status(status).json({ error: err.message });
+    return;
+  }
+
+  res.status(500).json({ error: 'Server error' });
 });
