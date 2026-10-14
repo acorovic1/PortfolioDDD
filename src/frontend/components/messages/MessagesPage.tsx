@@ -3,7 +3,8 @@ import { resizedUrl } from '@/frontend/utils/images';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { apiFetch, assetUrl } from '@/frontend/utils/api';
-import { SendIcon, BriefcaseIcon } from '@/frontend/svg/Icons';
+import { SendIcon, BriefcaseIcon, FlagIcon } from '@/frontend/svg/Icons';
+import ReportDialog, { type ReportTarget } from '@/frontend/components/moderation/ReportDialog';
 import '@/frontend/css/Community.css';
 import '@/frontend/css/Messages.css';
 import { useRealtimeEvent } from '@/frontend/realtime/realtime';
@@ -29,8 +30,18 @@ type Message = {
 type Thread = {
   user: { username: string; name: string; avatarUrl: string | null; title: string | null };
   canMessage: boolean;
+  // Why you can't write, when canMessage is false.
+  restriction: 'blocked' | 'not_accepting' | 'awaiting_reply' | null;
   messages: Message[];
 };
+
+function restrictionText(restriction: Thread['restriction'], username: string): string {
+  switch (restriction) {
+    case 'not_accepting': return `@${username} isn't accepting messages from you.`;
+    case 'awaiting_reply': return `You can send more once @${username} replies.`;
+    default: return `You've blocked @${username}. Unblock them from their profile to send messages.`;
+  }
+}
 
 // New messages arrive over the realtime stream; this slow poll is only a
 // safety net if the stream is down.
@@ -67,6 +78,7 @@ export default function MessagesPage({ onOpenUser }: MessagesPageProps) {
   const [threadError, setThreadError] = useState('');
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const reloadThreadRef = useRef<(() => void) | null>(null);
 
@@ -136,6 +148,8 @@ export default function MessagesPage({ onOpenUser }: MessagesPageProps) {
       setThread(prev => prev && { ...prev, messages: [...prev.messages, message] });
       setDraft('');
       loadConversations();
+      // The last allowed message before a reply closes the composer.
+      reloadThreadRef.current?.();
     } catch (err) {
       setThreadError((err as Error).message);
     } finally {
@@ -213,6 +227,16 @@ export default function MessagesPage({ onOpenUser }: MessagesPageProps) {
                       <time>{timeLabel(m.createdAt)}</time>
                     </div>
                   )}
+                  {!m.fromMe && (
+                    <button
+                      className="msg-report"
+                      title="Report message"
+                      aria-label="Report message"
+                      onClick={() => setReportTarget({ type: 'message', id: m.id, label: m.body.slice(0, 120) })}
+                    >
+                      <FlagIcon width={14} height={14} />
+                    </button>
+                  )}
                 </div>
               ))}
               <div ref={endRef} />
@@ -238,11 +262,12 @@ export default function MessagesPage({ onOpenUser }: MessagesPageProps) {
                 </button>
               </form>
             ) : (
-              <p className="msg-blocked">You've blocked @{thread.user.username}. Unblock them from their profile to send messages.</p>
+              <p className="msg-blocked">{restrictionText(thread.restriction, thread.user.username)}</p>
             )}
           </>
         )}
       </section>
+      {reportTarget && <ReportDialog target={reportTarget} onClose={() => setReportTarget(null)} />}
     </div>
   );
 }

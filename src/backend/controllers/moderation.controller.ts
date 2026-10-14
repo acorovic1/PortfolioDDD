@@ -5,6 +5,7 @@ import { findUserByUsername, findUserById } from '../repositories/users.reposito
 import { findArtworkById } from '../repositories/artworks.repository.ts';
 import { findCommentById, deleteComment } from '../repositories/comments.repository.ts';
 import { createNotification } from '../repositories/notifications.repository.ts';
+import { findMessageWithParticipants, deleteMessage } from '../repositories/messages.repository.ts';
 import {
   addBlock,
   removeBlock,
@@ -71,8 +72,19 @@ export async function listMyBlocks(req: Request, res: Response): Promise<void> {
 // --- Reporting ---
 
 // Resolves the reported thing to its author and a short snapshot for the
-// moderation queue (the content may be deleted as a result).
-async function describeTarget(type: ReportTargetType, id: string): Promise<{ userId: string; summary: string } | null> {
+// moderation queue (the content may be deleted as a result). `reporterId`
+// matters for messages: they're private, so only the person they were sent
+// to can report them (and so share them with moderators).
+async function describeTarget(
+  type: ReportTargetType,
+  id: string,
+  reporterId: string
+): Promise<{ userId: string; summary: string } | null> {
+  if (type === 'message') {
+    const message = await findMessageWithParticipants(id);
+    if (!message || !message.participants.includes(reporterId)) return null;
+    return { userId: message.senderId, summary: message.body.slice(0, 300) };
+  }
   if (type === 'artwork') {
     const artwork = await findArtworkById(id);
     return artwork ? { userId: artwork.user_id, summary: artwork.title || 'Untitled artwork' } : null;
@@ -102,7 +114,7 @@ export async function submitReport(req: Request, res: Response): Promise<void> {
     resolvedId = user.id;
   }
 
-  const target = await describeTarget(targetType, resolvedId);
+  const target = await describeTarget(targetType, resolvedId, authReq.user!.id);
   if (!target) {
     res.status(404).json({ error: 'Nothing to report here - it may have been removed' });
     return;
@@ -169,6 +181,8 @@ export async function resolveReport(req: Request, res: Response): Promise<void> 
     if (report.target_type === 'artwork') {
       const artwork = await findArtworkById(report.target_id);
       if (artwork) await deleteArtworkWithFiles(artwork);
+    } else if (report.target_type === 'message') {
+      await deleteMessage(report.target_id);
     } else {
       await deleteComment(report.target_id);
     }

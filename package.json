@@ -9,6 +9,7 @@
     "migrate": "ts-node src/backend/db/migrate.ts",
     "make-admin": "ts-node src/backend/scripts/make-admin.ts",
     "storage:migrate": "ts-node src/backend/scripts/migrate-storage.ts",
+    "messages:encrypt": "ts-node src/backend/scripts/encrypt-messages.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

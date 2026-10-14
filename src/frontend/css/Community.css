@@ -371,6 +371,12 @@
   text-overflow: ellipsis;
 }
 
+.report-note {
+  margin: 8px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
 .report-reasons {
   display: flex;
   flex-direction: column;

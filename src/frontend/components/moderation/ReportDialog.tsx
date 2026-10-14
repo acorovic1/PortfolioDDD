@@ -5,8 +5,8 @@ import { CloseIcon } from '@/frontend/svg/Icons';
 import '@/frontend/css/Community.css';
 
 export type ReportTarget = {
-  type: 'artwork' | 'comment' | 'user';
-  // Artwork/comment id, or username for users.
+  type: 'artwork' | 'comment' | 'user' | 'message';
+  // Artwork/comment/message id, or username for users.
   id: string;
   label: string;
 };
@@ -76,6 +76,9 @@ export default function ReportDialog({ target, onClose }: ReportDialogProps) {
           <form onSubmit={submit}>
             <div className="modal-body">
               {target.type !== 'user' && <p className="report-target">“{target.label}”</p>}
+              {target.type === 'message' && (
+                <p className="report-note">Moderators will see this message so they can review it.</p>
+              )}
               <fieldset className="report-reasons">
                 <legend>What's wrong?</legend>
                 {reasons.map(r => (

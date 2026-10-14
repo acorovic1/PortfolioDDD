@@ -298,3 +298,32 @@
     display: block;
   }
 }
+
+/* Report button beside messages you received; shown on hover/focus (always
+   on touch screens, which have no hover). */
+.msg-report {
+  align-self: center;
+  margin-left: 6px;
+  padding: 4px;
+  border: none;
+  background: none;
+  color: var(--color-text-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.msg-bubble-row:hover .msg-report,
+.msg-report:focus-visible {
+  opacity: 1;
+}
+
+.msg-report:hover {
+  color: var(--color-danger);
+}
+
+@media (hover: none) {
+  .msg-report {
+    opacity: 1;
+  }
+}

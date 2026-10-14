@@ -84,7 +84,7 @@ export const REPORT_REASONS = [
   'stolen_work', 'unlabeled_ai', 'impersonation', 'other',
 ] as const;
 export type ReportReason = (typeof REPORT_REASONS)[number];
-export type ReportTargetType = 'artwork' | 'comment' | 'user';
+export type ReportTargetType = 'artwork' | 'comment' | 'user' | 'message';
 
 export type ReportRecord = {
   id: string;
@@ -153,6 +153,7 @@ export async function listReports(status: 'open' | 'closed', limit: number, offs
             CASE r.target_type
               WHEN 'artwork' THEN EXISTS (SELECT 1 FROM artworks a WHERE a.id = r.target_id)
               WHEN 'comment' THEN EXISTS (SELECT 1 FROM comments c WHERE c.id = r.target_id)
+              WHEN 'message' THEN EXISTS (SELECT 1 FROM messages m WHERE m.id = r.target_id)
               ELSE EXISTS (SELECT 1 FROM users u WHERE u.id = r.target_id)
             END AS "targetExists",
             r.reason, r.details, ru.username AS "reporterUsername",
