@@ -30,6 +30,7 @@
   font-size: 15px;
 }
 
+/* Search boxes on the Jobs and Marketplace pages. */
 .explore-search {
   display: flex;
   align-items: center;

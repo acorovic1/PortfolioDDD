@@ -5,6 +5,7 @@ import { registerTestUser, deleteTestUsers } from './helpers.ts';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { waitForModelJobs } from '../pipeline/processor.ts';
+import sharp from 'sharp';
 
 const createdUserIds: string[] = [];
 const fakeGlb = Buffer.from('glTF\x02\x00\x00\x00');
@@ -80,6 +81,42 @@ describe('artwork search', () => {
       category: 'Sculpture',
       username: user.username,
     });
+  });
+
+  it('finds artworks by the software used and by tags, in part', async () => {
+    const user = await registerTestUser();
+    createdUserIds.push(user.id);
+    // Unique words, so other test data can't match.
+    const id = crypto.randomUUID().slice(0, 8);
+    const tool = `Sculptron${id}`;
+    const tag = `wyvern${id}`;
+    const png = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#888' } }).png().toBuffer();
+    const created = await request(app)
+      .post('/api/portfolio/artworks/image')
+      .set('Authorization', `Bearer ${user.token}`)
+      .field('title', 'Untitled study')
+      .field('tools', `Blender, ${tool}`)
+      .attach('image', png, 'study.png');
+    await request(app)
+      .put(`/api/portfolio/artworks/${created.body.id}`)
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ tags: [tag] });
+
+    const search = (q: string) => request(app)
+      .get(`/api/artworks/search?q=${encodeURIComponent(q)}`)
+      .set('Authorization', `Bearer ${user.token}`);
+
+    const byTool = await search(tool.slice(0, -2).toLowerCase());
+    expect(byTool.body.artworks.map((a: { id: string }) => a.id)).toContain(created.body.id);
+    const byTag = await search(`ern${id}`);
+    expect(byTag.body.artworks.map((a: { id: string }) => a.id)).toContain(created.body.id);
+    // LIKE wildcards are searched for literally, not as "anything".
+    const wildcard = await search(`%%${id}_`);
+    expect(wildcard.body.artworks).toEqual([]);
+
+    // Explore's full results match the same way.
+    const feed = await request(app).get(`/api/feed?tab=recent&q=${encodeURIComponent(tool.toLowerCase())}`);
+    expect(feed.body.artworks.map((a: { id: string }) => a.id)).toEqual([created.body.id]);
   });
 
   it('returns an empty list for a query under 2 characters', async () => {

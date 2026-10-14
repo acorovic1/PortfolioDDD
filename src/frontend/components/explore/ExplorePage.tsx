@@ -4,7 +4,7 @@ import { useAuth } from '@/frontend/hooks/useAuth';
 import { apiFetch, queryString } from '@/frontend/utils/api';
 import type { FeedArtwork, FeedFacets, FeedTab, ViewSource } from '@/types/Feed';
 import ArtworkCard from './ArtworkCard';
-import { CloseIcon, SearchIcon } from '@/frontend/svg/Icons';
+import { CloseIcon } from '@/frontend/svg/Icons';
 import '@/frontend/css/Explore.css';
 import { useI18n } from '@/frontend/hooks/useI18n';
 import type { MessageKey } from '@/frontend/i18n/en';
@@ -23,7 +23,8 @@ type ExplorePageProps = {
 };
 
 // The discovery feed: trending / latest / following, filterable by
-// category, tag, software and text. Filters live in the URL, so tag links
+// category, tag, software and text (searched from the toolbar, which
+// sends its full results here as ?q=). Filters live in the URL, so tag links
 // elsewhere in the app (e.g. on an artwork) can open a filtered explore page.
 export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePageProps) {
   const { user, token } = useAuth();
@@ -44,7 +45,6 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [facets, setFacets] = useState<FeedFacets | null>(null);
-  const [searchDraft, setSearchDraft] = useState(q);
 
   const setFilter = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -103,21 +103,6 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
           <h2>{t('explore.title')}</h2>
           <p>{t('explore.subtitle')}</p>
         </div>
-        <form
-          className="explore-search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setFilter('q', searchDraft.trim());
-          }}
-        >
-          <SearchIcon />
-          <input
-            value={searchDraft}
-            onChange={(e) => setSearchDraft(e.target.value)}
-            placeholder={t('explore.searchPlaceholder')}
-            aria-label={t('explore.searchLabel')}
-          />
-        </form>
       </header>
 
       <nav className="explore-tabs" aria-label={t('explore.feeds')}>
@@ -171,10 +156,7 @@ export default function ExplorePage({ onOpenArtwork, onOpenUser }: ExplorePagePr
       {activeFilters.length > 0 && (
         <div className="explore-active">
           {activeFilters.map(f => (
-            <button key={f.key} className="explore-pill" onClick={() => {
-              if (f.key === 'q') setSearchDraft('');
-              setFilter(f.key, '');
-            }}>
+            <button key={f.key} className="explore-pill" onClick={() => setFilter(f.key, '')}>
               {f.label} <CloseIcon width={12} height={12} />
             </button>
           ))}

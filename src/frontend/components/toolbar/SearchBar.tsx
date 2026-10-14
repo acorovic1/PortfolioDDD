@@ -23,9 +23,13 @@ type SearchBarProps = {
   onChange: (query: string) => void;
   onSelectUser?: (username: string) => void;
   onSelectArtwork?: (username: string, artworkId: string) => void;
+  // Enter, or "See all results": the full results (Explore, as a grid).
+  onSearchAll?: (query: string) => void;
 };
 
-export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwork }: SearchBarProps) {
+// The site's one search box: quick results (people and artworks) while
+// typing, and the full results in Explore on Enter.
+export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwork, onSearchAll }: SearchBarProps) {
   const [isFocused, setIsFocused] = useState(false);
   const { t } = useI18n();
   const [userResults, setUserResults] = useState<SearchUser[]>([]);
@@ -75,8 +79,15 @@ export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwo
     return () => clearTimeout(timeoutId);
   }, [value, token]);
 
-  const showDropdown = isFocused && value.trim().length >= 2;
+  const query = value.trim();
+  const showDropdown = isFocused && query.length >= 2;
   const hasResults = userResults.length > 0 || artworkResults.length > 0;
+
+  const searchAll = () => {
+    if (!query || !onSearchAll) return;
+    onSearchAll(query);
+    setIsFocused(false);
+  };
 
   const handleSelectUser = (username: string) => {
     onSelectUser?.(username);
@@ -97,19 +108,26 @@ export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwo
   };
 
   return (
-    <div className={`search-bar ${isFocused ? 'focused' : ''}`}>
+    <form
+      role="search"
+      className={`search-bar ${isFocused ? 'focused' : ''}`}
+      onSubmit={(e) => { e.preventDefault(); searchAll(); }}
+    >
       <SearchIcon className="search-icon" />
       <input
         type="text"
         className="search-input"
         placeholder={t('search.placeholder')}
+        aria-label={t('search.placeholder')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setTimeout(() => setIsFocused(false), 150)}
+        onKeyDown={(e) => { if (e.key === 'Escape') (e.target as HTMLInputElement).blur(); }}
       />
       {value && (
         <button
+          type="button"
           className="clear-search"
           onClick={() => onChange('')}
           title={t('search.clear')}
@@ -120,9 +138,6 @@ export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwo
 
       {showDropdown && (
         <div className="search-dropdown">
-          {!token && (
-            <div className="search-empty">{t('search.signIn')}</div>
-          )}
           {token && isSearching && !hasResults && (
             <div className="search-empty">{t('search.searching')}</div>
           )}
@@ -159,8 +174,17 @@ export default function SearchBar({ value, onChange, onSelectUser, onSelectArtwo
               </span>
             </button>
           ))}
+
+          {/* Signed out there are no quick results, but Explore works. When
+              the quick search found nothing, neither would Explore. */}
+          {onSearchAll && !(token && !isSearching && !hasResults) && (
+            <button type="button" className="search-result-item search-all" onMouseDown={searchAll}>
+              <span className="search-result-name">{t('search.seeAll', { query })}</span>
+              <span className="search-result-username">{t('search.seeAllHint')}</span>
+            </button>
+          )}
         </div>
       )}
-    </div>
+    </form>
   );
 }

@@ -194,6 +194,16 @@
   color: var(--color-text-secondary);
 }
 
+/* "See all results": opens them in Explore. */
+.search-result-item.search-all {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.search-result-item.search-all .search-result-name {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
 /* View Mode Toggle */
 .view-mode-toggle {
   display: flex;

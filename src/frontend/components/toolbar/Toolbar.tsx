@@ -6,7 +6,7 @@ import NotificationBell from '@/frontend/components/NotificationBell';
 import MessagesButton from './MessagesButton';
 import '@/frontend/css/Toolbar.css';
 import { Logo, PersonIcon, CompassIcon, BriefcaseIcon, StoreIcon } from '@/frontend/svg/Icons';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 const NAV_LINKS = [
     { to: '/explore', label: 'nav.explore', icon: CompassIcon },
@@ -48,6 +48,27 @@ export default function Toolbar({ onViewModeChange, onSearch, onLogoClick, onLog
         onSearch?.(query);
     };
 
+    // The full results are Explore's grid, filtered by the search (keeping
+    // any filters already picked there).
+    const navigate = useNavigate();
+    const location = useLocation();
+    const onExplore = location.pathname === '/explore';
+    const searchAll = (query: string) => {
+        const params = new URLSearchParams(onExplore ? location.search : '');
+        params.set('q', query);
+        navigate(`/explore?${params}`);
+    };
+
+    // On Explore the box shows the search being applied, and empties when
+    // it's removed there.
+    // (Adjusted while rendering, when the URL's search changes.)
+    const exploreQuery = onExplore ? new URLSearchParams(location.search).get('q') ?? '' : null;
+    const [syncedQuery, setSyncedQuery] = useState(exploreQuery);
+    if (exploreQuery !== syncedQuery) {
+        setSyncedQuery(exploreQuery);
+        if (exploreQuery !== null) setSearchQuery(exploreQuery);
+    }
+
     return (
         <header className="toolbar">
             <div className="toolbar-left">
@@ -66,7 +87,7 @@ export default function Toolbar({ onViewModeChange, onSearch, onLogoClick, onLog
             </div>
 
             <div className="toolbar-center">
-                <SearchBar value={searchQuery} onChange={handleSearch} onSelectUser={onSelectUser} onSelectArtwork={onSelectArtwork} />
+                <SearchBar value={searchQuery} onChange={handleSearch} onSelectUser={onSelectUser} onSelectArtwork={onSelectArtwork} onSearchAll={searchAll} />
             </div>
 
             <div className="toolbar-right">

@@ -11,9 +11,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function Wrapper({ onSelectUser }: { onSelectUser?: (username: string) => void }) {
+function Wrapper({ onSelectUser, onSearchAll }: { onSelectUser?: (username: string) => void; onSearchAll?: (query: string) => void }) {
   const [value, setValue] = useState('');
-  return <SearchBar value={value} onChange={setValue} onSelectUser={onSelectUser} />;
+  return <SearchBar value={value} onChange={setValue} onSelectUser={onSelectUser} onSearchAll={onSearchAll} />;
 }
 
 describe('SearchBar', () => {
@@ -69,5 +69,32 @@ describe('SearchBar', () => {
     fireEvent.mouseDown(screen.getByText('@alice'));
 
     expect(onSelectUser).toHaveBeenCalledWith('alice');
+  });
+
+  it('opens the full results on Enter', () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) }));
+    const onSearchAll = vi.fn();
+    render(<Wrapper onSearchAll={onSearchAll} />);
+    const input = screen.getByPlaceholderText('Search users or artworks...');
+    fireEvent.change(input, { target: { value: '  zbrush ' } });
+
+    fireEvent.submit(input.closest('form')!);
+    expect(onSearchAll).toHaveBeenCalledWith('zbrush');
+  });
+
+  it('offers "see all results" under the quick results', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ users: [{ id: 'u1', username: 'alice', name: 'Alice' }] }),
+    }));
+    const onSearchAll = vi.fn();
+    render(<Wrapper onSearchAll={onSearchAll} />);
+    const input = screen.getByPlaceholderText('Search users or artworks...');
+    fireEvent.change(input, { target: { value: 'alice' } });
+    fireEvent.focus(input);
+
+    await waitFor(() => expect(screen.getByText('@alice')).toBeInTheDocument(), { timeout: 2000 });
+    fireEvent.mouseDown(screen.getByText('See all results for “alice”'));
+    expect(onSearchAll).toHaveBeenCalledWith('alice');
   });
 });
