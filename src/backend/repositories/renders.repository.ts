@@ -1,6 +1,12 @@
 import { pool } from '../config/db.ts';
 import type { RenderRecord, RenderDTO } from '../types.ts';
 
+// SQL condition for renders that are images (not videos) - the ones that
+// can stand in as a cover or social preview. `alias` is the renders alias.
+export function imageRenderCondition(alias = 'r'): string {
+  return `${alias}.url !~* '\\.(mp4|webm)$'`;
+}
+
 export function toRenderDTO(row: RenderRecord): RenderDTO {
   return {
     id: row.id,

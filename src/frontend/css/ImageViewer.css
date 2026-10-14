@@ -1,0 +1,283 @@
+/* Focus mode for 2D artworks: a flat image viewer over the .scene container
+   (so it also fills fullscreen), with deep zoom and process steps. */
+
+.image-viewer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 13px;
+}
+
+.image-viewer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+}
+
+.image-viewer-title {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.image-viewer-title h3 {
+  margin: 0;
+  font-size: 15px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-viewer-title p {
+  margin: 2px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.image-viewer-edges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.image-viewer-edges .segmented,
+.image-viewer-bar > .segmented {
+  align-self: center;
+}
+
+.image-viewer-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.viewer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 11px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 7px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+.viewer-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.viewer-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.viewer-btn.icon {
+  min-width: 30px;
+  padding: 5px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.viewer-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.viewer-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.image-viewer-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* --- Deep zoom --- */
+
+.deep-zoom {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.deep-zoom-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg-alt);
+  cursor: grab;
+  touch-action: none;
+}
+
+.deep-zoom-stage:active {
+  cursor: grabbing;
+}
+
+.deep-zoom-stage:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.deep-zoom-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.deep-zoom-minimap {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.deep-zoom-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.deep-zoom-toolbar,
+.process-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+}
+
+.deep-zoom-level {
+  min-width: 48px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.deep-zoom-note {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--color-text-faint);
+}
+
+/* --- Process steps --- */
+
+.process-steps {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.process-compare {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--color-bg-alt);
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.process-image {
+  position: absolute;
+  inset: 16px;
+  width: calc(100% - 32px);
+  height: calc(100% - 32px);
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.process-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-1px);
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.process-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.process-handle:focus-visible {
+  outline: none;
+}
+
+.process-handle:focus-visible::after {
+  box-shadow: 0 0 0 3px var(--color-accent);
+}
+
+.process-tag {
+  position: absolute;
+  top: 12px;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: rgba(20, 20, 24, 0.72);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.process-tag.left {
+  left: 12px;
+}
+
+.process-tag.right {
+  right: 12px;
+}
+
+.process-pairs {
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  .image-viewer-edges > span {
+    display: none;
+  }
+}

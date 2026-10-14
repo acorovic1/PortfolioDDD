@@ -2,16 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useModelJobs } from './useModelJobs';
 import { pickModelFile, type RemoteArtwork } from '@/types/PortfolioPiece';
-import { uploadModel, deleteArtwork } from '@/frontend/utils/modelUpload';
+import { uploadModel, uploadImageArtwork, deleteArtwork } from '@/frontend/utils/modelUpload';
 import { waitForModelProcessing } from '@/frontend/utils/modelProcessing';
 
-vi.mock('@/types/PortfolioPiece', () => ({ pickModelFile: vi.fn() }));
-vi.mock('@/frontend/utils/modelUpload', () => ({ uploadModel: vi.fn(), deleteArtwork: vi.fn() }));
+vi.mock('@/types/PortfolioPiece', () => ({
+  pickModelFile: vi.fn(),
+  isImageFile: (file: File) => /\.(png|jpe?g|webp)$/i.test(file.name),
+  isVideoFile: (file: File) => /\.(mp4|webm)$/i.test(file.name),
+  MODEL_FILE_ACCEPT: '.glb',
+  IMAGE_FILE_ACCEPT: '.png',
+  VIDEO_FILE_ACCEPT: '.mp4',
+}));
+vi.mock('@/frontend/utils/modelUpload', () => ({ uploadModel: vi.fn(), uploadImageArtwork: vi.fn(), deleteArtwork: vi.fn() }));
 vi.mock('@/frontend/utils/modelProcessing', () => ({ waitForModelProcessing: vi.fn() }));
 
 const pick = vi.mocked(pickModelFile);
 const upload = vi.mocked(uploadModel);
 const remove = vi.mocked(deleteArtwork);
+const uploadImage = vi.mocked(uploadImageArtwork);
 const waitForProcessing = vi.mocked(waitForModelProcessing);
 
 const file = new File(['glb'], 'robot.glb');
@@ -24,10 +32,10 @@ beforeEach(() => {
 });
 
 // Starts uploadNewArtwork and answers its dialog.
-async function uploadNew(result: { current: ReturnType<typeof useModelJobs> }, answer: Parameters<ReturnType<typeof useModelJobs>['answerUploadDialog']>[0]) {
+async function uploadNew(result: { current: ReturnType<typeof useModelJobs> }, answer: Parameters<ReturnType<typeof useModelJobs>['answerUploadDialog']>[0], fileName = 'robot.glb') {
   let promise!: Promise<RemoteArtwork | null>;
   act(() => { promise = result.current.uploadNewArtwork(); });
-  await waitFor(() => expect(result.current.uploadRequest?.fileName).toBe('robot.glb'));
+  await waitFor(() => expect(result.current.uploadRequest?.fileName).toBe(fileName));
   act(() => result.current.answerUploadDialog(answer));
   let processed: RemoteArtwork | null = null;
   await act(async () => { processed = await promise; });
@@ -55,6 +63,47 @@ describe('useModelJobs', () => {
 
     act(() => result.current.finish());
     expect(result.current.notice).toBeNull();
+  });
+
+  it('uploads an image as a 2D artwork with its canvas settings', async () => {
+    const image = { id: 'a2', title: 'Lantern Ridge', kind: 'image', processingStatus: 'ready' } as RemoteArtwork;
+    uploadImage.mockResolvedValue(image);
+    pick.mockResolvedValue(new File(['png'], 'lantern.png', { type: 'image/png' }));
+    URL.createObjectURL = vi.fn(() => 'blob:preview');
+    URL.revokeObjectURL = vi.fn();
+    const { result } = renderHook(() => useModelJobs('tok', true));
+
+    let promise!: Promise<RemoteArtwork | null>;
+    act(() => { promise = result.current.uploadNewArtwork(); });
+    await waitFor(() => expect(result.current.uploadRequest?.kind).toBe('image'));
+    expect(result.current.uploadRequest?.previewUrl).toBe('blob:preview');
+    act(() => result.current.answerUploadDialog({
+      title: 'Lantern Ridge',
+      when: 'now',
+      canvas: { edge: 'black', medium: 'oil' },
+    }));
+    let created: RemoteArtwork | null = null;
+    await act(async () => { created = await promise; });
+
+    expect(created).toBe(image);
+    expect(upload).not.toHaveBeenCalled();
+    const form = uploadImage.mock.calls[0][0].formData;
+    expect(form.get('image')).toBeInstanceOf(File);
+    expect(form.get('title')).toBe('Lantern Ridge');
+    expect(form.get('edge')).toBe('black');
+    expect(form.get('medium')).toBe('oil');
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:preview');
+  });
+
+  it('shows why an image upload was refused', async () => {
+    uploadImage.mockRejectedValue(new Error('The image could not be read'));
+    pick.mockResolvedValue(new File(['x'], 'broken.jpg'));
+    URL.createObjectURL = vi.fn(() => 'blob:preview');
+    URL.revokeObjectURL = vi.fn();
+    const { result } = renderHook(() => useModelJobs('tok', true));
+
+    expect(await uploadNew(result, { title: 'Broken', when: 'now' } as never, 'broken.jpg')).toBeNull();
+    expect(result.current.notice).toEqual({ kind: 'error', title: 'Broken', message: 'The image could not be read' });
   });
 
   it('does nothing when the dialog is cancelled', async () => {

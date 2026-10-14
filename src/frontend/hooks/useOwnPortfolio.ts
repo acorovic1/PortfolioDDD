@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { API_BASE_URL } from '@/frontend/config/api';
-import { apiFetch, assetUrl } from '@/frontend/utils/api';
-import { deleteArtwork as deleteArtworkRequest } from '@/frontend/utils/modelUpload';
-import { pickPortfolioImage, type PortfolioPiece, type PublishingState, type RemoteArtwork } from '@/types/PortfolioPiece';
+import { apiFetch, assetUrl, ApiError } from '@/frontend/utils/api';
+import { useI18n } from '@/frontend/hooks/useI18n';
+import { uploadErrorText } from '@/frontend/utils/storageQuota';
+import { type PortfolioPiece, type PublishingState, type RemoteArtwork } from '@/types/PortfolioPiece';
 import type { ArtworkInfoData } from '@/types/ArtworkInfoData';
 
 // The signed-in user's own artworks (`token` is null while signed out) and
 // the edits they can make to them. The saved artworks are fetched once per
 // login and handed to the 3D scene, which reconstructs and adds them.
 export function useOwnPortfolio(token: string | null) {
+  const { t } = useI18n();
   const [artworks, setArtworks] = useState<PortfolioPiece[]>([]);
   const [remoteArtworksToLoad, setRemoteArtworksToLoad] = useState<RemoteArtwork[] | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -59,35 +61,26 @@ export function useOwnPortfolio(token: string | null) {
       .catch(err => console.error('Failed to save the artwork order:', err));
   };
 
-  const addRender = async () => {
-    const picked = await pickPortfolioImage();
-    if (!picked || !selected || !token) return;
-
+  // Uploads a render (image or video) for an artwork. Rejects with a
+  // message to show when the server refuses it.
+  const addRender = async (artworkId: string, file: File, caption: string): Promise<void> => {
+    if (!token) return;
     const formData = new FormData();
-    formData.append('image', picked.file);
-    formData.append('caption', picked.image.caption);
+    formData.append('image', file);
+    formData.append('caption', caption);
 
+    let saved: { id: string; url: string; caption: string };
     try {
-      const res = await fetch(`${API_BASE_URL}/api/portfolio/artworks/${selected.id}/renders`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      if (!res.ok) {
-        console.error('Failed to upload render:', res.status);
-        return;
-      }
-
-      const saved = await res.json();
-      // Use the backend's persisted render (real URL + id) rather than the
-      // local blob URL, so it's still valid after this session ends.
-      updateArtwork(selected.id, a => ({
-        ...a,
-        renders: [...a.renders, { id: saved.id, url: assetUrl(saved.url)!, caption: saved.caption }],
-      }));
+      saved = await apiFetch(`/api/portfolio/artworks/${artworkId}/renders`, { method: 'POST', token, body: formData });
     } catch (error) {
-      console.error('Failed to upload render:', error);
+      throw new Error(error instanceof ApiError
+        ? uploadErrorText(error, t)
+        : 'Could not reach the server. Check your connection and try again.');
     }
+    updateArtwork(artworkId, a => ({
+      ...a,
+      renders: [...a.renders, { id: saved.id, url: assetUrl(saved.url)!, caption: saved.caption }],
+    }));
   };
 
   const deleteRender = (renderId: string) => {
@@ -101,10 +94,24 @@ export function useOwnPortfolio(token: string | null) {
     }).catch(err => console.error('Failed to delete render:', err));
   };
 
-  const deleteArtwork = (artworkId: string) => {
+  // Deletes on the server first and only then takes the artwork out, so a
+  // refused delete (rate limit, lost connection, expired session) can't
+  // look done and reappear on the next load. Rejects with a message to show.
+  const deleteArtwork = async (artworkId: string): Promise<void> => {
+    if (token) {
+      try {
+        await apiFetch(`/api/portfolio/artworks/${artworkId}`, { method: 'DELETE', token });
+      } catch (error) {
+        // Already gone (e.g. deleted in another tab): nothing left to do.
+        if (!(error instanceof ApiError && error.status === 404)) {
+          throw new Error(error instanceof ApiError ? error.message : 'Could not reach the server. Check your connection and try again.');
+        }
+      }
+    }
+    const remaining = artworks.filter(a => a.id !== artworkId).length;
     setArtworks(prev => prev.filter(a => a.id !== artworkId));
-    setSelectedIndex(0);
-    if (token) deleteArtworkRequest(artworkId, token);
+    // The next artwork moves up into the deleted one's place.
+    setSelectedIndex(index => Math.max(0, Math.min(index, remaining - 1)));
   };
 
   const updatePublishing = (artworkId: string, fields: Partial<PublishingState>) => {

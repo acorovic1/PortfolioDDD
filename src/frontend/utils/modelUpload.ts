@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '@/frontend/config/api';
 import type { RemoteArtwork } from '@/types/PortfolioPiece';
 import { uploadWithProgress } from './uploadWithProgress';
+import { storageQuotaErrorFrom } from './api';
 import { waitForModelProcessing } from './modelProcessing';
 
 type UploadModelOptions = {
@@ -31,12 +32,35 @@ export async function uploadModel({
     method
   );
   if (!res.ok) {
-    throw new Error((res.body as { error?: string } | null)?.error ?? `Upload failed (${res.status})`);
+    throw storageQuotaErrorFrom(res.body)
+      ?? new Error((res.body as { error?: string } | null)?.error ?? `Upload failed (${res.status})`);
   }
 
   onProcessing?.();
   const id = artworkId ?? (res.body as RemoteArtwork).id;
   return waitForModelProcessing(id, token, signal);
+}
+
+// Uploads the image of a new 2D artwork, or (kind 'video') the video of a
+// video artwork. There's nothing to process, so it resolves with the
+// finished artwork; it rejects like uploadModel.
+export async function uploadImageArtwork({ formData, token, onProgress, kind = 'image' }: {
+  formData: FormData;
+  token: string;
+  onProgress?: (percent: number) => void;
+  kind?: 'image' | 'video';
+}): Promise<RemoteArtwork> {
+  const res = await uploadWithProgress(
+    `${API_BASE_URL}/api/portfolio/artworks/${kind}`,
+    formData,
+    { Authorization: `Bearer ${token}` },
+    onProgress
+  );
+  if (!res.ok) {
+    throw storageQuotaErrorFrom(res.body)
+      ?? new Error((res.body as { error?: string } | null)?.error ?? `Upload failed (${res.status})`);
+  }
+  return res.body as RemoteArtwork;
 }
 
 // Fire-and-forget delete, e.g. for an artwork whose first upload failed.

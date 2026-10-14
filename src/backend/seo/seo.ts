@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import { pool } from '../config/db.ts';
 import { findUserByUsername, findRenamedUser } from '../repositories/users.repository.ts';
 import { findArtworkById, canViewArtwork, listedCondition } from '../repositories/artworks.repository.ts';
+import { imageRenderCondition } from '../repositories/renders.repository.ts';
 import { readStoredFile } from '../storage/storage.ts';
 import { domainOwner } from '../services/custom-domains.ts';
 
@@ -283,7 +284,7 @@ export async function artworkOgImage(req: Request, res: Response): Promise<void>
     return;
   }
   const { rows } = await pool.query<{ url: string; username: string }>(
-    `SELECT (SELECT r.url FROM renders r WHERE r.artwork_id = $1 ORDER BY r.created_at LIMIT 1) AS url,
+    `SELECT (SELECT r.url FROM renders r WHERE r.artwork_id = $1 AND ${imageRenderCondition()} ORDER BY r.created_at LIMIT 1) AS url,
             (SELECT u.username FROM users u WHERE u.id = $2) AS username`,
     [artwork.id, artwork.user_id]
   );
@@ -300,7 +301,7 @@ export async function userOgImage(req: Request, res: Response): Promise<void> {
   const { rows } = await pool.query<{ url: string | null }>(
     `SELECT COALESCE(
        (SELECT r.url FROM renders r JOIN artworks a ON a.id = r.artwork_id
-        WHERE a.user_id = $1 AND ${listedCondition('a')} ORDER BY a.published_at DESC LIMIT 1),
+        WHERE a.user_id = $1 AND ${listedCondition('a')} AND ${imageRenderCondition()} ORDER BY a.published_at DESC LIMIT 1),
        (SELECT a.thumbnail_path FROM artworks a WHERE a.user_id = $1 AND ${listedCondition('a')}
         AND a.thumbnail_path IS NOT NULL ORDER BY a.published_at DESC LIMIT 1)
      ) AS url`,

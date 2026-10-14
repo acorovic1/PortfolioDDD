@@ -1,5 +1,6 @@
 import { pool } from '../config/db.ts';
-import { listedCondition } from './artworks.repository.ts';
+import { listedCondition, artworkTextMatch, containsPattern } from './artworks.repository.ts';
+import { imageRenderCondition } from './renders.repository.ts';
 import { notBlockedCondition } from './moderation.repository.ts';
 
 export type FeedTab = 'trending' | 'latest' | 'following';
@@ -82,9 +83,10 @@ export async function findFeed(query: FeedQuery): Promise<{ artworks: FeedArtwor
       WHERE LOWER(t.tool) = LOWER(${param(query.tool)})
     )`);
   }
+  // The same search as the toolbar's quick results, plus the artist's name.
   if (query.q) {
-    const like = param(`%${query.q}%`);
-    conditions.push(`(a.title ILIKE ${like} OR a.description ILIKE ${like} OR u.username ILIKE ${like})`);
+    const like = param(containsPattern(query.q));
+    conditions.push(`(${artworkTextMatch('a', like)} OR u.username ILIKE ${like})`);
   }
 
   const order = query.tab === 'trending'
@@ -95,7 +97,7 @@ export async function findFeed(query: FeedQuery): Promise<{ artworks: FeedArtwor
   const { rows } = await pool.query<FeedArtwork>(
     `SELECT a.id, a.title, COALESCE(a.category, '') AS category, a.tags,
             a.thumbnail_path AS "thumbnailUrl",
-            (SELECT r.url FROM renders r WHERE r.artwork_id = a.id ORDER BY r.created_at LIMIT 1) AS "coverUrl",
+            (SELECT r.url FROM renders r WHERE r.artwork_id = a.id AND ${imageRenderCondition()} ORDER BY r.created_at LIMIT 1) AS "coverUrl",
             u.username, u.name, u.avatar_url AS "avatarUrl",
             (SELECT COUNT(*)::int FROM likes l WHERE l.artwork_id = a.id) AS "likeCount",
             (SELECT COUNT(*)::int FROM comments c WHERE c.artwork_id = a.id) AS "commentCount",

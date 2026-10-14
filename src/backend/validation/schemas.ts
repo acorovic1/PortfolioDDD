@@ -58,6 +58,7 @@ export const updateProfileSchema = z.object({
   noAiTraining: z.boolean().optional(),
   emailNotifications: z.boolean().optional(),
   locale: z.enum(['en', 'bs', 'de']).optional(),
+  messagesFrom: z.enum(['everyone', 'following', 'nobody']).optional(),
 });
 
 export const updateUsernameSchema = z.object({
@@ -66,6 +67,9 @@ export const updateUsernameSchema = z.object({
 
 export const updateEmailSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(255),
+  password: z.string().min(1).max(200),
+  // Required when two-factor is on: an authenticator or recovery code.
+  code: z.string().trim().min(6).max(32).optional(),
 });
 
 export const createArtworkSchema = z.object({
@@ -82,6 +86,35 @@ export const uploadArtworkSchema = createArtworkSchema.extend({
   // ISO time to publish at (checked by the controller, which also removes
   // the upload if it's rejected).
   publishAt: z.string().max(64).optional(),
+});
+
+export const CANVAS_EDGES = ['black', 'white'] as const;
+export const ARTWORK_MEDIUMS = [
+  'digital_painting', 'oil', 'acrylic', 'watercolour', 'gouache', 'ink', 'pencil', 'charcoal', 'mixed_media', 'print',
+] as const;
+
+// How a 2D artwork's canvas is presented (see CanvasSettings).
+export const canvasSettingsSchema = z.object({
+  edge: z.enum(CANVAS_EDGES),
+  medium: z.enum(ARTWORK_MEDIUMS).nullable(),
+});
+
+// A 2D artwork upload: the canvas settings arrive as multipart strings too
+// ('' = not given).
+export const uploadImageArtworkSchema = createArtworkSchema.extend({
+  draft: z.enum(['true', 'false']).optional(),
+  publishAt: z.string().max(64).optional(),
+  edge: z.enum(CANVAS_EDGES).optional(),
+  medium: z.union([z.literal(''), z.enum(ARTWORK_MEDIUMS)]).optional(),
+});
+
+// A video artwork upload: the canvas fields, plus what the uploader's
+// browser read from the video (the server doesn't decode video).
+export const uploadVideoArtworkSchema = uploadImageArtworkSchema.extend({
+  width: z.coerce.number().int().min(1).max(16384),
+  height: z.coerce.number().int().min(1).max(16384),
+  // Seconds; up to 6 hours.
+  duration: z.coerce.number().positive().max(6 * 3600),
 });
 
 const unit = z.number().finite().min(-1).max(1);
@@ -121,6 +154,7 @@ export const updateArtworkSchema = createArtworkSchema.extend({
   aiGenerated: z.boolean().optional(),
   viewerSettings: viewerSettingsSchema.nullable().optional(),
   modelRotation: modelRotationSchema.nullable().optional(),
+  canvas: canvasSettingsSchema.optional(),
 });
 
 export const reorderArtworksSchema = z.object({
@@ -179,8 +213,8 @@ export const resetPasswordSchema = z.object({
 });
 
 export const reportSchema = z.object({
-  targetType: z.enum(['artwork', 'comment', 'user']),
-  // Artwork/comment id, or a username for users.
+  targetType: z.enum(['artwork', 'comment', 'user', 'message']),
+  // Artwork/comment/message id, or a username for users.
   targetId: z.string().trim().min(1).max(64),
   reason: z.enum([
     'spam', 'harassment', 'hate', 'unlabeled_mature', 'violence',

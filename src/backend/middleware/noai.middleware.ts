@@ -6,7 +6,7 @@ const MAX_CACHE_ENTRIES = 5000;
 const cache = new Map<string, { optedOut: boolean; expires: number }>();
 
 // Whether the stored file at this URL (/uploads path or bucket URL) belongs
-// to a user who opted out of AI training (models, thumbnails, renders,
+// to a user who opted out of AI training (models, 2D artwork images and videos, thumbnails, renders,
 // avatars and covers are checked).
 export async function noAiForUrl(publicPath: string): Promise<boolean> {
   const cached = cache.get(publicPath);
@@ -15,7 +15,7 @@ export async function noAiForUrl(publicPath: string): Promise<boolean> {
   const { rows } = await pool.query<{ no_ai_training: boolean }>(
     `SELECT u.no_ai_training FROM users u
      WHERE u.avatar_url = $1 OR u.cover_url = $1
-        OR u.id IN (SELECT a.user_id FROM artworks a WHERE a.model_path = $1 OR a.thumbnail_path = $1)
+        OR u.id IN (SELECT a.user_id FROM artworks a WHERE a.model_path = $1 OR a.thumbnail_path = $1 OR a.image_path = $1)
         OR u.id IN (SELECT a.user_id FROM renders r JOIN artworks a ON a.id = r.artwork_id WHERE r.url = $1)
      LIMIT 1`,
     [publicPath]

@@ -42,7 +42,11 @@ export interface UserRecord {
   custom_domain_token: string | null;
   custom_domain_verified_at: string | null;
   locale: string | null;
+  // Who may start a conversation with this user.
+  messages_from: MessagesFrom;
 }
+
+export type MessagesFrom = 'everyone' | 'following' | 'nobody';
 
 export type ExperienceEntry = {
   role: string;
@@ -80,6 +84,7 @@ export type PublicUser = {
   emailNotifications: boolean;
   twoFactorEnabled: boolean;
   locale: string | null;
+  messagesFrom: MessagesFrom;
 };
 
 export interface RenderRecord {
@@ -125,7 +130,28 @@ export interface ArtworkRecord {
   viewer_settings: Record<string, unknown> | null;
   model_rotation: [number, number, number, number] | null;
   sort_order: number | null;
+  kind: ArtworkKind;
+  image_path: string | null;
+  image_width: number | null;
+  image_height: number | null;
+  canvas_settings: CanvasSettings | null;
+  // Video artworks only, in seconds.
+  video_duration: number | null;
 }
+
+// 'model' = a 3D model; 'image' = a 2D artwork, shown as a canvas on an
+// easel; 'video' = a video, playing on such a canvas.
+export type ArtworkKind = 'model' | 'image' | 'video';
+
+// The colour the sides of the canvas are painted.
+export type CanvasEdge = 'black' | 'white';
+
+// How a 2D artwork's canvas is presented (mirrors canvasSettingsSchema).
+// Its size follows the image's resolution.
+export type CanvasSettings = {
+  edge: CanvasEdge;
+  medium: string | null;
+};
 
 export type Visibility = 'public' | 'unlisted' | 'private';
 
@@ -159,6 +185,16 @@ export type ArtworkDTO = {
   viewerSettings: Record<string, unknown> | null;
   // Unit quaternion [x, y, z, w] the model is turned by; null = as uploaded.
   modelRotation: [number, number, number, number] | null;
+  kind: ArtworkKind;
+  // 2D artworks only: the original image and its size in pixels.
+  imageUrl: string | null;
+  // Video artworks only: the video and its length in seconds (imageWidth/
+  // imageHeight are its frame size).
+  videoUrl: string | null;
+  videoDuration: number | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  canvas: CanvasSettings | null;
   renders: RenderDTO[];
   createdAt: string;
   updatedAt: string;

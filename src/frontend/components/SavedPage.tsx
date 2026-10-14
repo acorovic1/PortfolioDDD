@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { responsiveImage } from '@/frontend/utils/images';
 import '@/frontend/css/SavedPage.css';
-import type { RemoteArtwork } from '@/types/PortfolioPiece';
+import { coverImageUrl, type RemoteArtwork } from '@/types/PortfolioPiece';
 import type { Collection } from '@/types/Collection';
 import { BookmarkIcon, HeartIcon, ImageIcon, PlusIcon, ChevronDownIcon, CloseIcon, PencilIcon } from '@/frontend/svg/Icons';
 import { apiFetch, assetUrl } from '@/frontend/utils/api';
@@ -140,8 +140,8 @@ export default function SavedPage({ collections, onCreateCollection, onRenameCol
                                 onClick={() => onSelectArtwork(artwork.id, artwork.username!)}
                             >
                                 <div className="liked-card-thumb">
-                                    {artwork.renders[0] || artwork.thumbnailUrl ? (
-                                        <img {...responsiveImage(assetUrl(artwork.renders[0]?.url ?? artwork.thumbnailUrl)!, [320, 480, 640, 960])} sizes="(max-width: 600px) 100vw, 300px" alt={artwork.title} loading="lazy" decoding="async" />
+                                    {coverImageUrl(artwork) ? (
+                                        <img {...responsiveImage(assetUrl(coverImageUrl(artwork))!, [320, 480, 640, 960])} sizes="(max-width: 600px) 100vw, 300px" alt={artwork.title} loading="lazy" decoding="async" />
                                     ) : (
                                         <ImageIcon />
                                     )}

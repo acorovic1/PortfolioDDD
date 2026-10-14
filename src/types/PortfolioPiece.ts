@@ -4,6 +4,8 @@ import { getGLTFLoader } from '@/frontend/three/gltfLoader';
 import { assetUrl } from '@/frontend/utils/api';
 import type { ViewerSettings } from '@/frontend/inspector/PostProcessing';
 import { modelPivot, updatePieceBounds } from '@/frontend/three/modelPivot';
+import { createEaselCanvas, DEFAULT_CANVAS, VIDEO_CANVAS_SIZE, type CanvasSettings } from '@/frontend/three/easelCanvas';
+import { resizedUrl } from '@/frontend/utils/images';
 
 // crypto.randomUUID only exists on secure (HTTPS/localhost) pages; a site
 // opened over plain HTTP (a LAN address, a custom domain before its
@@ -39,7 +41,32 @@ export type PortfolioPiece = {
   publishing?: PublishingState;
   // The artist's saved inspector view (null/absent = defaults).
   viewerSettings?: ViewerSettings | null;
+  // Set for 2D and video artworks: shown as a canvas on an easel, opened in
+  // the image viewer (or video player) instead of the inspector.
+  image?: PieceImage;
 };
+
+export type PieceImage = {
+  // The full-size original (for a video artwork, the video file).
+  url: string;
+  // In pixels (a video's frame size).
+  width: number;
+  height: number;
+  canvas: CanvasSettings;
+  // Set for video artworks.
+  video?: PieceVideo;
+};
+
+export type PieceVideo = {
+  // Plays (muted, looping) on the easel; the carousel starts and stops it.
+  element: HTMLVideoElement;
+  // Seconds.
+  duration: number;
+  // A still of the video, for places that show images only.
+  posterUrl: string | null;
+};
+
+export type ArtworkKind = 'model' | 'image' | 'video';
 
 export type Visibility = 'public' | 'unlisted' | 'private';
 
@@ -154,6 +181,17 @@ export type RemoteArtwork = {
   viewerSettings: ViewerSettings | null;
   // Unit quaternion [x, y, z, w] the artist turned the model by; null = as uploaded.
   modelRotation?: [number, number, number, number] | null;
+  // Absent on records from before 2D artworks existed (= 'model').
+  kind?: ArtworkKind;
+  // 2D artworks: the original image, its size in pixels, and its canvas.
+  imageUrl?: string | null;
+  // Video artworks: the video and its length in seconds (imageWidth/
+  // imageHeight are its frame size, and they have a canvas too).
+  videoUrl?: string | null;
+  videoDuration?: number | null;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  canvas?: CanvasSettings | null;
   renders: { id: string; url: string; caption: string }[];
   likeCount: number;
   // Populated by endpoints that can return artworks belonging to anyone
@@ -161,13 +199,120 @@ export type RemoteArtwork = {
   username?: string;
 };
 
+// Whether the artwork has something to show yet (a processed model, or the
+// image or video of a 2D/video artwork).
+export function isArtworkReady(remote: RemoteArtwork): boolean {
+  if (remote.kind === 'image') return !!remote.imageUrl;
+  if (remote.kind === 'video') return !!remote.videoUrl;
+  return !!remote.modelUrl;
+}
+
+// The texture on the easel: a resized variant, plenty for the carousel (the
+// image viewer loads the original).
+const EASEL_IMAGE_WIDTH = 1920;
+
+// A 2D artwork: its image on a canvas, standing on an easel.
+async function createImagePortfolioItem(scene: THREE.Scene, remote: RemoteArtwork): Promise<PortfolioPiece> {
+  const url = assetUrl(remote.imageUrl!)!;
+  const texture = await new THREE.TextureLoader().loadAsync(resizedUrl(url, EASEL_IMAGE_WIDTH));
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+
+  const loaded = texture.image as { width: number; height: number };
+  const width = remote.imageWidth ?? loaded.width;
+  const height = remote.imageHeight ?? loaded.height;
+  const canvas: CanvasSettings = { ...DEFAULT_CANVAS, ...remote.canvas };
+
+  const root = new THREE.Group();
+  root.add(createEaselCanvas(texture, width, height, canvas));
+  scene.add(root);
+
+  return {
+    id: randomId(),
+    root,
+    bounds: new THREE.Box3().setFromObject(root),
+    infoData: { title: '', description: '', tools: [], year: '', category: '', tags: [] },
+    renders: [],
+    likeCount: 0,
+    animations: [],
+    image: { url, width, height, canvas },
+  };
+}
+
+// A muted, looping video, loaded far enough to show its first frame.
+function loadVideoElement(url: string): Promise<HTMLVideoElement> {
+  const video = document.createElement('video');
+  // Read by WebGL, so it must be fetched with CORS (like image textures).
+  video.crossOrigin = 'anonymous';
+  video.muted = true;
+  video.defaultMuted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.preload = 'auto';
+  return new Promise((resolve, reject) => {
+    video.addEventListener('loadeddata', () => resolve(video), { once: true });
+    video.addEventListener('error', () => reject(new Error(`Failed to load the video ${url}`)), { once: true });
+    video.src = url;
+  });
+}
+
+// A video artwork: the video playing on a canvas on an easel. It starts
+// paused; the carousel plays the one in front.
+async function createVideoPortfolioItem(scene: THREE.Scene, remote: RemoteArtwork): Promise<PortfolioPiece> {
+  const url = assetUrl(remote.videoUrl!)!;
+  const element = await loadVideoElement(url);
+  const texture = new THREE.VideoTexture(element);
+  texture.colorSpace = THREE.SRGBColorSpace;
+
+  const width = remote.imageWidth ?? element.videoWidth;
+  const height = remote.imageHeight ?? element.videoHeight;
+  const canvas: CanvasSettings = { ...DEFAULT_CANVAS, ...remote.canvas };
+
+  const root = new THREE.Group();
+  root.add(createEaselCanvas(texture, width, height, canvas, VIDEO_CANVAS_SIZE));
+  // Called by disposeObject(): stop the video and let go of its data.
+  root.userData.onDispose = () => {
+    element.pause();
+    element.removeAttribute('src');
+    element.load();
+  };
+  scene.add(root);
+
+  return {
+    id: randomId(),
+    root,
+    bounds: new THREE.Box3().setFromObject(root),
+    infoData: { title: '', description: '', tools: [], year: '', category: '', tags: [] },
+    renders: [],
+    likeCount: 0,
+    animations: [],
+    image: {
+      url,
+      width,
+      height,
+      canvas,
+      video: {
+        element,
+        duration: remote.videoDuration ?? element.duration,
+        posterUrl: assetUrl(remote.thumbnailUrl),
+      },
+    },
+  };
+}
+
 // Reconstructs a PortfolioPiece from a backend artwork record (used to load a
 // user's previously-saved portfolio into the 3D scene, e.g. after login).
 export async function createPortfolioItemFromRemote(
   scene: THREE.Scene,
   remote: RemoteArtwork
 ): Promise<PortfolioPiece> {
-  const piece = await createPortfolioItem(scene, assetUrl(remote.modelUrl)!);
+  // 2D and video artworks stand on an easel; neither has a model.
+  const isImage = remote.kind === 'image' || remote.kind === 'video';
+  const piece = remote.kind === 'video'
+    ? await createVideoPortfolioItem(scene, remote)
+    : isImage
+      ? await createImagePortfolioItem(scene, remote)
+      : await createPortfolioItem(scene, assetUrl(remote.modelUrl)!);
 
   piece.id = remote.id;
   piece.infoData = {
@@ -185,7 +330,7 @@ export async function createPortfolioItemFromRemote(
   }));
   piece.likeCount = remote.likeCount;
   piece.viewerSettings = remote.viewerSettings;
-  if (remote.modelRotation) {
+  if (remote.modelRotation && !isImage) {
     modelPivot(piece).quaternion.fromArray(remote.modelRotation).normalize();
     updatePieceBounds(piece);
   }
@@ -196,25 +341,53 @@ export async function createPortfolioItemFromRemote(
     aiGenerated: remote.aiGenerated,
     viewCount: remote.viewCount,
   };
-  piece.modelInfo = {
-    sourceFormat: remote.sourceFormat,
-    version: remote.modelVersion,
-    sizeBytes: remote.modelSizeBytes,
-    thumbnailUrl: remote.thumbnailUrl,
-  };
+  // 2D artworks have no model file.
+  if (!isImage) {
+    piece.modelInfo = {
+      sourceFormat: remote.sourceFormat,
+      version: remote.modelVersion,
+      sizeBytes: remote.modelSizeBytes,
+      thumbnailUrl: remote.thumbnailUrl,
+    };
+  }
 
   return piece;
 }
 
 // Formats the server's processing pipeline accepts (a .zip bundles a model
 // with its textures / .bin / .mtl files).
-export const MODEL_FILE_ACCEPT = '.glb,.gltf,.fbx,.obj,.stl,.blend,.usdz,.usd,.usda,.usdc,.zip';
+export const MODEL_FILE_ACCEPT = '.glb,.gltf,.obj,.stl,.zip';
+// Images become 2D artworks.
+export const IMAGE_FILE_ACCEPT = '.png,.jpg,.jpeg,.webp';
+// Videos become video artworks (or renders). Stored as uploaded, so only
+// formats browsers play.
+export const VIDEO_FILE_ACCEPT = '.mp4,.webm';
 
-export function pickModelFile(): Promise<File | null> {
+export function isImageFile(file: File): boolean {
+  return /\.(png|jpe?g|webp)$/i.test(file.name);
+}
+
+export function isVideoFile(file: File): boolean {
+  return /\.(mp4|webm)$/i.test(file.name);
+}
+
+// Whether a stored file (e.g. a render) is a video.
+export function isVideoUrl(url: string): boolean {
+  return /\.(mp4|webm)(\?|#|$)/i.test(url);
+}
+
+// The picture for an artwork's card: its first render that's an image (not a
+// video), else its thumbnail.
+export function coverImageUrl(remote: Pick<RemoteArtwork, 'renders' | 'thumbnailUrl'>): string | null {
+  return remote.renders.find(render => !isVideoUrl(render.url))?.url ?? remote.thumbnailUrl ?? null;
+}
+
+// `accept` defaults to models only (e.g. a new version of a model).
+export function pickModelFile(accept = MODEL_FILE_ACCEPT): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = MODEL_FILE_ACCEPT;
+    input.accept = accept;
     input.style.display = 'none';
 
     input.onchange = () => {
@@ -229,34 +402,12 @@ export function pickModelFile(): Promise<File | null> {
 }
 
 
-export type PickedPortfolioImageResult = {
-  image: PortfolioImage;
-  file: File;
-};
-
-export async function pickPortfolioImage(): Promise<PickedPortfolioImageResult | null> {
-  const file = await pickImageFile();
-  if (!file) return null;
-
-  const url = URL.createObjectURL(file);
-  const caption = prompt('Enter caption for this image:') || 'Untitled';
-
-  return {
-    image: {
-      id: randomId(),
-      url,
-      caption
-    },
-    file
-  };
-}
-
-/* ---- Helper: open file picker for images ---- */
-function pickImageFile(): Promise<File | null> {
+/* ---- File picker for renders (images or videos) ---- */
+export function pickRenderFile(): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
+    input.accept = `image/*,${VIDEO_FILE_ACCEPT}`;
     input.style.display = 'none';
 
     input.onchange = () => {

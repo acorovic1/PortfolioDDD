@@ -1,14 +1,20 @@
 import { pool } from '../config/db.ts';
-import type { ArtworkRecord, ArtworkDTO, RenderRecord } from '../types.ts';
+import type { ArtworkRecord, ArtworkDTO, RenderRecord, CanvasSettings } from '../types.ts';
 import { toRenderDTO } from './renders.repository.ts';
 import { parseJsonArray } from '../utils/json.util.ts';
+
+// SQL condition for artworks that have something to show: a processed model,
+// or (2D and video artworks) the uploaded image or video.
+function hasContent(alias: string): string {
+  return `(${alias}.model_path <> '' OR ${alias}.image_path IS NOT NULL)`;
+}
 
 // SQL condition for artworks anyone may discover in listings (feeds, search,
 // public portfolios): processed, public and published (not a draft, and not
 // scheduled for later), by an account that isn't suspended. `alias` is the
 // artworks table alias in the query.
 export function listedCondition(alias = 'artworks'): string {
-  return `${alias}.model_path <> '' AND ${alias}.visibility = 'public' AND ${alias}.published_at <= NOW()
+  return `${hasContent(alias)} AND ${alias}.visibility = 'public' AND ${alias}.published_at <= NOW()
     AND NOT EXISTS (SELECT 1 FROM users su WHERE su.id = ${alias}.user_id AND su.suspended_at IS NOT NULL)`;
 }
 
@@ -17,10 +23,23 @@ export function listedCondition(alias = 'artworks'): string {
 // (unlisted artworks are reachable by link).
 export function canViewArtwork(row: ArtworkRecord, viewerId: string | null): boolean {
   if (viewerId && row.user_id === viewerId) return true;
-  return row.model_path !== ''
+  return (row.model_path !== '' || row.image_path !== null)
     && row.visibility !== 'private'
     && row.published_at !== null
     && new Date(row.published_at).getTime() <= Date.now();
+}
+
+// Kinds shown as a canvas on an easel (no model).
+export function isFlatKind(kind: ArtworkRecord['kind'] | undefined): boolean {
+  return kind === 'image' || kind === 'video';
+}
+
+// A 2D artwork's canvas, in the current shape: early uploads could have
+// mirrored edges and a size in cm, which are now black edges and no size.
+function canvasFor(row: ArtworkRecord): CanvasSettings | null {
+  const stored = row.canvas_settings;
+  if (!isFlatKind(row.kind) || !stored) return null;
+  return { edge: stored.edge === 'white' ? 'white' : 'black', medium: stored.medium ?? null };
 }
 
 export function toArtworkDTO(
@@ -52,6 +71,13 @@ export function toArtworkDTO(
     viewCount: row.view_count,
     viewerSettings: row.viewer_settings,
     modelRotation: row.model_rotation ?? null,
+    kind: row.kind ?? 'model',
+    imageUrl: row.kind === 'image' ? row.image_path : null,
+    videoUrl: row.kind === 'video' ? row.image_path : null,
+    videoDuration: row.kind === 'video' ? row.video_duration : null,
+    imageWidth: row.image_width ?? null,
+    imageHeight: row.image_height ?? null,
+    canvas: canvasFor(row),
     renders: renders.map(toRenderDTO),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -153,6 +179,52 @@ export async function createArtwork(artwork: {
   );
 }
 
+// A 2D (or video) artwork: the image or video is stored already, so it's
+// ready right away.
+export async function createImageArtwork(artwork: {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  year: string;
+  category: string;
+  tools: string[];
+  // 'video': imagePath is the video file.
+  kind?: 'image' | 'video';
+  imagePath: string;
+  imageWidth: number;
+  imageHeight: number;
+  videoDuration?: number | null;
+  thumbnailPath: string;
+  canvas: CanvasSettings;
+  publishedAt: Date | null;
+}): Promise<void> {
+  await pool.query(
+    `INSERT INTO artworks (id, user_id, title, description, year, category, tools, model_path,
+                           processing_status, kind, image_path, image_width, image_height,
+                           thumbnail_path, canvas_settings, published_at, video_duration, sort_order)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, '', 'ready', $14, $8, $9, $10, $11, $12, $13, $15,
+             (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM artworks WHERE user_id = $2))`,
+    [
+      artwork.id,
+      artwork.userId,
+      artwork.title,
+      artwork.description,
+      artwork.year,
+      artwork.category,
+      JSON.stringify(artwork.tools),
+      artwork.imagePath,
+      artwork.imageWidth,
+      artwork.imageHeight,
+      artwork.thumbnailPath,
+      JSON.stringify(artwork.canvas),
+      artwork.publishedAt,
+      artwork.kind ?? 'image',
+      artwork.videoDuration ?? null,
+    ]
+  );
+}
+
 // --- Model processing state ---
 
 // Queues a new upload (a new version) for an existing artwork. Returns false
@@ -231,6 +303,7 @@ export type ArtworkUpdate = Partial<{
   aiGenerated: boolean;
   viewerSettings: Record<string, unknown> | null;
   modelRotation: [number, number, number, number] | null;
+  canvas: CanvasSettings | null;
 }>;
 
 export async function updateArtwork(id: string, fields: ArtworkUpdate): Promise<void> {
@@ -247,13 +320,14 @@ export async function updateArtwork(id: string, fields: ArtworkUpdate): Promise<
     aiGenerated: 'ai_generated',
     viewerSettings: 'viewer_settings',
     modelRotation: 'model_rotation',
+    canvas: 'canvas_settings',
   };
 
   const entries = Object.entries(fields).filter(([, v]) => v !== undefined);
   if (entries.length === 0) return;
 
   const setClause = entries.map(([key], i) => `${columnMap[key]} = $${i + 1}`).join(', ');
-  const jsonColumns = new Set(['tools', 'viewerSettings', 'modelRotation']);
+  const jsonColumns = new Set(['tools', 'viewerSettings', 'modelRotation', 'canvas']);
   const values = entries.map(([key, value]) => (jsonColumns.has(key) && value !== null ? JSON.stringify(value) : value));
 
   await pool.query(
@@ -295,18 +369,38 @@ export type ArtworkSearchResult = {
   username: string;
 };
 
+// An ILIKE pattern finding `query` anywhere; LIKE wildcards the user typed
+// (% and _) are matched literally.
+export function containsPattern(query: string): string {
+  return `%${query.trim().replace(/[\\%_]/g, char => `\\${char}`)}%`;
+}
+
+// SQL condition: the artwork's title, description, category, tags or
+// software used match `pattern` (a containsPattern parameter, e.g. '$1') -
+// "zbr" finds artworks made in ZBrush. The one definition of artwork search,
+// shared by the toolbar's quick results and Explore.
+export function artworkTextMatch(alias: string, pattern: string): string {
+  return `(${alias}.title ILIKE ${pattern}
+    OR ${alias}.description ILIKE ${pattern}
+    OR ${alias}.category ILIKE ${pattern}
+    OR EXISTS (SELECT 1 FROM unnest(${alias}.tags) AS tag WHERE tag ILIKE ${pattern})
+    OR EXISTS (
+      SELECT 1 FROM jsonb_array_elements_text(COALESCE(${alias}.tools, '[]'::jsonb)) AS t(tool)
+      WHERE t.tool ILIKE ${pattern}
+    ))`;
+}
+
+// Quick results for the toolbar search. Title matches come first.
 export async function searchArtworks(query: string, limit: number, offset: number): Promise<ArtworkSearchResult[]> {
-  const like = `%${query}%`;
   // Postgres LIKE is case-sensitive; ILIKE keeps search case-insensitive.
   const { rows } = await pool.query<ArtworkSearchResult>(
     `SELECT artworks.id, artworks.title, artworks.category, artworks.year, users.username
      FROM artworks
      JOIN users ON users.id = artworks.user_id
-     WHERE ${listedCondition()}
-       AND (artworks.title ILIKE $1 OR $2 = ANY(artworks.tags) OR artworks.category ILIKE $1 OR artworks.description ILIKE $1)
-     ORDER BY artworks.published_at DESC
-     LIMIT $3 OFFSET $4`,
-    [like, query.trim().toLowerCase(), limit, offset]
+     WHERE ${listedCondition()} AND ${artworkTextMatch('artworks', '$1')}
+     ORDER BY (artworks.title ILIKE $1) DESC, artworks.published_at DESC
+     LIMIT $2 OFFSET $3`,
+    [containsPattern(query), limit, offset]
   );
   return rows;
 }

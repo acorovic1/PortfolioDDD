@@ -1,5 +1,6 @@
 import { pool } from '../config/db.ts';
 import { listedCondition } from './artworks.repository.ts';
+import { imageRenderCondition } from './renders.repository.ts';
 import { notBlockedCondition } from './moderation.repository.ts';
 
 export type License = 'personal' | 'commercial' | 'editorial' | 'cc_by' | 'cc0';
@@ -124,7 +125,7 @@ export async function browseMarketplace(filters: {
   const { rows } = await pool.query<MarketplaceItem>(
     `SELECT ${LISTING_COLUMNS},
             a.title, a.thumbnail_path AS "thumbnailUrl",
-            (SELECT r.url FROM renders r WHERE r.artwork_id = a.id ORDER BY r.created_at LIMIT 1) AS "coverUrl",
+            (SELECT r.url FROM renders r WHERE r.artwork_id = a.id AND ${imageRenderCondition()} ORDER BY r.created_at LIMIT 1) AS "coverUrl",
             u.username, u.avatar_url AS "avatarUrl",
             (SELECT COUNT(*)::int FROM likes lk WHERE lk.artwork_id = a.id) AS "likeCount",
             a.view_count AS "viewCount", a.is_mature AS "isMature", a.ai_generated AS "aiGenerated"

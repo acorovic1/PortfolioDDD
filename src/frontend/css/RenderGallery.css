@@ -242,3 +242,27 @@
         background-position: 0% 50%;
     }
 }
+/* Video renders: a badge on the card, and the player in the lightbox. */
+.render-video-badge {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    pointer-events: none;
+}
+
+.lightbox-video {
+    display: flex;
+    width: min(90vw, 1280px);
+    height: calc(90vh - 80px);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+}

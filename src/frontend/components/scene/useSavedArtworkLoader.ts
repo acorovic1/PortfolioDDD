@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { RemoteArtwork } from '@/types/PortfolioPiece';
+import { isArtworkReady, type RemoteArtwork } from '@/types/PortfolioPiece';
 import type { ModelJobs } from './useModelJobs';
 
 type SavedArtworkLoaderOptions = {
@@ -31,7 +31,7 @@ export function useSavedArtworkLoader(
         if (signal.aborted) return;
         if (isLoaded(remote.id)) continue;
 
-        if (!remote.modelUrl) {
+        if (!isArtworkReady(remote)) {
           (remote.processingStatus === 'processing' ? pending : failed).push(remote);
           continue;
         }

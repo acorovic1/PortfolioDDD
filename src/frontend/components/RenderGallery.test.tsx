@@ -20,14 +20,14 @@ describe('RenderGallery', () => {
   it('hides the add button and delete controls when not editable', () => {
     render(<RenderGallery renders={renders} editable={false} onAdd={vi.fn()} onDelete={vi.fn()} />);
 
-    expect(screen.queryByText('Add Render')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add Render or Video')).not.toBeInTheDocument();
   });
 
   it('calls onAdd when the add-render button is clicked', () => {
     const onAdd = vi.fn();
     render(<RenderGallery renders={renders} editable={true} onAdd={onAdd} onDelete={vi.fn()} />);
 
-    fireEvent.click(screen.getByText('Add Render'));
+    fireEvent.click(screen.getByText('Add Render or Video'));
     expect(onAdd).toHaveBeenCalledTimes(1);
   });
 

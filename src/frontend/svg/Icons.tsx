@@ -549,3 +549,73 @@ export function DownloadIcon(props: IconProps) {
         </svg>
     );
 }
+
+// --- Video player ---
+
+export function SkipBackIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <polyline points="3 3 3 8 8 8" />
+            <text x="12" y="15.5" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none">10</text>
+        </svg>
+    );
+}
+
+export function SkipForwardIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+            <path d="M21 12a9 9 0 1 1-3-6.7" />
+            <polyline points="21 3 21 8 16 8" />
+            <text x="12" y="15.5" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none">10</text>
+        </svg>
+    );
+}
+
+export function FrameBackIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" {...props}>
+            <rect x="4" y="5" width="3" height="14" rx="1" />
+            <polygon points="20 5 9 12 20 19 20 5" />
+        </svg>
+    );
+}
+
+export function FrameForwardIcon(props: IconProps) {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" {...props}>
+            <polygon points="4 5 15 12 4 19 4 5" />
+            <rect x="17" y="5" width="3" height="14" rx="1" />
+        </svg>
+    );
+}
+
+export function VolumeIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" />
+            <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+        </svg>
+    );
+}
+
+export function MuteIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor" />
+            <line x1="23" y1="9" x2="17" y2="15" />
+            <line x1="17" y1="9" x2="23" y2="15" />
+        </svg>
+    );
+}
+
+export function LoopIcon(props: IconProps) {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+            <polyline points="17 1 21 5 17 9" />
+            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+            <polyline points="7 23 3 19 7 15" />
+            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+        </svg>
+    );
+}

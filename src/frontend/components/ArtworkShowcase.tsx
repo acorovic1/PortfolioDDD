@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { profilePath } from '@/frontend/utils/api';
-import { publishStatus, type PortfolioPiece, type PublishingState } from '@/types/PortfolioPiece';
+import { publishStatus, pickRenderFile, type PortfolioPiece, type PublishingState } from '@/types/PortfolioPiece';
 import PublishingPanel from '@/frontend/components/PublishingPanel';
 import ListingBox from '@/frontend/components/marketplace/ListingBox';
 import type { Comment } from '@/types/Comment';
@@ -13,6 +13,8 @@ import '../css/ArtworkInfo.css';
 import type { ArtworkInfoData } from '@/types/ArtworkInfoData';
 import { ImageIcon, HeartIcon, BookmarkIcon, CloseIcon, ShareIcon, EyeIcon, FlagIcon } from '@/frontend/svg/Icons';
 import ReportDialog, { type ReportTarget } from '@/frontend/components/moderation/ReportDialog';
+import DeleteArtworkDialog from '@/frontend/components/DeleteArtworkDialog';
+import AddRenderDialog from '@/frontend/components/AddRenderDialog';
 import { useAuth } from '@/frontend/hooks/useAuth';
 
 type ArtworkShowcaseProps = {
@@ -20,10 +22,12 @@ type ArtworkShowcaseProps = {
     selectedIndex: number;
 
     editable?: boolean;
-    onRenderAdd: () => void;
+    // Uploads a render for the artwork; rejects with a message to show.
+    onRenderAdd: (artworkId: string, file: File, caption: string) => void | Promise<void>;
     onDeleteRender: (renderId: string) => void;
     onInfoUpdate: <K extends keyof ArtworkInfoData>(key: K, value: ArtworkInfoData[K]) => void;
-    onDeleteArtwork: (artworkId: string) => void;
+    // Resolves once the artwork is deleted; rejects with a message to show.
+    onDeleteArtwork: (artworkId: string) => void | Promise<void>;
     likedArtworkIds: Record<string, boolean>;
     onToggleLike: (artworkId: string) => void;
     commentsByArtwork: Record<string, Comment[]>;
@@ -60,6 +64,11 @@ export default function ArtworkShowcase({
     const [isSavePanelOpen, setIsSavePanelOpen] = useState(false);
     const [shareCopied, setShareCopied] = useState(false);
     const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+    // The artwork the delete card is asking about (kept even if the carousel
+    // turns meanwhile).
+    const [deleteTarget, setDeleteTarget] = useState<PortfolioPiece | null>(null);
+    // A picked render waiting for its caption, and the artwork it's for.
+    const [pendingRender, setPendingRender] = useState<{ artworkId: string; file: File } | null>(null);
     const { user } = useAuth();
     const savePanelRef = useRef<HTMLDivElement>(null);
 
@@ -190,11 +199,7 @@ export default function ArtworkShowcase({
                         <button
                             className="action-btn danger"
                             title="Delete artwork"
-                            onClick={() => {
-                                if (confirm(`Delete "${info.title || 'this artwork'}"? This can't be undone.`)) {
-                                    onDeleteArtwork(artwork.id);
-                                }
-                            }}
+                            onClick={() => setDeleteTarget(artwork)}
                         >
                             <CloseIcon />
                             Delete
@@ -219,7 +224,11 @@ export default function ArtworkShowcase({
                 <RenderGallery
                     renders={artwork.renders}
                     editable={editable}
-                    onAdd={onRenderAdd}
+                    onAdd={async () => {
+                        const artworkId = artwork.id;
+                        const file = await pickRenderFile();
+                        if (file) setPendingRender({ artworkId, file });
+                    }}
                     onDelete={onDeleteRender}
                 />
 
@@ -237,6 +246,21 @@ export default function ArtworkShowcase({
             </div>
 
             {reportTarget && <ReportDialog target={reportTarget} onClose={() => setReportTarget(null)} />}
+            {pendingRender && (
+                <AddRenderDialog
+                    file={pendingRender.file}
+                    onAdd={async (caption) => { await onRenderAdd(pendingRender.artworkId, pendingRender.file, caption); }}
+                    onClose={() => setPendingRender(null)}
+                />
+            )}
+            {deleteTarget && (
+                <DeleteArtworkDialog
+                    artwork={deleteTarget}
+                    commentCount={commentsByArtwork[deleteTarget.id]?.length}
+                    onDelete={async () => { await onDeleteArtwork(deleteTarget.id); }}
+                    onClose={() => setDeleteTarget(null)}
+                />
+            )}
         </div>
     );
 }

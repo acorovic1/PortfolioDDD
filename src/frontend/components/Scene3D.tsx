@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import UploadDialog from '@/frontend/components/UploadDialog';
 import InspectorPanel from '@/frontend/components/InspectorPanel';
@@ -21,12 +21,17 @@ import { useFullscreen } from './scene/useFullscreen';
 import { useModelJobs } from './scene/useModelJobs';
 import { useSavedArtworkLoader } from './scene/useSavedArtworkLoader';
 import ModelJobOverlay from './scene/ModelJobOverlay';
+import ImageFocusViewer from './scene/ImageFocusViewer';
+import { useCarouselVideos } from './scene/useCarouselVideos';
+import { findEaselCanvas, rebuildEaselCanvas, type CanvasSettings } from '@/frontend/three/easelCanvas';
 import CarouselControls from './scene/CarouselControls';
 import ModelToolbar from './scene/ModelToolbar';
 import PortfolioStatsPanel from './scene/PortfolioStatsPanel';
 
 // Saves a thumbnail of the piece's model, for models that don't have one yet.
+// (A 2D artwork's thumbnail is made from its image on upload.)
 async function backfillThumbnail(piece: PortfolioPiece, token: string) {
+  if (piece.image) return;
   const thumbnailUrl = await uploadModelThumbnail(piece, token);
   if (thumbnailUrl && piece.modelInfo) piece.modelInfo.thumbnailUrl = thumbnailUrl;
 }
@@ -94,9 +99,22 @@ function Scene3D({
   const [addButton] = useState(createAddButton);
   const focusMode = useFocusMode({ viewport, artworksRef, addButton, animateCameraTo, token });
   const { focus, focusRef, enterFocus, exitFocus } = focusMode;
+  // The 2D or video artwork open in the image viewer (their focus mode).
+  const [imageFocus, setImageFocus] = useState<PortfolioPiece | null>(null);
+  // Bumped when a piece's canvas changes, to re-render the viewer showing it.
+  const [, setCanvasRevision] = useState(0);
+  // 2D artworks open in the image viewer, models in the inspector.
+  const openPiece = (piece: PortfolioPiece) => {
+    if (piece.image) setImageFocus(piece);
+    else enterFocus(piece);
+  };
   const gizmo = useModelGizmo({
     viewport,
-    target: carousel.frontPiece,
+    // A canvas on an easel isn't turned around.
+    target: () => {
+      const piece = carousel.frontPiece();
+      return piece?.image ? undefined : piece;
+    },
     allowed: editable && canManage,
     hidden: !!focus,
     deps: [frontIndex, artworks],
@@ -143,19 +161,43 @@ function Scene3D({
     if (focused && !artworks.some(a => a.id === focused.piece.id)) {
       exitFocus();
     }
+    setImageFocus(open => (open && !artworks.some(a => a.id === open.id) ? null : open));
 
     // Detach and dispose artworks that were removed (e.g. deleted by the user),
     // so they stop rendering and don't leak GPU resources.
     const scene = sceneRef.current;
-    artworksRef.current = artworksRef.current.filter(piece => {
+    const before = artworksRef.current;
+    const frontId = frontPieceId(before);
+    const remaining = before.filter(piece => {
       if (artworks.some(a => a.id === piece.id)) return true;
       scene?.remove(piece.root);
       disposeObject(piece.root);
       return false;
     });
+    artworksRef.current = remaining;
+
+    // Close the gap: the circle shrinks to fit the pieces that are left and
+    // they ease into their new slots. The front piece stays in front, or if
+    // it was the one removed, the next one takes its place.
+    if (remaining.length < before.length) {
+      radiusRef.current = carouselRadius(remaining);
+      if (remaining.length > 0) {
+        const keptFront = remaining.findIndex(p => p.id === frontId);
+        const nextFront = keptFront !== -1
+          ? keptFront
+          : Math.min(Math.max(0, before.findIndex(p => p.id === frontId)), remaining.length - 1);
+        rotateCarouselTo(remaining, nextFront, radiusRef.current);
+        carousel.setFrontIndex(nextFront);
+        if (!focusRef.current) animateCameraTo(remaining[nextFront]);
+      }
+    }
     // exitFocus only goes through refs/setters, so it never goes stale.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [artworks]);
+
+  // The front video artwork plays in the carousel (not while one is open).
+  // After the sync above, so it sees newly added pieces in the carousel.
+  const videos = useCarouselVideos({ artworks, frontPiece: carousel.frontPiece, frontIndex, active: !focus && !imageFocus });
 
   useFollowRequestedIndex(carousel, artworks, initialIndex);
 
@@ -233,7 +275,36 @@ function Scene3D({
 
   const inspectFrontArtwork = () => {
     const piece = carousel.frontPiece();
-    if (piece) enterFocus(piece);
+    if (piece) openPiece(piece);
+  };
+
+  const closeImageFocus = useCallback(() => {
+    setImageFocus(null);
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }, []);
+
+  // Owner only: puts a 2D artwork on a canvas with other settings (edges)
+  // and stores them with the artwork.
+  const changeCanvas = async (piece: PortfolioPiece, canvas: CanvasSettings) => {
+    const image = piece.image;
+    if (!image || !token) return;
+    const previous = image.canvas;
+    const apply = (settings: CanvasSettings) => {
+      const easel = findEaselCanvas(piece.root);
+      if (easel) {
+        rebuildEaselCanvas(easel, settings);
+        disposeObject(easel);
+      }
+      piece.image = { ...image, canvas: settings };
+      setCanvasRevision(n => n + 1);
+    };
+    apply(canvas);
+    try {
+      await apiFetch(`/api/portfolio/artworks/${piece.id}`, { method: 'PUT', token, body: { canvas } });
+    } catch (error) {
+      console.error('Failed to save the canvas settings:', error);
+      apply(previous);
+    }
   };
 
   // Uploads a new version of the focused model. The current one stays in the
@@ -344,7 +415,7 @@ function Scene3D({
       if (index === -1) return;
 
       if (pieces[index].id === frontPieceId(pieces)) {
-        enterFocus(pieces[index]);
+        openPiece(pieces[index]);
       } else {
         goToIndex(index);
       }
@@ -366,6 +437,9 @@ function Scene3D({
       const renderer = rendererRef.current;
       const camera = cameraRef.current;
       if (focusRef.current || !renderer || !camera || gizmo.isPointerOnGizmo() || reorder.isClickFromDrag()) return;
+      // Only clicks on the scene itself, not on panels over it (e.g. the
+      // image viewer, which covers the button).
+      if (event.target !== renderer.domElement) return;
 
       raycaster.setFromCamera(pointerToNdc(event, renderer.domElement, pointer), camera);
       const buttonBounds = addButton.bounds.clone().applyMatrix4(addButton.root.matrixWorld);
@@ -419,6 +493,21 @@ function Scene3D({
           hasSavedView={!!focus.piece.viewerSettings}
           replaceBusy={jobs.busy}
         />
+      ) : imageFocus?.image ? (
+        <ImageFocusViewer
+          key={imageFocus.id}
+          title={artworks.find(a => a.id === imageFocus.id)?.infoData.title ?? imageFocus.infoData.title}
+          image={imageFocus.image}
+          renders={artworks.find(a => a.id === imageFocus.id)?.renders ?? imageFocus.renders}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+          onClose={closeImageFocus}
+          onCanvasChange={canManage && token ? (canvas) => { void changeCanvas(imageFocus, canvas); } : undefined}
+          onVideoLeave={(time) => {
+            const element = imageFocus.image?.video?.element;
+            if (element) element.currentTime = time;
+          }}
+        />
       ) : (
         <CarouselControls
           onRotateCounterClockwise={() => carousel.rotate(-1)}
@@ -427,12 +516,15 @@ function Scene3D({
           onInspect={inspectFrontArtwork}
           canInspect={artworks.length > 0}
           canReorder={canReorder && artworks.length > 1}
+          video={videos.frontVideo ?? undefined}
         />
       )}
 
       {jobs.uploadRequest && (
         <UploadDialog
           fileName={jobs.uploadRequest.fileName}
+          kind={jobs.uploadRequest.kind}
+          previewUrl={jobs.uploadRequest.previewUrl}
           onSubmit={jobs.answerUploadDialog}
           onCancel={() => jobs.answerUploadDialog(null)}
         />
@@ -445,16 +537,16 @@ function Scene3D({
         onRemoveFailed={jobs.removeFailed}
       />
 
-      {editable && canManage && !focus && (
+      {editable && canManage && !focus && !imageFocus && (
         <ModelToolbar
           rotating={gizmo.enabled}
           onToggleRotate={gizmo.toggle}
           onResetRotation={gizmo.resetRotation}
-          disabled={artworks.length === 0}
+          disabled={artworks.length === 0 || !!carousel.frontPiece()?.image}
         />
       )}
 
-      {editable && !focus && <PortfolioStatsPanel artworks={artworks} frontIndex={frontIndex} />}
+      {editable && !focus && !imageFocus && <PortfolioStatsPanel artworks={artworks} frontIndex={frontIndex} />}
     </>
   );
 }

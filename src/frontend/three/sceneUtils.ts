@@ -53,8 +53,11 @@ export function countVertices(piece?: PortfolioPiece): number {
 }
 
 // Frees the GPU resources (geometry, materials) of everything under `object`.
+// Objects that own more (e.g. a 2D artwork's textures) free it in
+// `userData.onDispose`.
 export function disposeObject(object: THREE.Object3D): void {
   object.traverse((obj) => {
+    (obj.userData.onDispose as (() => void) | undefined)?.();
     const mesh = obj as THREE.Mesh;
     if (mesh.geometry) mesh.geometry.dispose();
     const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
