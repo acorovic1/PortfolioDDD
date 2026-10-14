@@ -20,14 +20,12 @@ flowchart LR
 
   DB[("PostgreSQL")]
   Store[("Uploads<br/>local disk or S3 / R2")]
-  Blender["FBX2glTF / Blender<br/>(external converters)"]
 
   SPA -- "REST + JWT" --> API
   SPA -- "GET /api/events" --> SSE
   SPA -- "models, images" --> Store
   API --> DB
   API -- "enqueue" --> Queue --> Pipeline
-  Pipeline -.-> Blender
   Pipeline --> Store
   Pipeline -- "mark ready / failed" --> DB
   Sweep --> DB
@@ -41,12 +39,13 @@ flowchart LR
 3. [The 3D viewer](#the-3d-viewer)
 4. [Frontend application](#frontend-application)
 5. [Backend](#backend)
-6. [Real-time events](#real-time-events)
-7. [Storage, images and caching](#storage-images-and-caching)
-8. [SEO and link previews](#seo-and-link-previews)
-9. [Security](#security)
-10. [Testing](#testing)
-11. [Design decisions and trade-offs](#design-decisions-and-trade-offs)
+6. [Direct messages](#direct-messages)
+7. [Real-time events](#real-time-events)
+8. [Storage, images and caching](#storage-images-and-caching)
+9. [SEO and link previews](#seo-and-link-previews)
+10. [Security](#security)
+11. [Testing](#testing)
+12. [Design decisions and trade-offs](#design-decisions-and-trade-offs)
 
 ## Repository layout
 
@@ -115,8 +114,8 @@ sequenceDiagram
 2. **Conversion to a glTF document** ([`convert.ts`](../src/backend/pipeline/convert.ts)):
    - **glTF / GLB:** read directly.
    - **STL and OBJ:** converted in-process ([`convert-stl.ts`](../src/backend/pipeline/convert-stl.ts), [`convert-obj.ts`](../src/backend/pipeline/convert-obj.ts)). The OBJ converter includes MTL materials and textures.
-   - **FBX:** FBX2glTF first, with Blender as a fallback.
-   - **`.blend` and USD:** Blender, run headless, if it's installed ([`convert-external.ts`](../src/backend/pipeline/convert-external.ts)).
+   - **Not accepted: FBX, `.blend`, USD.** Converting them needs native programs (FBX2glTF, Blender) to parse untrusted files on the server, where a parser bug could mean code execution. Every accepted format is parsed in-process by JS.
+   - **Side files stay inside the upload.** `.bin`/texture URIs in a glTF and `mtllib`/`map_*` paths in an OBJ are only followed within the upload's own folder, so a crafted model can't pull server files into its published GLB.
 3. **Optimization** ([`optimize.ts`](../src/backend/pipeline/optimize.ts)). gltf-transform runs `dedup`, `prune`, `resample` and `weld`. Textures are re-encoded as WebP and capped at `MODEL_MAX_TEXTURE_SIZE`. Geometry is then compressed with **meshopt** by default (Draco or none via `MODEL_COMPRESSION`).
 4. **Persist and record** ([`processor.ts`](../src/backend/pipeline/processor.ts)). The GLB is written through the storage driver, and the artwork row is marked `ready` or `failed`.
 
@@ -203,6 +202,36 @@ Express 5 on Node.js, written in TypeScript and run with `ts-node`.
 
 **Other features**, each following the same layering: follows and feeds, explore and search, direct messages, a jobs board and marketplace, creator analytics (views by traffic source), and moderation (reports, blocks, suspensions, admin role). Accounts support two-factor auth and email verification. Artists can serve their profile on a custom domain.
 
+## Direct messages
+
+One-to-one conversations, hire requests, and the messages that job applications and purchase requests send. The code is in [`messages.controller.ts`](../src/backend/controllers/messages.controller.ts) and [`messages.repository.ts`](../src/backend/repositories/messages.repository.ts), and the inbox is [`MessagesPage.tsx`](../src/frontend/components/messages/MessagesPage.tsx).
+
+**Data model.** `conversations` holds one row per pair of users. The pair is stored sorted (`CHECK (user_a < user_b)`) under a unique constraint, so two people can only ever have one conversation, even if both write at the same moment. Each side has its own read time, and a message is unread if it's newer than that. `started_by` records who wrote first, which is what the daily cap counts. `messages` holds the body, a `kind` (`message` or `hire`), and a JSONB `meta` with a hire request's structured fields.
+
+**Access control.** Every route needs a session. The API never accepts a conversation id from the client: a thread is always looked up from the pair (the caller, the username in the URL). So nobody can read a conversation they aren't part of by guessing an id. If the other person has blocked you, or their account is suspended, they look like they don't exist (404).
+
+**Conversation requests.** Until the recipient writes back, a conversation counts as a request:
+
+| Rule | Limit | Response when broken |
+|---|---|---|
+| The recipient's `messages_from` setting: `everyone`, `following` (people they follow) or `nobody` | Hire requests still reach artists who are available for work, unless they chose `nobody` | `403` with `restriction: 'not_accepting'` |
+| Messages before a reply | 3 | `429` with `restriction: 'awaiting_reply'` |
+| New conversations started per account | 20 per 24 hours | `429` |
+| Messages sent per account | 60 per 10 minutes (rate limiter) | `429` |
+| You blocked them | Unblock first | `403` with `restriction: 'blocked'` |
+
+Once the recipient has replied, only the block and rate limit rules apply. `GET /api/messages/:username` returns `canMessage` and `restriction`, so the inbox can explain why the message box is closed. Job applications and purchase requests call `sendMessage` directly and skip these rules, because they're contextual and have limits of their own.
+
+**Encryption at rest.** Bodies and `meta` are encrypted with AES-256-GCM before they're written ([`message-crypto.util.ts`](../src/backend/utils/message-crypto.util.ts)). Each value gets a random 12-byte IV and is stored as `m1:<iv>:<auth tag>:<ciphertext>`. Encrypted `meta` is stored as `{"enc": "..."}`. The key is derived from `MESSAGE_ENCRYPTION_KEY`, falling back to `JWT_SECRET`. Values without the `m1:` prefix are older plain text and are returned unchanged, so turning encryption on needed no downtime. `npm run messages:encrypt` encrypts those older rows, and it's safe to run more than once. This protects against a leaked dump or backup, not against the server itself: it isn't end-to-end encryption.
+
+**Inbox.** The conversation list and the unread count leave out conversations with suspended users and with anyone either side has blocked (`notBlockedCondition`). Threads are paged with `?before=<ISO time>`, and an invalid value returns 400.
+
+**Notifications and real time.** Only the first message of an unread streak creates a notification; hire requests always do. Sending publishes a `message` event to both people over SSE, so the sender's other tabs update too.
+
+**Moderation.** The recipient can report a message (`targetType: 'message'`). Only a participant can report it, so to anyone else a message id looks like it doesn't exist (404), and the sender can't report their own. The report keeps a decrypted snapshot of the message for moderators, which is the only way a moderator sees message content. Removing the content deletes the message.
+
+**Production settings.** Set `MESSAGE_ENCRYPTION_KEY` (and never change it), and `REQUIRE_EMAIL_VERIFICATION=true`, so unconfirmed accounts can't send messages. On an `https` `PUBLIC_URL`, the server logs a warning at startup if either is missing.
+
 ## Real-time events
 
 Notifications and messages arrive instantly, over **Server-Sent Events** ([`services/realtime.ts`](../src/backend/services/realtime.ts)):
@@ -237,8 +266,13 @@ Preview images are generated as 1200×630 JPEGs from the artwork's render or the
 
 - **Auth tokens:** JWTs signed with `JWT_SECRET`, valid for 7 days. Each token carries the account's `token_version`, so changing the password or choosing "sign out everywhere" invalidates every older token. Two-factor sign-in uses a separate short-lived challenge token, which is only accepted by the code step.
 - **Validation:** every request body is validated with zod schemas ([`validation/schemas.ts`](../src/backend/validation/schemas.ts)).
-- **Rate limits:** a general API limit, a stricter limit on auth endpoints, and a separate limit for processing-status polls, so a long conversion can't exhaust the general limit.
-- **Headers:** helmet's defaults are on. A Content Security Policy is left off because the API and frontend run on different origins in development.
+- **Rate limits:** a general API limit, a stricter limit on auth endpoints, and a separate limit for processing-status polls, so a long conversion can't exhaust the general limit. Uploads have per-account hourly limits too.
+- **Storage quota:** each account may store 250 MB in total (`STORAGE_QUOTA_MB`, or its own `users.storage_quota_bytes` for upgrades). The `stored_files` table is a ledger of every stored file, its owner and its size: `persistUpload` adds a row and `deleteStoredFile` removes it, so usage is what the account actually costs to host. Upload routes check the quota before receiving a file (a full account is turned away) and after: the file must fit (crediting a file it replaces), and its size is then reserved in `storage_reservations` under a lock on the account's row, so simultaneous uploads can't each see the same free space. The reservation is released once the files are recorded, or, for a model, once it has been processed. Files stored before the ledger existed are counted at startup. Per-file caps: models 50 MB, image artworks 10 MB, videos 30 MB, render images, covers, avatars and thumbnails 5 MB.
+- **Headers:** helmet's defaults are on, plus a Content Security Policy for the built frontend ([`csp.middleware.ts`](../src/backend/middleware/csp.middleware.ts)): scripts only from the site itself, and connections only to the site, the API and the storage bucket/CDN. It's the backstop for the session token in `localStorage` if an XSS bug ever slips in. In development the page comes from Vite, which sends no policy.
+- **XSS:** React renders user text as text, never HTML, and nothing uses `dangerouslySetInnerHTML`. Profile links must be `http(s)`, and server-rendered metadata is HTML-escaped. The CSP above is the second line of defense.
+- **Why the token isn't in a cookie:** artists' custom domains call the API from a different site, so a session cookie would need `SameSite=None` plus CSRF protection. A bearer token in a header can't be sent by another site, and the CSP limits what an injected script could do with it.
+- **Private data at rest:** direct messages are encrypted (see [Direct messages](#direct-messages)), TOTP secrets are encrypted, and email and reset tokens are stored only as hashes.
+- **Spam:** with `REQUIRE_EMAIL_VERIFICATION=true`, messages, comments, job posts and purchase requests need a confirmed email address. Messaging has its own limits on top (see [Direct messages](#direct-messages)).
 - **CORS:** allows the configured origins, plus artists' verified custom domains.
 - **Opting out of AI training:** artists can opt out. Their pages and stored files are then served with `noai` headers.
 
@@ -246,7 +280,7 @@ Preview images are generated as 1200×630 JPEGs from the artwork's render or the
 
 | Suite | Tooling | Covers |
 |---|---|---|
-| Backend | vitest against a real Postgres | Every API area: auth and 2FA, ownership and visibility rules, the model pipeline, storage, SEO, realtime, pagination, moderation, ... |
+| Backend | vitest against a real Postgres | Every API area: auth and 2FA, ownership and visibility rules, the model pipeline, storage, SEO, realtime, pagination, moderation, message safety (encryption checked on the raw rows, conversation requests, caps, inbox filtering, reporting), ... |
 | Frontend | vitest + jsdom + Testing Library | The pure Three.js modules (carousel, camera framing, saved views), scene hooks, overlays, and the optimistic-update hooks |
 | End to end | Playwright (desktop Chrome and Pixel 5) | Sign-up and navigation, the 3D scene mounting, settings, and social features between two accounts |
 
@@ -256,7 +290,7 @@ Because the Three.js logic lives in plain modules, the viewer's behaviour can be
 
 **Convert on the server, not in the browser.** The client loads exactly one kind of file (a compressed GLB) through one loader. The cost is server CPU and a short wait after each upload. That wait is shown as a progress overlay, and the result is a much smaller download for every visitor afterwards.
 
-**An in-process queue, one job at a time.** Conversions are CPU- and memory-heavy and may start Blender. Running them one at a time in the API process keeps the deployment to a single service, and keeps memory use predictable. The trade-off is throughput: many simultaneous uploads wait in line, and long conversions share a CPU with the API. If that became a problem, the next step would be a worker process consuming the same jobs from a database table. The job state is already stored in the database, which is what makes restart recovery possible.
+**An in-process queue, one job at a time.** Conversions are CPU- and memory-heavy. Running them one at a time in the API process keeps the deployment to a single service, and keeps memory use predictable. The trade-off is throughput: many simultaneous uploads wait in line, and long conversions share a CPU with the API. If that became a problem, the next step would be a worker process consuming the same jobs from a database table. The job state is already stored in the database, which is what makes restart recovery possible.
 
 **Meshopt over Draco by default.** Meshopt has a smaller decoder and decodes faster, and it also compresses animation and morph-target data. Draco often compresses static geometry slightly better, so it remains available as an option.
 
@@ -265,5 +299,7 @@ Because the Three.js logic lives in plain modules, the viewer's behaviour can be
 **"Something changed" events instead of full payloads.** Clients refetch through the normal REST endpoints. That means one code path for reading data, and no events that drift out of sync with the API's response types.
 
 **Hand-written SQL instead of an ORM.** Visibility and ranking rules (processed, published, not by a suspended account, trending) are written as SQL fragments shared across queries. This keeps the queries explicit and easy to inspect with `EXPLAIN`.
+
+**Encrypt messages in the app, not end to end.** End-to-end encryption would need key management in the browser (keys per device, recovery, multiple devices) and would make reported messages unreadable to moderators. Encrypting in the app covers the most likely leak (a database dump or backup) and keeps moderation and notifications working. The cost is that whoever runs the server can still read messages.
 
 **The backend serves the frontend.** In production, one process serves the API, the built frontend and the SEO-injected HTML, so a deployment is one container plus Postgres. A CDN in front handles everything cacheable.
