@@ -9,6 +9,7 @@ import {
   EMPLOYMENT_LABELS, WORKPLACE_LABELS,
   type Job, type EmploymentType, type Workplace,
 } from '@/types/Community';
+import ConfirmDialog from '@/frontend/components/ConfirmDialog';
 import '@/frontend/css/Community.css';
 import '@/frontend/css/Jobs.css';
 
@@ -123,6 +124,7 @@ function JobDetail({ job, onChanged, onOpenUser, onRequireLogin }: {
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState('');
   const [applications, setApplications] = useState<Application[] | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const externalLink = safeUrl(job.applyUrl);
 
   useEffect(() => {
@@ -150,7 +152,6 @@ function JobDetail({ job, onChanged, onOpenUser, onRequireLogin }: {
   };
 
   const remove = async () => {
-    if (!confirm('Delete this job posting?')) return;
     await apiFetch(`/api/jobs/${job.id}`, { method: 'DELETE', token });
     onChanged();
   };
@@ -182,7 +183,7 @@ function JobDetail({ job, onChanged, onOpenUser, onRequireLogin }: {
         <div className="job-owner">
           <div className="job-owner-actions">
             <button className="btn small" onClick={() => update({ isOpen: !job.isOpen })}>{job.isOpen ? 'Close posting' : 'Reopen'}</button>
-            <button className="btn small danger" onClick={remove}>Delete</button>
+            <button className="btn small danger" onClick={() => setConfirmingDelete(true)}>Delete</button>
           </div>
           <h4>Applications ({applications?.length ?? '…'})</h4>
           {applications?.length === 0 && <p className="empty-note small">No applications yet.</p>}
@@ -217,6 +218,20 @@ function JobDetail({ job, onChanged, onOpenUser, onRequireLogin }: {
         <button className="btn primary" onClick={() => (user ? setApplying(true) : onRequireLogin())}>Apply</button>
       )}
       {status && <p className="job-status">{status}</p>}
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="Delete this job posting?"
+          confirmLabel="Delete posting"
+          busyLabel="Deleting..."
+          danger
+          onConfirm={remove}
+          onClose={() => setConfirmingDelete(false)}
+        >
+          <p className="confirm-warning">
+            <strong>{job.title}</strong> at {job.company} is taken down for good, along with its list of applications. Your conversations with applicants stay in your messages.
+          </p>
+        </ConfirmDialog>
+      )}
     </article>
   );
 }

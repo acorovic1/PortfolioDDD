@@ -5,6 +5,7 @@ import { apiFetch, assetUrl } from '@/frontend/utils/api';
 import { CloseIcon, FlagIcon, BlockIcon } from '@/frontend/svg/Icons';
 import ReportDialog from '@/frontend/components/moderation/ReportDialog';
 import HireDialog from '@/frontend/components/messages/HireDialog';
+import ConfirmDialog from '@/frontend/components/ConfirmDialog';
 import { useNavigate } from 'react-router-dom';
 import type { WorkType } from '@/types/ProfileData';
 import '@/frontend/css/Community.css';
@@ -41,6 +42,7 @@ export default function ProfileSocialBar({ username, onOpenUser, onRequireLogin,
   const [list, setList] = useState<{ kind: 'followers' | 'following'; users: FollowUser[] } | null>(null);
   const [reporting, setReporting] = useState(false);
   const [hiring, setHiring] = useState(false);
+  const [confirmingBlock, setConfirmingBlock] = useState(false);
   const navigate = useNavigate();
 
   const requireLogin = (action: () => void) => () => (user ? action() : onRequireLogin());
@@ -50,20 +52,18 @@ export default function ProfileSocialBar({ username, onOpenUser, onRequireLogin,
       onRequireLogin();
       return;
     }
-    const blocking = !summary.viewer.hasBlocked;
-    if (blocking && !confirm(`Block @${username}? They won't be able to follow you, message you or interact with your work, and you won't see theirs.`)) {
-      return;
-    }
-    try {
-      await apiFetch(`/api/users/${encodeURIComponent(username)}/block`, { method: blocking ? 'POST' : 'DELETE', token });
-      setSummary(prev => prev && {
-        ...prev,
-        stats: blocking && prev.viewer.isFollowing ? { ...prev.stats, followers: prev.stats.followers - 1 } : prev.stats,
-        viewer: { ...prev.viewer, hasBlocked: blocking, isFollowing: blocking ? false : prev.viewer.isFollowing },
-      });
-    } catch (err) {
-      console.error('Failed to update block:', err);
-    }
+    // Blocking is asked in a card first; unblocking just happens.
+    if (!summary.viewer.hasBlocked) setConfirmingBlock(true);
+    else void setBlocked(false).catch(err => console.error('Failed to update block:', err));
+  };
+
+  const setBlocked = async (blocking: boolean) => {
+    await apiFetch(`/api/users/${encodeURIComponent(username)}/block`, { method: blocking ? 'POST' : 'DELETE', token });
+    setSummary(prev => prev && {
+      ...prev,
+      stats: blocking && prev.viewer.isFollowing ? { ...prev.stats, followers: prev.stats.followers - 1 } : prev.stats,
+      viewer: { ...prev.viewer, hasBlocked: blocking, isFollowing: blocking ? false : prev.viewer.isFollowing },
+    });
   };
 
   useEffect(() => {
@@ -185,6 +185,21 @@ export default function ProfileSocialBar({ username, onOpenUser, onRequireLogin,
 
       {reporting && (
         <ReportDialog target={{ type: 'user', id: username, label: username }} onClose={() => setReporting(false)} />
+      )}
+
+      {confirmingBlock && (
+        <ConfirmDialog
+          title={`Block @${username}?`}
+          confirmLabel="Block"
+          busyLabel="Blocking..."
+          danger
+          onConfirm={() => setBlocked(true)}
+          onClose={() => setConfirmingBlock(false)}
+        >
+          <p className="confirm-warning">
+            They won't be able to follow you, message you or interact with your work, and you won't see theirs. You can unblock them later from their profile.
+          </p>
+        </ConfirmDialog>
       )}
 
       {list && (

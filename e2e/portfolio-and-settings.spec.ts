@@ -53,11 +53,13 @@ test('settings page rejects deleting the account with the wrong password', async
   await registerAndLand(page);
   await page.goto('/settings');
 
-  page.once('dialog', (dialog) => dialog.accept());
   await page.locator('.settings-section-danger input').fill('definitely-wrong');
   await page.getByRole('button', { name: 'Delete account' }).click();
+  // Confirmed in a card, which then shows the refusal.
+  const card = page.getByRole('alertdialog', { name: 'Delete your account?' });
+  await card.getByRole('button', { name: 'Delete my account' }).click();
 
-  await expect(page.getByText(/incorrect|failed to delete/i)).toBeVisible();
+  await expect(card.getByText(/incorrect|failed to delete/i)).toBeVisible();
   // Still logged in - a failed deletion must not log the user out.
   await expect(page).toHaveURL(/\/settings$/);
 });

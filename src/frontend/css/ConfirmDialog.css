@@ -1,0 +1,138 @@
+/* ConfirmDialog: a .modal-card (Community.css) asking to confirm an action. */
+
+.confirm-card {
+  width: min(420px, 100%);
+  animation: confirm-in 0.16s ease-out;
+}
+
+/* Body and footer, so Enter in a field confirms. */
+.confirm-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* A value the card asks for (a caption, a reason...). */
+.confirm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.confirm-field input,
+.confirm-field textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-inset);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.confirm-field textarea {
+  resize: vertical;
+  min-height: 64px;
+}
+
+.confirm-field input:focus-visible,
+.confirm-field textarea:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 0;
+}
+
+/* A picked file shown before it's uploaded. */
+.confirm-media-preview {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: var(--color-bg-alt);
+}
+
+@keyframes confirm-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirm-card { animation: none; }
+}
+
+.btn.danger-solid {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+}
+
+.btn.danger-solid:hover:not(:disabled) {
+  background: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
+}
+
+.confirm-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: confirm-spin 0.7s linear infinite;
+}
+
+@keyframes confirm-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* The artwork about to be deleted. */
+.confirm-artwork {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 10px;
+  background: var(--color-surface-inset);
+}
+
+.confirm-artwork-thumb {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--color-bg-alt);
+}
+
+.confirm-artwork-thumb.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-faint);
+}
+
+.confirm-artwork-text {
+  min-width: 0;
+}
+
+.confirm-artwork-text strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+}
+
+.confirm-artwork-text span {
+  color: var(--color-text-secondary);
+  font-size: 12.5px;
+}
+
+.confirm-warning {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13.5px;
+  line-height: 1.5;
+}

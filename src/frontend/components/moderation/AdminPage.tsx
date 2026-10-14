@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/frontend/hooks/useAuth';
 import { apiFetch, profilePath } from '@/frontend/utils/api';
+import ConfirmDialog from '@/frontend/components/ConfirmDialog';
 import '@/frontend/css/Community.css';
 import '@/frontend/css/Admin.css';
 
 type Report = {
   id: string;
-  targetType: 'artwork' | 'comment' | 'user';
+  targetType: 'artwork' | 'comment' | 'user' | 'message';
   targetId: string;
   targetSummary: string | null;
   targetUsername: string | null;
@@ -166,15 +167,24 @@ function UsersTab() {
     load('');
   }, [load]);
 
-  const suspend = async (target: AdminUser, suspended: boolean) => {
-    const reason = suspended ? prompt(`Suspend @${target.username}? Reason (shown to them):`, 'Community guidelines violation') : null;
-    if (suspended && reason === null) return;
-    await apiFetch(`/api/admin/users/${target.id}/suspend`, { method: 'POST', token, body: { suspended, reason: reason ?? undefined } });
+  // What the confirmation card is asking about.
+  const [pending, setPending] = useState<
+    { kind: 'suspend'; user: AdminUser } | { kind: 'role'; user: AdminUser; role: 'user' | 'admin' } | null
+  >(null);
+  const [reason, setReason] = useState('');
+
+  const suspend = async (target: AdminUser, suspended: boolean, suspensionReason?: string) => {
+    await apiFetch(`/api/admin/users/${target.id}/suspend`, { method: 'POST', token, body: { suspended, reason: suspensionReason } });
     load(query);
   };
 
+  // Suspending asks for a reason (shown to them) first; lifting it doesn't.
+  const askSuspend = (target: AdminUser) => {
+    setReason('Community guidelines violation');
+    setPending({ kind: 'suspend', user: target });
+  };
+
   const setRole = async (target: AdminUser, role: 'user' | 'admin') => {
-    if (!confirm(role === 'admin' ? `Make @${target.username} an admin?` : `Remove admin rights from @${target.username}?`)) return;
     await apiFetch(`/api/admin/users/${target.id}/role`, { method: 'POST', token, body: { role } });
     load(query);
   };
@@ -202,8 +212,8 @@ function UsersTab() {
                 <td className="admin-row-actions">
                   {u.id !== me?.id && (
                     <>
-                      <button className="btn small" onClick={() => suspend(u, !u.suspendedAt)}>{u.suspendedAt ? 'Unsuspend' : 'Suspend'}</button>
-                      <button className="btn small" onClick={() => setRole(u, u.role === 'admin' ? 'user' : 'admin')}>
+                      <button className="btn small" onClick={() => (u.suspendedAt ? void suspend(u, false) : askSuspend(u))}>{u.suspendedAt ? 'Unsuspend' : 'Suspend'}</button>
+                      <button className="btn small" onClick={() => setPending({ kind: 'role', user: u, role: u.role === 'admin' ? 'user' : 'admin' })}>
                         {u.role === 'admin' ? 'Remove admin' : 'Make admin'}
                       </button>
                     </>
@@ -214,6 +224,40 @@ function UsersTab() {
           </tbody>
         </table>
       </div>
+
+      {pending?.kind === 'suspend' && (
+        <ConfirmDialog
+          title={`Suspend @${pending.user.username}?`}
+          confirmLabel="Suspend"
+          busyLabel="Suspending..."
+          danger
+          initialFocus="field"
+          confirmDisabled={!reason.trim()}
+          onConfirm={() => suspend(pending.user, true, reason.trim())}
+          onClose={() => setPending(null)}
+        >
+          <p className="confirm-warning">They can't sign in or post while suspended, and their work is hidden from everyone.</p>
+          <label className="confirm-field">
+            Reason (shown to them)
+            <textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={3} />
+          </label>
+        </ConfirmDialog>
+      )}
+      {pending?.kind === 'role' && (
+        <ConfirmDialog
+          title={pending.role === 'admin' ? `Make @${pending.user.username} an admin?` : `Remove admin rights from @${pending.user.username}?`}
+          confirmLabel={pending.role === 'admin' ? 'Make admin' : 'Remove admin'}
+          danger={pending.role === 'user'}
+          onConfirm={() => setRole(pending.user, pending.role)}
+          onClose={() => setPending(null)}
+        >
+          <p className="confirm-warning">
+            {pending.role === 'admin'
+              ? "Admins can handle reports, suspend accounts and change other users' roles."
+              : 'They lose access to the moderation dashboard right away.'}
+          </p>
+        </ConfirmDialog>
+      )}
     </div>
   );
 }

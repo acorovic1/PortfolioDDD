@@ -18,6 +18,7 @@ import {
 } from '@/frontend/svg/Icons';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '@/frontend/hooks/useI18n';
+import ConfirmDialog from '@/frontend/components/ConfirmDialog';
 
 type UserMenuProps = {
   onProfileClick?: () => void;
@@ -56,11 +57,11 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
     };
   }, [isOpen]);
 
+  // Asked in a card; the menu closes behind it.
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
   const handleLogout = () => {
-    if (window.confirm(t('menu.logoutConfirm'))) {
-      logout();
-      setIsOpen(false);
-    }
+    setIsOpen(false);
+    setConfirmingLogout(true);
   };
 
   const handleProfileClick = () => {
@@ -129,17 +130,17 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
             <CommentIcon />
             <span>{t('menu.comments')}</span>
           </button>
-          <button className="user-dropdown-item" onClick={() => goTo('/analytics')}>
-            <ChartIcon />
-            <span>{t('menu.analytics')}</span>
+          <button className="user-dropdown-item" onClick={handleSavedClick}>
+            <BookmarkIcon />
+            <span>{t('menu.saved')}</span>
           </button>
           <button className="user-dropdown-item" onClick={() => goTo('/messages')}>
             <MessageIcon />
             <span>{t('menu.messages')}</span>
           </button>
-          <button className="user-dropdown-item" onClick={handleSavedClick}>
-            <BookmarkIcon />
-            <span>{t('menu.saved')}</span>
+          <button className="user-dropdown-item" onClick={() => goTo('/analytics')}>
+            <ChartIcon />
+            <span>{t('menu.analytics')}</span>
           </button>
           <button className="user-dropdown-item" onClick={handleSettingsClick}>
             <SettingsIcon />
@@ -168,6 +169,16 @@ export default function UserMenu({ onProfileClick, onLikedPostsClick, onMyCommen
             <span>{t('menu.logout')}</span>
           </button>
         </div>
+      )}
+      {confirmingLogout && (
+        <ConfirmDialog
+          title={t('menu.logout')}
+          confirmLabel={t('menu.logout')}
+          onConfirm={logout}
+          onClose={() => setConfirmingLogout(false)}
+        >
+          <p className="confirm-warning">{t('menu.logoutConfirm')}</p>
+        </ConfirmDialog>
       )}
     </div>
   );
