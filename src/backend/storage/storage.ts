@@ -6,7 +6,9 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
 } from '@aws-sdk/client-s3';
+import { recordStoredFile, forgetStoredFile } from '../repositories/storage-usage.repository.ts';
 
 // Where uploaded files (models, renders, thumbnails, avatars, covers) live.
 //
@@ -31,6 +33,10 @@ const CONTENT_TYPES: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
+  // Served as video so browsers stream them (range requests) instead of
+  // downloading.
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
 };
 
 export function contentTypeFor(fileName: string): string {
@@ -79,6 +85,13 @@ function s3(): S3Config | null {
   return s3Config;
 }
 
+// Where stored files are served from when that's not this server (the
+// bucket or its CDN) - the page's content security policy has to allow it.
+export function storageOrigin(): string | null {
+  const config = s3();
+  return config ? new URL(config.publicBase).origin : null;
+}
+
 export function storageDriver(): 'local' | 's3' {
   return s3() ? 's3' : 'local';
 }
@@ -113,20 +126,48 @@ async function putToBucket(config: S3Config, localPath: string, key: string): Pr
   return `${config.publicBase}/${key}`;
 }
 
-export async function persistUpload(subdir: string, fileName: string): Promise<string> {
+// `ownerId` is the account whose upload it is: the file counts towards that
+// account's storage quota until it's deleted.
+export async function persistUpload(subdir: string, fileName: string, ownerId: string): Promise<string> {
   const config = s3();
-  if (!config) return `/uploads/${subdir}/${fileName}`;
-
   const localPath = path.join(LOCAL_ROOT, subdir, fileName);
-  const url = await putToBucket(config, localPath, `${subdir}/${fileName}`);
-  await unlink(localPath).catch(() => {});
+  const { size } = await stat(localPath);
+
+  let url: string;
+  if (config) {
+    url = await putToBucket(config, localPath, `${subdir}/${fileName}`);
+    await unlink(localPath).catch(() => {});
+  } else {
+    url = `/uploads/${subdir}/${fileName}`;
+  }
+  await recordStoredFile(url, ownerId, size);
   return url;
 }
 
-// Deletes a stored file by its public URL (local or bucket). Missing files
-// are fine; foreign URLs are ignored.
+// The size of a stored file, or null if it's missing or not ours.
+export async function storedFileSize(url: string): Promise<number | null> {
+  try {
+    if (isLocalUrl(url)) return (await stat(localPathFor(url))).size;
+    const config = s3();
+    const key = config && keyFor(url, config);
+    if (!config || !key) return null;
+    const head = await config.client.send(new HeadObjectCommand({ Bucket: config.bucket, Key: key }));
+    return head.ContentLength ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Deletes a stored file by its public URL (local or bucket), and stops
+// counting it towards its owner's quota. Missing files are fine; foreign URLs
+// are ignored.
 export async function deleteStoredFile(url: string | null | undefined): Promise<void> {
   if (!url) return;
+  await removeStoredFile(url);
+  await forgetStoredFile(url);
+}
+
+async function removeStoredFile(url: string): Promise<void> {
   if (isLocalUrl(url)) {
     try {
       await unlink(localPathFor(url));
@@ -161,7 +202,7 @@ export async function copyLocalFileToBucket(url: string): Promise<string> {
   return putToBucket(config, localPathFor(url), url.replace(/^\/uploads\//, ''));
 }
 
-const IMAGE_KEY = /^(renders|thumbnails|avatars|covers)\/[\w-]+\.(png|jpe?g|webp)$/i;
+const IMAGE_KEY = /^(renders|thumbnails|avatars|covers|images)\/[\w-]+\.(png|jpe?g|webp)$/i;
 
 // Whether `url` is one of our stored images (local or in the bucket) - the
 // image resizer only works on those, never arbitrary URLs.

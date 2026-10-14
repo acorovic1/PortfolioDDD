@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import type { User } from './auth-types';
+import type { User, MessagesFrom } from './auth-types';
 import type { SocialNetwork, WorkType, ExperienceEntry } from '@/types/ProfileData';
 
 export interface ProfileUpdateFields {
@@ -20,6 +20,7 @@ export interface ProfileUpdateFields {
   experience?: ExperienceEntry[];
   emailNotifications?: boolean;
   locale?: 'en' | 'bs' | 'de';
+  messagesFrom?: MessagesFrom;
 }
 
 export interface AuthContextType {
@@ -35,7 +36,8 @@ export interface AuthContextType {
   register: (email: string, password: string, username: string) => Promise<void>;
   logout: () => void;
   updateUsername: (username: string) => Promise<void>;
-  updateEmail: (email: string) => Promise<void>;
+  // Needs the current password, and a two-factor code when that's on.
+  updateEmail: (email: string, password: string, code?: string) => Promise<void>;
   // Emails a password reset link to the account's address.
   sendPasswordResetLink: () => Promise<void>;
   updateProfile: (fields: ProfileUpdateFields) => Promise<void>;

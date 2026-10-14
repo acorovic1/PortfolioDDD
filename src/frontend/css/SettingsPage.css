@@ -140,6 +140,30 @@
   color: var(--color-text-secondary);
 }
 
+.settings-storage-meter {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-surface-inset);
+  overflow: hidden;
+}
+
+.settings-storage-meter > div {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--color-accent);
+  transition: width 0.3s ease;
+}
+
+.settings-storage-meter.full > div {
+  background: var(--color-danger);
+}
+
+.settings-storage-used {
+  margin: 8px 0 4px 0;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
 .settings-delete-btn {
   flex-shrink: 0;
   background: transparent;

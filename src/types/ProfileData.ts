@@ -41,8 +41,9 @@ export type SidebarProps = {
   profile: ProfileData;
   editable?: boolean;
   onChange?: (next: ProfileData) => void;
-  onAvatarUpload?: (file: File) => void;
-  onCoverUpload?: (file: File) => void;
+  // Reject with an error to show when the server refuses the image.
+  onAvatarUpload?: (file: File) => Promise<void>;
+  onCoverUpload?: (file: File) => Promise<void>;
   // Rendered under the profile header (follow stats, actions...).
   children?: ReactNode;
 };
@@ -51,7 +52,7 @@ export type ProfileHeaderProps = {
   profile: ProfileData;
   editable: boolean;
   onUpdate: (key: keyof ProfileData, value: string) => void;
-  onAvatarUpload?: (file: File) => void;
+  onAvatarUpload?: (file: File) => Promise<void>;
 };
 
 export type BioSectionProps = {

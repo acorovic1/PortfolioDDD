@@ -9,6 +9,26 @@ export class ApiError extends Error {
   }
 }
 
+// The server refused an upload because the account's storage is full (or
+// the upload doesn't fit in what's left).
+export class StorageQuotaError extends ApiError {
+  readonly usedBytes: number;
+  readonly quotaBytes: number;
+
+  constructor(message: string, usedBytes: number, quotaBytes: number) {
+    super(413, message);
+    this.usedBytes = usedBytes;
+    this.quotaBytes = quotaBytes;
+  }
+}
+
+// The error for a refused upload's response body, if storage was the reason.
+export function storageQuotaErrorFrom(body: unknown): StorageQuotaError | null {
+  const data = body as { error?: string; storageQuotaExceeded?: boolean; usedBytes?: number; quotaBytes?: number } | null;
+  if (!data?.storageQuotaExceeded) return null;
+  return new StorageQuotaError(data.error ?? 'Storage full', data.usedBytes ?? 0, data.quotaBytes ?? 0);
+}
+
 type ApiOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   token?: string | null;
@@ -32,7 +52,8 @@ export async function apiFetch<T>(path: string, { method = 'GET', token, body, s
 
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new ApiError(res.status, (data as { error?: string } | null)?.error ?? `Request failed (${res.status})`);
+    throw storageQuotaErrorFrom(data)
+      ?? new ApiError(res.status, (data as { error?: string } | null)?.error ?? `Request failed (${res.status})`);
   }
   return data as T;
 }

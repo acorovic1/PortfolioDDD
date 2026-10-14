@@ -8,9 +8,11 @@ import {
   markModelReady,
   markModelFailed,
   findInterruptedProcessing,
+  findArtworkById,
 } from '../repositories/artworks.repository.ts';
 import { persistUpload, deleteStoredFile } from '../storage/storage.ts';
 import { announceNewlyPublishedInBackground } from '../services/publisher.ts';
+import { releaseStorageReservation } from '../repositories/storage-usage.repository.ts';
 
 export type ModelJob = {
   artworkId: string;
@@ -18,9 +20,11 @@ export type ModelJob = {
   sourcePath: string;
   // Used to detect the format - uploads are stored under a random name.
   originalName: string;
+  // Storage held for the result until it's recorded (see storage-quota.ts).
+  reservationId?: string;
 };
 
-// Conversions are CPU/memory heavy (and may spawn Blender), so jobs run one
+// Conversions are CPU/memory heavy, so jobs run one
 // at a time in this process rather than all at once.
 const queue: ModelJob[] = [];
 let draining: Promise<void> | null = null;
@@ -64,10 +68,14 @@ async function processJob(job: ModelJob): Promise<void> {
     await optimizeDocument(document);
     const glb = await writeGlb(document);
 
+    // The GLB counts towards the artist's storage.
+    const owner = (await findArtworkById(job.artworkId))?.user_id;
+    if (!owner) return; // deleted while it was processing
+
     const fileName = `${crypto.randomUUID()}.glb`;
     await mkdir(path.join('uploads', 'models'), { recursive: true });
     await writeFile(path.join('uploads', 'models', fileName), glb);
-    outputPublicPath = await persistUpload('models', fileName);
+    outputPublicPath = await persistUpload('models', fileName, owner);
 
     const previousPath = await markModelReady(job.artworkId, outputPublicPath, glb.byteLength, format);
     if (previousPath === null) {
@@ -93,6 +101,9 @@ async function processJob(job: ModelJob): Promise<void> {
       console.error('Failed to record model processing failure:', err);
     });
   } finally {
+    if (job.reservationId) {
+      await releaseStorageReservation(job.reservationId).catch(err => console.error('Failed to release storage reservation:', err));
+    }
     await rm(workDir, { recursive: true, force: true }).catch(() => {});
     await rm(job.sourcePath, { force: true }).catch(() => {});
   }

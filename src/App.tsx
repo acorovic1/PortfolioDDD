@@ -355,8 +355,8 @@ function App() {
           profile={profile}
           editable={editable}
           onChange={onProfileChange}
-          onAvatarUpload={file => uploadAvatar(file).catch(err => console.error('Failed to upload avatar:', err))}
-          onCoverUpload={file => uploadCover(file).catch(err => console.error('Failed to upload cover image:', err))}
+          onAvatarUpload={uploadAvatar}
+          onCoverUpload={uploadCover}
         >
           <ProfileSocialBar username={user.username} onOpenUser={goToUserProfile} onRequireLogin={goToLogin} />
         </Sidebar>

@@ -8,6 +8,9 @@ import SecuritySection from '@/frontend/components/settings/SecuritySection';
 import CustomDomainSection from '@/frontend/components/settings/CustomDomainSection';
 import { useI18n } from '@/frontend/hooks/useI18n';
 import { LOCALES, isLocale } from '@/frontend/i18n/i18n-context';
+import ConfirmDialog from '@/frontend/components/ConfirmDialog';
+import { formatStorageSize } from '@/frontend/utils/storageQuota';
+import type { MessagesFrom } from '@/frontend/contexts/auth-types';
 
 export default function SettingsPage() {
     const {
@@ -19,6 +22,14 @@ export default function SettingsPage() {
     const profileUrl = user ? `${window.location.origin}${profilePath(user.username)}` : '';
     const [preferenceError, setPreferenceError] = useState('');
     const [blockedUsers, setBlockedUsers] = useState<{ username: string }[]>([]);
+    const [storage, setStorage] = useState<{ usedBytes: number; quotaBytes: number } | null>(null);
+
+    useEffect(() => {
+        if (!token) return;
+        apiFetch<{ usedBytes: number; quotaBytes: number }>('/api/users/me/storage', { token })
+            .then(setStorage)
+            .catch(err => console.error('Failed to load storage usage:', err));
+    }, [token]);
 
     useEffect(() => {
         if (!token) return;
@@ -42,8 +53,8 @@ export default function SettingsPage() {
     const { theme, toggleTheme } = useTheme();
 
     const [deletePassword, setDeletePassword] = useState('');
-    const [deleteError, setDeleteError] = useState('');
     const [isDeleting, setIsDeleting] = useState(false);
+    const [confirmingDelete, setConfirmingDelete] = useState(false);
 
     const [username, setUsername] = useState(user?.username ?? '');
     const [usernameSaved, setUsernameSaved] = useState(false);
@@ -52,6 +63,11 @@ export default function SettingsPage() {
     const [email, setEmail] = useState(user?.email ?? '');
     const [emailSaved, setEmailSaved] = useState(false);
     const [emailError, setEmailError] = useState('');
+    // Changing the address needs the password (and a code, with two-factor on).
+    const [emailPassword, setEmailPassword] = useState('');
+    const [emailCode, setEmailCode] = useState('');
+    const [emailNeedsCode, setEmailNeedsCode] = useState(false);
+    const emailChanged = email.trim().toLowerCase() !== (user?.email ?? '').toLowerCase();
 
     const [resetLinkSent, setResetLinkSent] = useState(false);
     const [resetLinkSending, setResetLinkSending] = useState(false);
@@ -79,28 +95,31 @@ export default function SettingsPage() {
         if (!trimmed) return;
 
         try {
-            await updateEmail(trimmed);
+            await updateEmail(trimmed, emailPassword, emailNeedsCode ? emailCode : undefined);
+            setEmailPassword('');
+            setEmailCode('');
+            setEmailNeedsCode(false);
             setEmailSaved(true);
             setTimeout(() => setEmailSaved(false), 2000);
         } catch (err) {
+            if ((err as { twoFactorRequired?: boolean }).twoFactorRequired) setEmailNeedsCode(true);
             setEmailError(err instanceof Error ? err.message : t('security.error'));
         }
     };
 
-    const handleDeleteAccount = async (e: React.FormEvent) => {
+    // Asks in a card first; the card shows a refusal (e.g. a wrong password).
+    const handleDeleteAccount = (e: React.FormEvent) => {
         e.preventDefault();
-        setDeleteError('');
+        setConfirmingDelete(true);
+    };
 
-        if (!confirm(t('settings.deleteConfirm'))) {
-            return;
-        }
-
+    const confirmDeleteAccount = async () => {
         setIsDeleting(true);
         try {
             await deleteAccount(deletePassword);
         } catch (err) {
-            setDeleteError(err instanceof Error ? err.message : t('security.error'));
             setIsDeleting(false);
+            throw err instanceof Error ? err : new Error(t('security.error'));
         }
     };
 
@@ -158,6 +177,28 @@ export default function SettingsPage() {
 
                 <CustomDomainSection />
 
+                {storage && (
+                    <section className="settings-section">
+                        <h3 className="settings-section-title">{t('settings.storage')}</h3>
+                        <div
+                            className={`settings-storage-meter${storage.usedBytes >= storage.quotaBytes ? ' full' : ''}`}
+                            role="meter"
+                            aria-valuemin={0}
+                            aria-valuemax={storage.quotaBytes}
+                            aria-valuenow={storage.usedBytes}
+                            aria-label={t('settings.storage')}
+                        >
+                            <div style={{ width: `${Math.min(100, (storage.usedBytes / storage.quotaBytes) * 100)}%` }} />
+                        </div>
+                        <p className="settings-storage-used">
+                            {t('settings.storageUsed', { used: formatStorageSize(storage.usedBytes), quota: formatStorageSize(storage.quotaBytes) })}
+                        </p>
+                        <p className="settings-section-description">
+                            {storage.usedBytes >= storage.quotaBytes ? t('settings.storageFull') : t('settings.storageHint')}
+                        </p>
+                    </section>
+                )}
+
                 <section className="settings-section">
                     <h3 className="settings-section-title">{t('settings.email')}</h3>
                     <form className="settings-form" onSubmit={handleEmailSubmit}>
@@ -168,7 +209,31 @@ export default function SettingsPage() {
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="email@example.com"
                         />
-                        <button type="submit" className="settings-save-btn" disabled={!email.trim()}>
+                        {emailChanged && (
+                            <input
+                                type="password"
+                                className="settings-input"
+                                value={emailPassword}
+                                onChange={(e) => setEmailPassword(e.target.value)}
+                                placeholder={t('settings.confirmPasswordPlaceholder')}
+                                autoComplete="current-password"
+                            />
+                        )}
+                        {emailChanged && emailNeedsCode && (
+                            <input
+                                type="text"
+                                className="settings-input"
+                                value={emailCode}
+                                onChange={(e) => setEmailCode(e.target.value)}
+                                placeholder={t('security.codeOrRecovery')}
+                                autoComplete="one-time-code"
+                            />
+                        )}
+                        <button
+                            type="submit"
+                            className="settings-save-btn"
+                            disabled={!email.trim() || (emailChanged && !emailPassword) || (emailNeedsCode && !emailCode.trim())}
+                        >
                             {t('common.save')}
                         </button>
                         {emailError && <span className="settings-error-hint">{emailError}</span>}
@@ -274,6 +339,26 @@ export default function SettingsPage() {
                 </section>
 
                 <section className="settings-section">
+                    <h3 className="settings-section-title">{t('settings.messagesFrom')}</h3>
+                    <p className="settings-section-description">{t('settings.messagesFromHint')}</p>
+                    <select
+                        className="settings-input"
+                        value={user?.messagesFrom ?? 'everyone'}
+                        onChange={(e) => {
+                            setPreferenceError('');
+                            updateProfile({ messagesFrom: e.target.value as MessagesFrom }).catch(err => {
+                                setPreferenceError(err instanceof Error ? err.message : t('security.error'));
+                            });
+                        }}
+                        aria-label={t('settings.messagesFrom')}
+                    >
+                        <option value="everyone">{t('settings.messagesFrom.everyone')}</option>
+                        <option value="following">{t('settings.messagesFrom.following')}</option>
+                        <option value="nobody">{t('settings.messagesFrom.nobody')}</option>
+                    </select>
+                </section>
+
+                <section className="settings-section">
                     <h3 className="settings-section-title">{t('settings.blocked')}</h3>
                     {blockedUsers.length === 0 ? (
                         <p className="settings-section-description">{t('settings.blockedEmpty')}</p>
@@ -310,8 +395,19 @@ export default function SettingsPage() {
                         >
                             {t(isDeleting ? 'settings.deleting' : 'settings.deleteAccount')}
                         </button>
-                        {deleteError && <span className="settings-error-hint">{deleteError}</span>}
                     </form>
+                    {confirmingDelete && (
+                        <ConfirmDialog
+                            title={t('settings.deleteConfirmTitle')}
+                            confirmLabel={t('settings.deleteAccountForGood')}
+                            busyLabel={t('settings.deleting')}
+                            danger
+                            onConfirm={confirmDeleteAccount}
+                            onClose={() => setConfirmingDelete(false)}
+                        >
+                            <p className="confirm-warning">{t('settings.deleteConfirm')}</p>
+                        </ConfirmDialog>
+                    )}
                 </section>
 
                 <section className="settings-section">

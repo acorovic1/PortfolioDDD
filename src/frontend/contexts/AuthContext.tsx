@@ -2,6 +2,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { AuthContext, type ProfileUpdateFields } from './auth-context';
 import type { User } from './auth-types';
 import { API_BASE_URL } from '@/frontend/config/api';
+import { storageQuotaErrorFrom } from '@/frontend/utils/api';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -182,19 +183,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(prev => (prev ? { ...prev, username } : prev));
   };
 
-  const updateEmail = async (email: string) => {
+  const updateEmail = async (email: string, password: string, code?: string) => {
     const response = await fetch(`${API_BASE_URL}/api/users/me/email`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, password, ...(code ? { code } : {}) }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to update email');
+      // twoFactorRequired: the account has two-factor on, so a code is needed too.
+      throw Object.assign(new Error(error.error || 'Failed to update email'), { twoFactorRequired: !!error.twoFactorRequired });
     }
 
     // A changed address has to be confirmed again.
@@ -251,7 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to upload avatar');
+      throw storageQuotaErrorFrom(error) ?? new Error(error.error || 'Failed to upload avatar');
     }
 
     const updated = await response.json();
@@ -270,7 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to upload cover image');
+      throw storageQuotaErrorFrom(error) ?? new Error(error.error || 'Failed to upload cover image');
     }
 
     setUser(await response.json());

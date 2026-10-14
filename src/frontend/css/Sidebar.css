@@ -375,6 +375,28 @@
   height: 14px;
 }
 
+/* A refused avatar or cover upload (e.g. storage full). */
+.profile-upload-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-danger);
+  text-align: center;
+}
+
+.profile-upload-error.on-cover {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fecaca;
+  text-align: left;
+}
+
 /* --- Availability --- */
 .availability-badge {
   display: flex;

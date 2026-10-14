@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url';
 import dotenv from 'dotenv';
 import { pool } from '../config/db.ts';
 import { storageDriver, copyLocalFileToBucket, deleteStoredFile } from '../storage/storage.ts';
+import { renameStoredFile } from '../repositories/storage-usage.repository.ts';
 
 // Usage (with STORAGE_DRIVER=s3 and the S3_* settings in .env):
 //   npm run storage:migrate
@@ -12,6 +13,7 @@ import { storageDriver, copyLocalFileToBucket, deleteStoredFile } from '../stora
 const COLUMNS: [table: string, idColumn: string, urlColumn: string][] = [
   ['artworks', 'id', 'model_path'],
   ['artworks', 'id', 'thumbnail_path'],
+  ['artworks', 'id', 'image_path'],
   ['renders', 'id', 'url'],
   ['users', 'id', 'avatar_url'],
   ['users', 'id', 'cover_url'],
@@ -34,6 +36,8 @@ async function main(): Promise<void> {
       try {
         const newUrl = await copyLocalFileToBucket(row.url);
         await pool.query(`UPDATE ${table} SET ${urlColumn} = $1 WHERE ${idColumn} = $2 AND ${urlColumn} = $3`, [newUrl, row.id, row.url]);
+        // Still the owner's file (and storage), at its new URL.
+        await renameStoredFile(row.url, newUrl);
         await deleteStoredFile(row.url);
         moved++;
       } catch (error) {

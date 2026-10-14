@@ -28,6 +28,8 @@ import { countLikesForArtworkIds } from '../repositories/likes.repository.ts';
 import { persistUpload, deleteStoredFile } from '../storage/storage.ts';
 import { parsePagination } from '../utils/pagination.util.ts';
 import { clearNoAiCache } from '../middleware/noai.middleware.ts';
+import { checkSecondFactor } from './two-factor.controller.ts';
+import { storageUsage } from '../repositories/storage-usage.repository.ts';
 import { blockState } from '../repositories/moderation.repository.ts';
 import { sendMailInBackground } from '../services/mail.ts';
 import { emailChangedMail } from '../services/mail-templates.ts';
@@ -129,7 +131,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
   const authReq = req as AuthRequest;
   const {
     name, avatarUrl, title, bio, location, github, linkedin, skills, showMature, hideAi, noAiTraining,
-    website, socialLinks, availableForWork, workTypes, experience, emailNotifications, locale,
+    website, socialLinks, availableForWork, workTypes, experience, emailNotifications, locale, messagesFrom,
   } = req.body;
 
   // Empty social links are dropped rather than stored as "".
@@ -139,7 +141,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
 
   await updateUserProfile(authReq.user!.id, {
     name, avatarUrl, title, bio, location, github, linkedin, skills, showMature, hideAi, noAiTraining,
-    website, socialLinks: links, availableForWork, workTypes, experience, emailNotifications, locale,
+    website, socialLinks: links, availableForWork, workTypes, experience, emailNotifications, locale, messagesFrom,
   });
   // Uploads' X-Robots-Tag headers depend on the NoAI flag.
   if (noAiTraining !== undefined) clearNoAiCache();
@@ -163,19 +165,30 @@ export async function changeUsername(req: Request, res: Response): Promise<void>
   res.json(toPublicUser(user!));
 }
 
+// Needs the password (and, with two-factor on, a code): password resets go
+// to this address, so a session alone (e.g. a stolen one) must not be enough
+// to point it somewhere else.
 export async function changeEmail(req: Request, res: Response): Promise<void> {
   const authReq = req as AuthRequest;
-  const { email } = req.body;
-
-  const existing = await findUserByEmail(email);
-  if (existing && existing.id !== authReq.user!.id) {
-    res.status(400).json({ error: 'Email is already in use' });
-    return;
-  }
+  const { email, password, code } = req.body;
 
   const before = await findUserById(authReq.user!.id);
   if (!before) {
     res.status(404).json({ error: 'User not found' });
+    return;
+  }
+  if (!(await bcrypt.compare(password, before.password_hash))) {
+    res.status(401).json({ error: 'Password is incorrect' });
+    return;
+  }
+  if (before.totp_enabled_at && !(code && (await checkSecondFactor(before, code)))) {
+    res.status(401).json({ error: 'That code is incorrect', twoFactorRequired: true });
+    return;
+  }
+
+  const existing = await findUserByEmail(email);
+  if (existing && existing.id !== authReq.user!.id) {
+    res.status(400).json({ error: 'Email is already in use' });
     return;
   }
   if (before.email === email) {
@@ -220,6 +233,7 @@ export async function deleteAccount(req: Request, res: Response): Promise<void> 
     ...(user.cover_url ? [user.cover_url] : []),
     ...artworks.map(a => a.model_path),
     ...artworks.map(a => a.thumbnail_path),
+    ...artworks.map(a => a.image_path),
     ...[...rendersByArtwork.values()].flat().map(r => r.url),
   ];
   await Promise.all(filesToDelete.map(f => deleteStoredFile(f)));
@@ -240,6 +254,11 @@ export async function searchArtworks(req: Request, res: Response): Promise<void>
   res.json({ artworks });
 }
 
+// How much of the account's storage quota its uploads use.
+export async function getMyStorage(req: Request, res: Response): Promise<void> {
+  res.json(await storageUsage((req as AuthRequest).user!.id));
+}
+
 export async function uploadCover(req: Request, res: Response): Promise<void> {
   const authReq = req as AuthRequest;
   const file = req.file;
@@ -249,7 +268,7 @@ export async function uploadCover(req: Request, res: Response): Promise<void> {
   }
 
   const previous = await findUserById(authReq.user!.id);
-  await updateUserProfile(authReq.user!.id, { coverUrl: await persistUpload('covers', file.filename) });
+  await updateUserProfile(authReq.user!.id, { coverUrl: await persistUpload('covers', file.filename, authReq.user!.id) });
   await deleteStoredFile(previous?.cover_url);
 
   const user = await findUserById(authReq.user!.id);
@@ -265,8 +284,10 @@ export async function uploadAvatar(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const avatarUrl = await persistUpload('avatars', file.filename);
+  const previous = await findUserById(authReq.user!.id);
+  const avatarUrl = await persistUpload('avatars', file.filename, authReq.user!.id);
   await updateUserProfile(authReq.user!.id, { avatarUrl });
+  await deleteStoredFile(previous?.avatar_url);
 
   const user = await findUserById(authReq.user!.id);
   res.json(toPublicUser(user!));

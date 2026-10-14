@@ -1,5 +1,7 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { responsiveImage } from '@/frontend/utils/images';
+import { useI18n } from '@/frontend/hooks/useI18n';
+import { uploadErrorText } from '@/frontend/utils/storageQuota';
 import type { ProfileHeaderProps } from '@/types/ProfileData';
 import { PhotoIcon } from '@/frontend/svg/Icons';
 
@@ -7,6 +9,8 @@ import { PhotoIcon } from '@/frontend/svg/Icons';
 
 export default function ProfileHeader({ profile, editable, onUpdate, onAvatarUpload }: ProfileHeaderProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { t } = useI18n();
+  const [uploadError, setUploadError] = useState('');
 
   return (
     <div className="profile-header">
@@ -28,7 +32,10 @@ export default function ProfileHeader({ profile, editable, onUpdate, onAvatarUpl
               style={{ display: 'none' }}
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) onAvatarUpload?.(file);
+                if (file) {
+                  setUploadError('');
+                  onAvatarUpload?.(file).catch(error => setUploadError(uploadErrorText(error, t)));
+                }
                 e.target.value = '';
               }}
             />
@@ -36,6 +43,8 @@ export default function ProfileHeader({ profile, editable, onUpdate, onAvatarUpl
         )}
         <div className="status-indicator" title="Available"></div>
       </div>
+
+      {uploadError && <p className="profile-upload-error" role="alert">{uploadError}</p>}
 
       <h2 className="profile-name">{profile.username}</h2>
 

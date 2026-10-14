@@ -28,4 +28,7 @@ export interface User {
   emailNotifications?: boolean;
   twoFactorEnabled?: boolean;
   locale?: string | null;
+  messagesFrom?: MessagesFrom;
 }
+
+export type MessagesFrom = 'everyone' | 'following' | 'nobody';

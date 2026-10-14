@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { resizedUrl } from '@/frontend/utils/images';
 import type { ProfileData, WorkType, ExperienceEntry } from '@/types/ProfileData';
 import { PhotoIcon, PlusIcon, BriefcaseIcon } from '@/frontend/svg/Icons';
+import { useI18n } from '@/frontend/hooks/useI18n';
+import { uploadErrorText } from '@/frontend/utils/storageQuota';
 
 type SectionProps = {
   profile: ProfileData;
@@ -14,9 +16,11 @@ type SectionProps = {
 export function CoverBanner({ profile, editable, onCoverUpload }: {
   profile: ProfileData;
   editable: boolean;
-  onCoverUpload?: (file: File) => void;
+  onCoverUpload?: (file: File) => Promise<void>;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useI18n();
+  const [uploadError, setUploadError] = useState('');
   if (!profile.coverUrl && !editable) return null;
 
   return (
@@ -36,10 +40,14 @@ export function CoverBanner({ profile, editable, onCoverUpload }: {
             hidden
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) onCoverUpload?.(file);
+              if (file) {
+                setUploadError('');
+                onCoverUpload?.(file).catch(error => setUploadError(uploadErrorText(error, t)));
+              }
               e.target.value = '';
             }}
           />
+          {uploadError && <p className="profile-upload-error on-cover" role="alert">{uploadError}</p>}
         </>
       )}
     </div>

@@ -1,22 +1,31 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { persistUpload, deleteStoredFile, readStoredFile, storageDriver, contentTypeFor } from '../storage/storage.ts';
+import { storageUsage } from '../repositories/storage-usage.repository.ts';
+import { registerTestUser, deleteTestUsers } from './helpers.ts';
+
+const createdUserIds: string[] = [];
+afterAll(() => deleteTestUsers(createdUserIds));
 
 describe('storage (local driver)', () => {
-  it('serves local uploads from /uploads and deletes them', async () => {
+  it('serves local uploads from /uploads and deletes them, counting them towards the owner', async () => {
     expect(storageDriver()).toBe('local');
+    const owner = await registerTestUser();
+    createdUserIds.push(owner.id);
     const name = `${crypto.randomUUID()}.png`;
     await mkdir(path.join('uploads', 'renders'), { recursive: true });
     await writeFile(path.join('uploads', 'renders', name), 'png-bytes');
 
-    const url = await persistUpload('renders', name);
+    const url = await persistUpload('renders', name, owner.id);
     expect(url).toBe(`/uploads/renders/${name}`);
     expect((await readStoredFile(url)).toString()).toBe('png-bytes');
+    expect((await storageUsage(owner.id)).usedBytes).toBe('png-bytes'.length);
 
     await deleteStoredFile(url);
     expect(existsSync(path.join('uploads', 'renders', name))).toBe(false);
+    expect((await storageUsage(owner.id)).usedBytes).toBe(0);
     // Already gone / empty: fine.
     await deleteStoredFile(url);
     await deleteStoredFile(null);
