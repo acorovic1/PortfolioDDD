@@ -5,7 +5,7 @@ import sharp from 'sharp';
 import * as THREE from 'three';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { Document, type Material, type Texture } from '@gltf-transform/core';
-import { listFiles } from './archive.ts';
+import { listFiles, isInside } from './archive.ts';
 
 type MtlMaterial = {
   name: string;
@@ -89,9 +89,12 @@ const DIRECT_IMAGE_TYPES: Record<string, string> = {
 
 // Resolves texture references, which are often absolute paths from the
 // artist's machine or differ in case: tries the relative path first, then
-// falls back to a file with the same name anywhere in the upload.
+// falls back to a file with the same name anywhere in the upload. Never
+// outside the upload (`rootDir`): a crafted .mtl could otherwise pull in
+// files from the server.
 class TextureResolver {
   private readonly baseDir: string;
+  private readonly rootDir: string;
   private readonly byName = new Map<string, string>();
   private readonly cache = new Map<string, Texture | null>();
   private readonly document: Document;
@@ -99,6 +102,7 @@ class TextureResolver {
   constructor(document: Document, baseDir: string, rootDir: string, files: string[]) {
     this.document = document;
     this.baseDir = baseDir;
+    this.rootDir = rootDir;
     for (const file of files) {
       const key = path.basename(file).toLowerCase();
       if (!this.byName.has(key)) this.byName.set(key, path.join(rootDir, file));
@@ -117,7 +121,9 @@ class TextureResolver {
   private async load(reference: string): Promise<Texture | null> {
     const normalized = reference.replace(/\\/g, '/');
     const direct = path.resolve(this.baseDir, normalized);
-    const filePath = existsSync(direct) ? direct : this.byName.get(path.posix.basename(normalized).toLowerCase());
+    const filePath = isInside(this.rootDir, direct) && existsSync(direct)
+      ? direct
+      : this.byName.get(path.posix.basename(normalized).toLowerCase());
     if (!filePath) {
       console.warn(`OBJ texture not found in upload: ${reference}`);
       return null;
@@ -204,7 +210,7 @@ export async function objToDocument(objPath: string, rootDir: string): Promise<D
     : files.filter(f => f.toLowerCase().endsWith('.mtl')).map(f => path.join(rootDir, f));
 
   for (const mtlPath of mtlPaths) {
-    const resolved = existsSync(mtlPath)
+    const resolved = isInside(rootDir, mtlPath) && existsSync(mtlPath)
       ? mtlPath
       : files.map(f => path.join(rootDir, f)).find(f => path.basename(f).toLowerCase() === path.basename(mtlPath).toLowerCase());
     if (!resolved) continue;

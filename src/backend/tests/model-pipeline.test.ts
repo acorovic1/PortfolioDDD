@@ -12,6 +12,8 @@ import { stlToDocument } from '../pipeline/convert-stl.ts';
 import { parseMtl } from '../pipeline/convert-obj.ts';
 import { extractZip } from '../pipeline/archive.ts';
 import { pickPrimaryModel } from '../pipeline/formats.ts';
+import { loadUploadedModel } from '../pipeline/convert.ts';
+import sharp from 'sharp';
 
 const createdUserIds: string[] = [];
 const fixtures = path.join(process.cwd(), 'e2e', 'fixtures');
@@ -86,7 +88,7 @@ describe('model pipeline units', () => {
   });
 
   it('picks the most native model file from a bundle', () => {
-    expect(pickPrimaryModel(['readme.txt', 'export/model.obj', 'model.fbx', 'tex/a.png'])).toBe('model.fbx');
+    expect(pickPrimaryModel(['readme.txt', 'export/model.obj', 'model.fbx', 'tex/a.png'])).toBe('export/model.obj');
     expect(pickPrimaryModel(['scene.gltf', 'scene.bin', 'backup/scene.obj'])).toBe('scene.gltf');
     expect(pickPrimaryModel(['notes.txt'])).toBeNull();
   });
@@ -107,6 +109,62 @@ describe('model pipeline units', () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('model side files stay inside the upload', () => {
+  let dir: string;
+
+  beforeAll(async () => {
+    dir = await mkdtemp(path.join(os.tmpdir(), 'model-refs-'));
+  });
+
+  afterAll(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  async function zipUpload(name: string, files: Record<string, string | Buffer>): Promise<string> {
+    const zip = new AdmZip();
+    for (const [file, content] of Object.entries(files)) zip.addFile(file, Buffer.from(content));
+    const zipPath = path.join(dir, name);
+    await writeFile(zipPath, zip.toBuffer());
+    return zipPath;
+  }
+
+  it('refuses a glTF whose buffer points outside the upload', async () => {
+    await writeFile(path.join(dir, 'secret.bin'), 'SECRET=hunter2');
+    const gltf = JSON.parse(blueTriangle.toString());
+    gltf.buffers[0].uri = '../../secret.bin';
+    const zipPath = await zipUpload('escape.zip', { 'model.gltf': JSON.stringify(gltf) });
+    const workDir = await mkdtemp(path.join(dir, 'work-'));
+
+    await expect(loadUploadedModel(zipPath, 'escape.zip', workDir)).rejects.toThrow(/references files that weren't uploaded/);
+  });
+
+  it('refuses a glTF whose buffer is an absolute path or another scheme', async () => {
+    for (const uri of [path.join(dir, 'secret.bin'), 'file:///etc/passwd', 'http://169.254.169.254/latest']) {
+      const gltf = JSON.parse(blueTriangle.toString());
+      gltf.buffers[0].uri = uri;
+      const filePath = path.join(dir, 'single.gltf');
+      await writeFile(filePath, JSON.stringify(gltf));
+      const workDir = await mkdtemp(path.join(dir, 'work-'));
+
+      await expect(loadUploadedModel(filePath, 'model.gltf', workDir)).rejects.toThrow(/references files/);
+    }
+  });
+
+  it('ignores OBJ textures outside the upload', async () => {
+    const outside = path.join(dir, 'private.png');
+    await sharp({ create: { width: 4, height: 4, channels: 3, background: '#f00' } }).png().toFile(outside);
+    const mtl = `newmtl Orange
+Kd 1 0.5 0
+map_Kd ${outside}
+`;
+    const zipPath = await zipUpload('obj.zip', { 'cube.obj': simpleObj, 'cube.mtl': mtl });
+    const workDir = await mkdtemp(path.join(dir, 'work-'));
+
+    const { document } = await loadUploadedModel(zipPath, 'obj.zip', workDir);
+    expect(document.getRoot().listTextures()).toHaveLength(0);
   });
 });
 
@@ -288,5 +346,16 @@ describe('model upload processing', () => {
       .set('Authorization', `Bearer ${owner.token}`)
       .attach('model', Buffer.from('hello'), 'model.max');
     expect(res.status).toBe(400);
+  });
+
+  it('rejects formats that would need a native converter (FBX, .blend, USD)', async () => {
+    for (const name of ['model.fbx', 'scene.blend', 'scene.usdz', 'scene.usda']) {
+      const res = await request(app)
+        .post('/api/portfolio/artworks')
+        .set('Authorization', `Bearer ${owner.token}`)
+        .attach('model', Buffer.from('hello'), name);
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/Unsupported model format/);
+    }
   });
 });
