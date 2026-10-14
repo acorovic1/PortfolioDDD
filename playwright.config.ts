@@ -9,7 +9,9 @@ export default defineConfig({
   // can occasionally exceed even a generous timeout though the app itself
   // is fine - one retry absorbs that without masking a genuinely broken test.
   retries: 1,
-  reporter: 'list',
+  // On GitHub Actions (CI=true) failures also show up as annotations on the
+  // run's page, readable without opening the logs.
+  reporter: process.env.CI ? [['list'], ['github']] : 'list',
   use: {
     baseURL: 'http://localhost:5173',
     screenshot: 'only-on-failure',
