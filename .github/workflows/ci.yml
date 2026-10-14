@@ -1,6 +1,7 @@
 # Continuous integration: every push and pull request is linted, built and
-# tested on GitHub's machines. The end-to-end (browser) tests are slower, so
-# they only run on master and when started by hand from the Actions tab.
+# tested on GitHub's machines, and the production Docker image is built and
+# started once. The end-to-end (browser) tests are slower, so they only run on
+# master, on the weekly schedule, and when started by hand from the Actions tab.
 name: CI
 
 on:
@@ -8,6 +9,10 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch:
+  # Every Monday at 06:00 UTC, so breakage from outside (a new Chromium, a
+  # retired runner image) shows up even while nothing is being pushed.
+  schedule:
+    - cron: '0 6 * * 1'
 
 # A newer push to the same branch cancels the run still going for the old one.
 concurrency:
@@ -87,10 +92,55 @@ jobs:
       - run: npm ci
       - run: npm run test:frontend
 
+  docker:
+    name: Docker image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: portfolioddd_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+      # The same image a deploy would ship.
+      - run: docker build -t portfolioddd:ci .
+      # Start it against the test database, as a server would.
+      - run: >-
+          docker run -d --name app --network host
+          -e DB_HOST -e DB_PORT -e DB_USER -e DB_PASSWORD -e DB_NAME -e JWT_SECRET
+          portfolioddd:ci
+      # /api/health answers 200 once the database is connected and migrated.
+      - name: Wait for the server to report healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3001/api/health; then exit 0; fi
+            sleep 2
+          done
+          echo "The server did not become healthy within 60 seconds."
+          exit 1
+      - name: Check that it serves the built frontend
+        run: curl -fsS http://localhost:3001/ | grep -q '<div id="root">'
+      # On failure, the container's own output usually says why.
+      - if: failure()
+        run: docker logs app
+
   e2e:
     name: End-to-end tests
     needs: [checks, backend-tests, frontend-tests]
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/master')
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/master')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:

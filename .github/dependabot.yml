@@ -1,0 +1,28 @@
+# Dependabot opens pull requests that update dependencies; CI tests each one,
+# and a green one can be merged from GitHub. Monthly and grouped, so a paused
+# project gets at most a couple of PRs a month instead of one per package.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      # Minor and patch releases shouldn't break anything: one PR for all.
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    # Major versions can break things, so each comes as its own PR: read the
+    # package's changelog before merging, even when CI is green.
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: ci
