@@ -85,7 +85,12 @@ function App() {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const page = pageForPath(location.pathname);
+  // Signed in on /login (just after logging in or signing up) is shown as the
+  // portfolio straight away; the effect below then fixes the URL. Otherwise
+  // the landing page flashes up until that navigation commits - for seconds
+  // on slow machines, since router navigations are low-priority updates.
+  const pathPage = pageForPath(location.pathname);
+  const page: Page = user && pathPage === 'login' ? 'portfolio' : pathPage;
   const setPage = (next: Page) => navigate(PAGE_PATHS[next]);
   // Profiles: /@username (what the app links to) or the older /u/username.
   const publicProfileMatch = location.pathname.match(/^\/(?:@|u\/)([^/]+)$/);
@@ -108,10 +113,10 @@ function App() {
   const [matureAcknowledged, setMatureAcknowledged] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user && page === 'login') {
+    if (user && pathPage === 'login') {
       navigate(PAGE_PATHS.portfolio, { replace: true });
     }
-  }, [user, page, navigate]);
+  }, [user, pathPage, navigate]);
 
   // Signing out (from the menu, by deleting the account or when the session
   // ends) lands on the login page.
