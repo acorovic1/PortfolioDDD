@@ -23,7 +23,6 @@ services:
       context: .
       args:
         VITE_API_URL: http://localhost:3001
-        INSTALL_BLENDER: ${INSTALL_BLENDER:-false}
     restart: unless-stopped
     depends_on:
       postgres:
