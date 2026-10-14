@@ -1,5 +1,7 @@
 # PortfolioDDD
 
+[![CI](https://github.com/acorovic1/PortfolioDDD/actions/workflows/ci.yml/badge.svg)](https://github.com/acorovic1/PortfolioDDD/actions/workflows/ci.yml)
+
 A portfolio site for 3D artists. Artists upload their models and renders, and visitors browse them in a 3D carousel. Any model can be opened in an inspector to view its wireframe, textures and lighting.
 
 ## Features
@@ -58,8 +60,22 @@ Before deploying publicly, also set `MESSAGE_ENCRYPTION_KEY` and `REQUIRE_EMAIL_
 ```bash
 npm test                 # backend (needs PostgreSQL)
 npm run test:frontend    # frontend
-npm run test:e2e         # end-to-end
+npm run test:e2e         # end-to-end (stop the dev servers first: it starts its own on 3001/5173)
 ```
+
+## Continuous integration
+
+GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every push and pull request:
+
+| Job | What it checks |
+|---|---|
+| Lint and build | ESLint, then `tsc -b` and the Vite build |
+| Backend tests | `npm test` against a fresh Postgres 17 |
+| Frontend tests | `npm run test:frontend` |
+| Docker image | Builds the Dockerfile, starts it against Postgres, waits for `/api/health` and checks it serves the frontend |
+| End-to-end tests | Playwright in Chromium (desktop and phone); on `master`, weekly and by hand only, after the jobs above pass |
+
+The whole workflow also runs every Monday, so a paused project still finds out when something outside it changes. Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) opens grouped dependency updates monthly; CI tests each one.
 
 ## Learn more
 

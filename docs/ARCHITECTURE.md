@@ -77,6 +77,7 @@ src/
     ├── validation/          zod schemas
     └── db/migrations/       numbered SQL migrations
 e2e/                         Playwright specs
+.github/                     CI workflow (workflows/ci.yml) and Dependabot
 ```
 
 ## The model pipeline
@@ -285,6 +286,10 @@ Preview images are generated as 1200×630 JPEGs from the artwork's render or the
 | End to end | Playwright (desktop Chrome and Pixel 5) | Sign-up and navigation, the 3D scene mounting, settings, and social features between two accounts |
 
 Because the Three.js logic lives in plain modules, the viewer's behaviour can be tested without WebGL. For example, a saved camera angle still pointing at the same side of the model after the carousel turns it, or rapid rotation clicks adding up correctly.
+
+### Continuous integration
+
+Every push runs [.github/workflows/ci.yml](../.github/workflows/ci.yml) on GitHub Actions: lint and build, the backend suite against a throwaway Postgres 17 service container, the frontend suite, and a Docker job that builds the production image, starts it against Postgres and waits for `/api/health` (migrations included) before checking the served HTML. The Playwright suite runs after those pass, on `master`, weekly and on demand. CI runners have no GPU, so Chromium renders WebGL in software; `playwright.config.ts` raises the test and assertion timeouts when `CI` is set rather than weakening the tests. Runners are pinned to `ubuntu-24.04` so a paused project doesn't change underneath, and a weekly scheduled run catches drift from outside (new Chromium, retired images).
 
 ## Design decisions and trade-offs
 
